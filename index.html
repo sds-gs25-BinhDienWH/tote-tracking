@@ -440,6 +440,20 @@
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  /* ---------------- LOẠI RỔ / TOTE (màu thật của rổ) ---------------- */
+  .kinds{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .kind-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:3px 9px; font-size:11.5px; font-weight:700;
+    color:var(--ink); background:var(--bg); border:1px solid var(--border); border-radius:999px; white-space:nowrap;
+  }
+  .kind-chip .sw{ width:11px; height:11px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,.25) inset; }
+  .kind-chip b{ font-variant-numeric:tabular-nums; }
+  .kind-table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+  .kind-table th, .kind-table td{ padding:7px 4px; border-bottom:1px solid var(--row-border); text-align:right; font-variant-numeric:tabular-nums; }
+  .kind-table th:first-child, .kind-table td:first-child{ text-align:left; }
+  .kind-table th{ color:var(--muted); font-weight:800; font-size:11px; }
+  .kind-table tr:last-child td{ border-bottom:0; }
+
   /* ---------------- MÀN VẬN CHUYỂN: 2 thẻ chọn + 1 bảng chi tiết ----------------
      Hai mục dùng 2 màu + 2 mũi tên khác hướng (xanh dương -> đi tới cửa hàng,
      xanh lá <- về kho), cùng cặp màu với biểu đồ OUT/IN ở Trang chủ. Màu luôn
@@ -1673,6 +1687,9 @@
         transitOldest: 'Lâu nhất: {time}',
         transitOtherHint: 'Có {n} cửa hàng khớp ở mục «{name}» - bấm để xem', transitNoMatch: 'Không có kết quả khớp',
         transitToteCount: '{n} rổ',
+        kindTOT: 'Tote', kindBAS: 'Rổ', colorRE: 'đỏ', colorBR: 'nâu', colorYE: 'vàng', kindFmt: '{type} {color}',
+        dashByKindTitle: 'Theo loại rổ / tote', colKind: 'Loại', kindAtStores: 'Ở cửa hàng', kindAtWarehouse: 'Ở kho',
+        kindColonLabel: 'Loại:',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
         homeTrendTitle: 'Xu hướng OUT vs IN', homeActivityTitle: 'Hoạt động gần đây',
         range7: '7 ngày', range30: '30 ngày', seriesOut: 'Xuất (OUT)', seriesIn: 'Nhập (IN)',
@@ -1751,7 +1768,7 @@
         optAll: 'TẤT CẢ NGHIỆP VỤ',
 
         installTitle: 'Cài SDS - GS25 Bình Điền WH ra màn hình chính',
-        installSub: '', installBtn: 'CÀI',
+        installSub: 'Mở như app thật, nhanh hơn cho PDA/kho.', installBtn: 'CÀI',
 
         dashFindLabelStore: 'Công Nợ Tote Cửa Hàng Của Bạn',
         dailyOutFindLabelStore: 'Tote Đã Xuất Cho Cửa Hàng Của Bạn',
@@ -1803,7 +1820,7 @@
         noRecentActivity: 'Chưa có hoạt động nào gần đây', summaryLoadErrPrefix: 'Không tải được tổng quan: ',
         noActivityYet: 'Chưa có hoạt động nào gần đây',
 
-        enterToteIdMsg: 'NHẬP TOTE ID CẦN TRA', invalidToteIdMsg: 'MÃ KHÔNG HỢP LỆ, TOTE ID PHẢI BẮT ĐẦU BẰNG TOT',
+        enterToteIdMsg: 'NHẬP TOTE ID CẦN TRA', invalidToteIdMsg: 'MÃ KHÔNG HỢP LỆ, MÃ PHẢI BẮT ĐẦU BẰNG TOT HOẶC BAS',
         toteNotFoundMsg: 'KHÔNG TÌM THẤY DỮ LIỆU TOTE', statusColonLabel: 'Trạng thái:',
         locationColonLabel: 'Vị trí:', lastStoreColonLabel: 'Store gần nhất:', lastUpdateColonLabel: 'Cập nhật cuối:',
         abnormalColonLabel: 'Bất thường:', historyTitle: 'Lịch Sử In / Out', noInOutLogMsg: 'CHƯA CÓ LOG IN/OUT',
@@ -1811,7 +1828,7 @@
 
         viewOkTotesMsg: 'Xem {n} tote OK', viewErrTotesMsg: 'Xem {n} tote LỖI/BẤT THƯỜNG',
 
-        notToteIdMsg: 'Không phải Tote ID - không ghi dữ liệu',
+        notToteIdMsg: 'Không phải mã rổ/tote - không ghi dữ liệu',
         doubleScanSkipPrefix: 'DOUBLE SCAN BỎ QUA: ', doubleScanSkipNote: 'Double scan - không ghi',
         receivedPendingNote: 'Đã nhận scan - chờ ghi', driverEndedMsg: 'ĐÃ KẾT THÚC PHIÊN',
         missingLibMsg: 'Thiếu thư viện quét mã - kiểm tra kết nối mạng rồi tải lại trang',
@@ -1864,6 +1881,9 @@
         transitOldest: 'Oldest: {time}',
         transitOtherHint: '{n} store(s) also match under "{name}" - tap to view', transitNoMatch: 'No matching results',
         transitToteCount: '{n} totes',
+        kindTOT: 'Tote', kindBAS: 'Basket', colorRE: 'red', colorBR: 'brown', colorYE: 'yellow', kindFmt: '{color} {type}',
+        dashByKindTitle: 'By basket / tote type', colKind: 'Type', kindAtStores: 'At stores', kindAtWarehouse: 'At warehouse',
+        kindColonLabel: 'Type:',
         pressBackAgainToExit: 'Press Back again to exit the app',
         homeTrendTitle: 'OUT vs IN trend', homeActivityTitle: 'Recent activity',
         range7: '7 days', range30: '30 days', seriesOut: 'Out', seriesIn: 'In',
@@ -1942,7 +1962,7 @@
         optAll: 'ALL OPERATIONS',
 
         installTitle: 'Install SDS - GS25 Binh Dien WH to your home screen',
-        installSub: 'Faster for PDA use.', installBtn: 'INSTALL',
+        installSub: 'Opens like a real app, faster for PDA/warehouse use.', installBtn: 'INSTALL',
 
         dashFindLabelStore: 'Your Store\'s Outstanding Totes',
         dailyOutFindLabelStore: 'Totes Shipped To Your Store',
@@ -1994,7 +2014,7 @@
         noRecentActivity: 'No recent activity', summaryLoadErrPrefix: 'Could not load summary: ',
         noActivityYet: 'No recent activity',
 
-        enterToteIdMsg: 'ENTER TOTE ID TO LOOK UP', invalidToteIdMsg: 'INVALID CODE, TOTE ID MUST START WITH TOT',
+        enterToteIdMsg: 'ENTER TOTE ID TO LOOK UP', invalidToteIdMsg: 'INVALID CODE, MUST START WITH TOT OR BAS',
         toteNotFoundMsg: 'NO TOTE DATA FOUND', statusColonLabel: 'Status:',
         locationColonLabel: 'Location:', lastStoreColonLabel: 'Last store:', lastUpdateColonLabel: 'Last update:',
         abnormalColonLabel: 'Abnormal:', historyTitle: 'In / Out History', noInOutLogMsg: 'NO IN/OUT LOG YET',
@@ -2002,7 +2022,7 @@
 
         viewOkTotesMsg: 'View {n} OK totes', viewErrTotesMsg: 'View {n} FAILED/ABNORMAL totes',
 
-        notToteIdMsg: 'Not a Tote ID - not recorded',
+        notToteIdMsg: 'Not a basket/tote code - not recorded',
         doubleScanSkipPrefix: 'DOUBLE SCAN SKIPPED: ', doubleScanSkipNote: 'Double scan - not recorded',
         receivedPendingNote: 'Scan received - pending', driverEndedMsg: 'SESSION ENDED',
         missingLibMsg: 'Missing barcode scanner library - check your connection and reload the page',
@@ -2662,7 +2682,7 @@
 
     // =====================================================================
     // NHÓM 9: XỬ LÝ 1 MÃ THÙNG SAU KHI QUÉT/NHẬP XONG
-    // receiveScanCode() kiểm tra mã hợp lệ (phải bắt đầu bằng "TOT"), chặn
+    // receiveScanCode() kiểm tra mã hợp lệ (phải bắt đầu bằng "TOT" hoặc "BAS"), chặn
     // trường hợp quét trùng mã quá nhanh (double-scan) trong 2.5 giây, phát
     // âm thanh + rung phản hồi, rồi đẩy mã vào hàng đợi để gửi lên server.
     // =====================================================================
@@ -2680,7 +2700,7 @@
 
       if (!toteId) return;
 
-      if (!toteId.startsWith('TOT')) {
+      if (!isItemCode(toteId)) {
         showResult(t('invalidCodePrefix') + toteId, false);
         addRecent(toteId, t('notToteIdMsg'), false);
         beepInvalid();
@@ -3788,7 +3808,7 @@
 
       driverRecentScanMap[scanKey] = now;
 
-      if (!toteId.startsWith('TOT')) {
+      if (!isItemCode(toteId)) {
         showDriverMsg(t('invalidCodePrefix') + toteId, false);
         addDriverRecent(toteId, t('notToteIdMsg'), false);
         beepInvalid();
@@ -4084,6 +4104,7 @@
     // =====================================================================
     let dashboardData = [];
     let dashboardWarehouseQty = 0;
+    let dashboardWarehouseKinds = {};
 
     function handleDashKey(e) {
       if (e.key === 'Enter') loadDashboard();
@@ -4096,6 +4117,7 @@
         .withSuccessHandler(function(res) {
           dashboardData = (res && res.stores) || [];
           dashboardWarehouseQty = (res && res.warehouseQty) || 0;
+          dashboardWarehouseKinds = (res && res.warehouseKinds) || {};
           renderDashboard();
         })
         .withFailureHandler(function(err) {
@@ -4151,6 +4173,7 @@
             <div class="dashboard-title">${s.storeId} - ${s.storeName || ''}</div>
             <div class="qty">${s.qty}</div>
           </div>
+          ${s.kinds ? '<div class="kinds">' + sortedKinds(Object.keys(s.kinds)).map(function(k) { return kindChipHtml(k, s.kinds[k]); }).join('') + '</div>' : ''}
           <details>
             <summary>${tf('viewDebtTotesMsg', { n: s.qty })}</summary>
             <div style="margin-top:8px">${chips}</div>
@@ -4176,6 +4199,24 @@
         </div>
       `).join('');
 
+      // Bảng "Theo loại": mỗi loại (rổ đỏ, rổ nâu, tote vàng, tote nâu...) đang
+      // ở cửa hàng và đang ở kho bao nhiêu. Backend cũ chưa có dữ liệu loại thì bỏ qua.
+      const kindTotals = {};
+      data.forEach(function(s) {
+        Object.keys(s.kinds || {}).forEach(function(k) { kindTotals[k] = (kindTotals[k] || 0) + s.kinds[k]; });
+      });
+      const kindKeys = sortedKinds(Object.keys(Object.assign({}, kindTotals, dashboardWarehouseKinds)));
+      const kindPanel = kindKeys.length ? `
+        <div class="panel">
+          <h3 style="margin:0 0 4px;padding:0;background:none;color:var(--ink);text-transform:none;letter-spacing:0;font-size:12.5px;">${t('dashByKindTitle')}</h3>
+          <table class="kind-table">
+            <tr><th>${t('colKind')}</th><th>${t('kindAtStores')}</th><th>${t('kindAtWarehouse')}</th></tr>
+            ${kindKeys.map(function(k) {
+              return '<tr><td>' + kindChipHtml(k) + '</td><td>' + (kindTotals[k] || 0) + '</td><td>' + (dashboardWarehouseKinds[k] || 0) + '</td></tr>';
+            }).join('')}
+          </table>
+        </div>` : '';
+
       const statsBox = document.getElementById('dashStats');
       statsBox.classList.remove('hidden');
       statsBox.innerHTML = `
@@ -4189,6 +4230,7 @@
             <div class="lbl">${t('totalWarehouseQtyLabel')}</div>
           </div>
         </div>
+        ${kindPanel}
         <div class="panel">
           <h3 style="margin:0 0 4px;padding:0;background:none;color:var(--ink);text-transform:none;letter-spacing:0;font-size:12.5px;">${t('topDebtTitle')}</h3>
           ${rankRows}
@@ -4709,7 +4751,7 @@
     }
 
     function receiveInventoryCode(toteId) {
-      if (!toteId.startsWith('TOT')) {
+      if (!isItemCode(toteId)) {
         invInvalid++;
         updateInventoryCounter();
         addInventoryRecent(toteId, 'Mã không hợp lệ - không ghi kiểm kê', false);
@@ -4933,7 +4975,7 @@
         return;
       }
 
-      if (!toteId.startsWith('TOT')) {
+      if (!isItemCode(toteId)) {
         document.getElementById('trackResult').innerHTML =
           '<div class="dashboard-card">' + t('invalidToteIdMsg') + '</div>';
         beepInvalid();
@@ -4981,6 +5023,7 @@
         box.innerHTML += `
           <div class="summary-box">
             <div class="summary-title">${res.current.toteId}</div>
+            <div>${t('kindColonLabel')} ${kindChipHtml(itemKind(res.current.toteId))}</div>
             <div>${t('statusColonLabel')} <span class="${statusClass}">${statusLabel(res.current.status)}</span></div>
             <div>${t('locationColonLabel')} <b>${res.current.location}</b> ${res.current.storeName ? '- ' + res.current.storeName : ''}</div>
             <div>${t('lastStoreColonLabel')} <b>${res.current.lastStore || '-'}</b></div>
@@ -5223,6 +5266,49 @@
       btn.classList.add('spinning');
       setTimeout(function() { btn.classList.remove('spinning'); }, 800);
       loadFn();
+    }
+
+    // =====================================================================
+    // NHÓM 30: LOẠI + MÀU CỦA RỔ / TOTE
+    // Mã: <LOẠI>_<MÀU>_<SỐ>, VD BAS_RE_1 = rổ đỏ, BAS_BR_1 = rổ nâu, TOT_YE_1 =
+    // tote vàng, TOT_BR_1 = tote nâu. Mã cũ TOT_123 (không màu) vẫn dùng được.
+    // Mã hợp lệ chỉ cần bắt đầu bằng TOT hoặc BAS - màu chỉ để thống kê.
+    // =====================================================================
+    const KIND_SWATCH = { RE: '#D32F2F', BR: '#8D5B3A', YE: '#F2B705' };
+    const KIND_ORDER = ['BAS_RE', 'BAS_BR', 'TOT_YE', 'TOT_BR', 'BAS', 'TOT'];
+
+    function isItemCode(code) {
+      const c = String(code || '');
+      return c.indexOf('TOT') === 0 || c.indexOf('BAS') === 0;
+    }
+
+    function itemKind(code) {
+      const c = String(code || '').toUpperCase();
+      const m = /^(TOT|BAS)_([A-Z]{2})_\d+$/.exec(c);
+      if (m) return m[1] + '_' + (m[2] === 'YL' ? 'YE' : m[2]);
+      return c.indexOf('BAS') === 0 ? 'BAS' : 'TOT';
+    }
+
+    function kindLabel(key) {
+      const parts = String(key).split('_');
+      const type = t('kind' + parts[0]);
+      if (!parts[1]) return type;
+      const color = I18N.vi['color' + parts[1]] ? t('color' + parts[1]) : parts[1];
+      return tf('kindFmt', { type: type, color: color });
+    }
+
+    function kindChipHtml(key, count) {
+      const color = KIND_SWATCH[String(key).split('_')[1]];
+      return '<span class="kind-chip">' + (color ? '<i class="sw" style="background:' + color + '"></i>' : '') +
+        escHtml_(kindLabel(key)) + (count === undefined ? '' : ' <b>' + count + '</b>') + '</span>';
+    }
+
+    function sortedKinds(keys) {
+      return keys.slice().sort(function(a, b) {
+        const ia = KIND_ORDER.indexOf(a), ib = KIND_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        return a.localeCompare(b);
+      });
     }
 
     // =====================================================================
@@ -5613,10 +5699,10 @@
         : dashboardData;
       const rows = [];
       stores.forEach(s => {
-        (s.totes || []).forEach(tote => rows.push([s.storeId, s.storeName || '', s.qty, tote.toteId, tote.lastUpdate || '']));
+        (s.totes || []).forEach(tote => rows.push([s.storeId, s.storeName || '', s.qty, tote.toteId, kindLabel(itemKind(tote.toteId)), tote.lastUpdate || '']));
       });
       exportTable('ton-cua-hang_' + todayStamp(), 'Ton',
-        [t('colStoreId'), t('colStoreName'), t('colQty'), t('colToteId'), t('colLastUpdate')], rows);
+        [t('colStoreId'), t('colStoreName'), t('colQty'), t('colToteId'), t('colKind'), t('colLastUpdate')], rows);
     }
 
     function exportInTransit() {
