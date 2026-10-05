@@ -440,6 +440,78 @@
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  /* ---------------- MÀN TỒN: Tote | Rổ + thẻ cửa hàng gấp gọn ---------------- */
+  .zsum-row{ display:grid; gap:10px; margin-bottom:12px; }
+  .zsum{
+    text-align:left; display:flex; flex-direction:column; gap:7px; padding:12px; min-width:0;
+    background:var(--card); border:1.5px solid var(--border); border-top:5px solid var(--c);
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    transition:transform .08s ease, background-color .15s ease, border-color .15s ease;
+  }
+  .zsum:active{ transform:scale(.98); }
+  .zsum.open{ border-color:var(--c); background-image:linear-gradient(var(--tint), var(--tint)); }
+  .zs-head{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .zs-icon{
+    width:30px; height:30px; border-radius:50%; background:var(--c); flex-shrink:0;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .zs-icon svg{ width:16px; height:16px; color:#fff; }
+  .zs-head b{ display:block; font-size:15px; line-height:18px; color:var(--heading); }
+  .zs-head small{ display:block; font-size:10.5px; font-weight:700; color:var(--muted); }
+  .zs-row{ display:flex; justify-content:space-between; align-items:baseline; gap:6px; font-size:11.5px; font-weight:700; color:var(--muted); }
+  .zs-row b{ font-size:20px; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .zs-more{ display:flex; align-items:center; gap:3px; font-size:11px; font-weight:800; color:var(--heading); }
+  .zs-more svg{ width:14px; height:14px; color:var(--c); transition:transform .15s ease; }
+  .zsum.open .zs-more svg{ transform:rotate(180deg); }
+  .zs-detail{ border-top:4px solid var(--c); }
+  details.dash-store{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:0; margin:0 0 12px; box-shadow:var(--shadow); }
+  .dash-store > summary{ list-style:none; display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 14px; cursor:pointer; font-size:13.5px; }
+  .dash-store > summary::-webkit-details-marker{ display:none; }
+  .ds-main{ flex:1 1 140px; min-width:0; font-weight:600; color:var(--ink); line-height:19px; }
+  .ds-main b{ color:var(--heading); font-size:14.5px; }
+  .ds-badges{ display:flex; align-items:center; gap:6px; }
+  .ds-badge{
+    display:inline-flex; align-items:center; gap:4px; padding:3px 9px; font-size:11.5px; font-weight:800; color:var(--ink);
+    border:1.5px solid var(--c); background:var(--tint); border-radius:999px; white-space:nowrap;
+  }
+  .ds-badge svg{ width:12px; height:12px; color:var(--c); }
+  .ds-badge b{ font-size:14px; font-variant-numeric:tabular-nums; }
+  .ds-badge.zero{ opacity:.5; }
+  .dash-store .chev{ width:16px; height:16px; color:var(--muted); flex-shrink:0; transition:transform .15s ease; }
+  .dash-store[open] .chev{ transform:rotate(180deg); }
+  .ds-body{ padding:10px 14px 14px; border-top:1px solid var(--row-border); }
+  .ds-group{ margin-top:8px; }
+  .ds-chips{ margin-top:4px; }
+  .ds-chips .chip small{ font-weight:700; color:var(--muted); }
+  .ds-codes-title{ font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin:8px 0 4px; }
+
+  /* ---------------- KHO LẠNH / KHO KHÔ ---------------- */
+  .zone-cold{ --c:#0e7fc2; --tint:rgba(14,127,194,.12); }
+  .zone-dry{ --c:#b7791f; --tint:rgba(183,121,31,.15); }
+  :root[data-theme="dark"] .zone-cold{ --c:#38a9e8; --tint:rgba(56,169,232,.20); }
+  :root[data-theme="dark"] .zone-dry{ --c:#e0a43a; --tint:rgba(224,164,58,.20); }
+  .zone-bar{
+    display:flex; align-items:center; gap:10px; padding:8px 16px; flex-shrink:0;
+    background:var(--card); border-bottom:1px solid var(--border);
+  }
+  .zb-label{ font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; }
+  .zb-btns{ display:flex; gap:6px; flex:1; min-width:0; }
+  .zb-btns button{
+    flex:1; min-width:0; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 6px;
+    font-size:12px; font-weight:800; color:var(--muted); white-space:nowrap;
+    border:1.5px solid var(--border); border-radius:999px; background:var(--card);
+  }
+  .zb-btns button[data-zone="ALL"]{ --c:var(--heading); --tint:var(--bg); }
+  .zb-btns button svg{ width:13px; height:13px; color:var(--c); flex-shrink:0; }
+  .zb-btns button.active{ color:var(--ink); border-color:var(--c); background:var(--tint); }
+  .zone-tag{
+    display:inline-flex; align-items:center; gap:5px; padding:2px 9px; font-size:11px; font-weight:800;
+    color:var(--ink); border:1.5px solid var(--c); background:var(--tint); border-radius:999px; white-space:nowrap;
+  }
+  .zone-tag svg{ width:12px; height:12px; color:var(--c); flex-shrink:0; }
+  .kinds .zone-tag{ margin-right:2px; }
+  .kind-table .kz-row td{ background:var(--bg); font-weight:800; }
+
   /* ---------------- LOẠI RỔ / TOTE (màu thật của rổ) ---------------- */
   .kinds{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
   .kind-chip{
@@ -818,6 +890,15 @@
             <div id="roleLine" style="font-size:9.5px;color:var(--muted);">ROLE</div>
           </div>
           <div class="avatar" id="userAvatar" onclick="showScreen('settings')">--</div>
+        </div>
+      </div>
+
+      <div id="zoneBar" class="zone-bar hidden">
+        <span class="zb-label" data-i18n="viewZoneLabel">Hiển thị</span>
+        <div class="zb-btns">
+          <button type="button" data-zone="ALL" onclick="setViewZone('ALL')"><span data-i18n="zoneAll">Tất cả</span></button>
+          <button type="button" class="zone-cold" data-zone="COLD" onclick="setViewZone('COLD')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M5 10h14"/><path d="M9 5.5v2M9 13v3.5"/></svg><span data-i18n="zoneCold">Kho lạnh</span></button>
+          <button type="button" class="zone-dry" data-zone="AMB" onclick="setViewZone('AMB')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span data-i18n="zoneDry">Kho khô</span></button>
         </div>
       </div>
 
@@ -1251,7 +1332,7 @@
             <div id="storeRegionHint" class="empty-note hidden" data-i18n="storeRegionHint">Chưa có dữ liệu khu vực.</div>
           </div>
 
-          <details class="add-store">
+          <details id="addStoreBox" class="add-store">
             <summary data-i18n="addStoreToggle">＋ Thêm cửa hàng mới</summary>
             <label data-i18n="storeIdLabel">Store ID</label>
             <input id="newStoreId" class="upper" placeholder="VD: VN0123">
@@ -1284,7 +1365,7 @@
             <input id="dashSearch" data-i18n-placeholder="dashSearchPlaceholder" placeholder="STORE ID / NAME" autocomplete="off" onkeydown="handleDashKey(event)">
             <div id="dashStoreList" class="store-list"></div>
           </div>
-          <button class="btn" data-i18n="searchBtn" onclick="loadDashboard()">TÌM KIẾM</button>
+          <button id="dashSearchBtn" class="btn" data-i18n="searchBtn" onclick="loadDashboard()">TÌM KIẾM</button>
           <div class="export-row"><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDashboard)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDashboard()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
           <div id="dashResult"></div>
         </div>
@@ -1689,7 +1770,11 @@
         transitToteCount: '{n} rổ',
         kindTOT: 'Tote', kindBAS: 'Rổ', colorRE: 'đỏ', colorBR: 'nâu', colorYE: 'vàng', kindFmt: '{type} {color}',
         dashByKindTitle: 'Theo loại rổ / tote', colKind: 'Loại', kindAtStores: 'Ở cửa hàng', kindAtWarehouse: 'Ở kho',
-        kindColonLabel: 'Loại:',
+        kindColonLabel: 'Loại:', kindNoColor: '(chưa rõ màu)',
+        dashViewDetail: 'Xem chi tiết', dashHideDetail: 'Thu gọn', dashCodesTitle: 'Mã đang nợ ({n})',
+        zoneCold: 'Kho lạnh', zoneDry: 'Kho khô', zoneAll: 'Tất cả', viewZoneLabel: 'Hiển thị',
+        wrongZoneMsg: 'Mã {code} thuộc {codeZone}, phiên này là {sessionZone}',
+        serverBusyRetryMsg: 'Máy chủ đang bận - các mã đang CHỜ sẽ tự gửi lại, không cần quét lại',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
         homeTrendTitle: 'Xu hướng OUT vs IN', homeActivityTitle: 'Hoạt động gần đây',
         range7: '7 ngày', range30: '30 ngày', seriesOut: 'Xuất (OUT)', seriesIn: 'Nhập (IN)',
@@ -1883,7 +1968,11 @@
         transitToteCount: '{n} totes',
         kindTOT: 'Tote', kindBAS: 'Basket', colorRE: 'red', colorBR: 'brown', colorYE: 'yellow', kindFmt: '{color} {type}',
         dashByKindTitle: 'By basket / tote type', colKind: 'Type', kindAtStores: 'At stores', kindAtWarehouse: 'At warehouse',
-        kindColonLabel: 'Type:',
+        kindColonLabel: 'Type:', kindNoColor: '(no color)',
+        dashViewDetail: 'Details', dashHideDetail: 'Hide', dashCodesTitle: 'Codes owed ({n})',
+        zoneCold: 'Cold storage', zoneDry: 'Ambient storage', zoneAll: 'All', viewZoneLabel: 'Show',
+        wrongZoneMsg: 'Code {code} belongs to {codeZone}, this session is {sessionZone}',
+        serverBusyRetryMsg: 'Server busy - WAITING codes will be resent automatically, no need to rescan',
         pressBackAgainToExit: 'Press Back again to exit the app',
         homeTrendTitle: 'OUT vs IN trend', homeActivityTitle: 'Recent activity',
         range7: '7 days', range30: '30 days', seriesOut: 'Out', seriesIn: 'In',
@@ -2035,7 +2124,11 @@
     };
 
     function t(key) {
-      return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.vi[key]) || key;
+      const text = (I18N[currentLang] && I18N[currentLang][key]) || (I18N.vi[key]) || key;
+      if (typeof session !== 'undefined' && session && session.zone === 'AMB' && !/^(kind|color|zone)/.test(key)) {
+        return dryWording(text);
+      }
+      return text;
     }
 
     // Giống t(key) nhưng thay các chỗ giữ chỗ kiểu {n}/{verb} bằng giá trị
@@ -2064,6 +2157,13 @@
         el.title = t(el.getAttribute('data-i18n-title'));
         el.setAttribute('aria-label', el.title);
       });
+      // Ô nhập có chữ gợi ý cố định (không qua bảng dịch) - VD "SCAN TOTE..."
+      document.querySelectorAll('input[placeholder]').forEach(function (el) {
+        if (!el.hasAttribute('data-orig-placeholder')) el.setAttribute('data-orig-placeholder', el.placeholder);
+        if (el.hasAttribute('data-i18n-placeholder')) return;
+        const orig = el.getAttribute('data-orig-placeholder');
+        el.placeholder = (session && session.zone === 'AMB') ? dryWording(orig) : orig;
+      });
     }
 
     function setTheme(theme) {
@@ -2084,6 +2184,7 @@
         renderDistChart(lastHomeSummary.distribution);
       }
       if (stores.length) renderAllStores();
+      renderZoneBar();
       if (lastTransitRes) renderTransit();
     }
 
@@ -2306,6 +2407,7 @@
     // màn đăng nhập.
     // =====================================================================
     function showLogin() {
+      applyI18n();
       document.getElementById('loginPage').classList.remove('hidden');
       document.getElementById('appPage').classList.add('hidden');
       document.getElementById('password').value = '';
@@ -2367,7 +2469,9 @@
 
       document.getElementById('userLine').innerText = session.loginId;
       document.getElementById('roleLine').innerText =
-        session.role + (session.storeId ? ' | ' + session.storeId : '');
+        session.role + (session.storeId ? ' | ' + session.storeId : '') +
+        (accountZone() !== 'ALL' ? ' | ' + zoneName(accountZone()) : '');
+      applyI18n();
       document.getElementById('settingsLoginId').innerText = session.loginId;
       document.getElementById('settingsRoleLine').innerText =
         session.role + (session.storeId ? ' | ' + session.storeId + (session.storeName ? ' - ' + session.storeName : '') : '');
@@ -2385,7 +2489,7 @@
 
       history.replaceState({ app: 'base' }, '');
 
-      showScreen('home');
+      showScreen(defaultScreen());
       focusScanLoop();
     }
 
@@ -2400,7 +2504,13 @@
       document.getElementById('railOut').classList.toggle('hidden', !canScan);
       document.getElementById('railIn').classList.toggle('hidden', !canScan);
       document.getElementById('tabDriver').classList.toggle('hidden', !canDriverScan);
-      document.getElementById('tabStore').classList.toggle('hidden', role !== 'ADMIN');
+      // Cửa hàng: ADMIN (quản lý) và tài xế (tra cửa hàng + chỉ đường).
+      document.getElementById('tabStore').classList.toggle('hidden', !(role === 'ADMIN' || role === 'DRIVER'));
+      document.getElementById('addStoreBox').classList.toggle('hidden', role !== 'ADMIN');
+      // Tài xế chỉ cần quét giao nhận và tra cửa hàng, không cần xem tổng / tồn.
+      document.getElementById('tabHome').classList.toggle('hidden', role === 'DRIVER');
+      document.getElementById('tabDash').classList.toggle('hidden', role === 'DRIVER');
+      document.getElementById('tabTrack').classList.toggle('hidden', role === 'DRIVER');
       document.getElementById('tabTransit').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE'));
       document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE'));
       document.getElementById('tabAbnormal').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE'));
@@ -2412,9 +2522,11 @@
       if (role === 'STORE') {
         document.getElementById('dashSearch').classList.add('hidden');
         document.getElementById('dailyOutSearch').classList.add('hidden');
+        document.getElementById('dashSearchBtn').classList.add('hidden');
       } else {
         document.getElementById('dashSearch').classList.remove('hidden');
         document.getElementById('dailyOutSearch').classList.remove('hidden');
+        document.getElementById('dashSearchBtn').classList.remove('hidden');
       }
 
       applyRoleLabels();
@@ -2465,6 +2577,7 @@
     function showScreen(name, fromHistory) {
       if (!fromHistory) pushScreenState(name);
       currentScreen = name;
+      updateZoneBar();
       document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
       document.querySelectorAll('.rail-item').forEach(x => x.classList.remove('active'));
 
@@ -2712,6 +2825,15 @@
         return;
       }
 
+      const wrongZone = wrongZoneMessage(toteId, sessionZoneFor(mode));
+      if (wrongZone) {
+        showResult(wrongZone, false);
+        addRecent(toteId, wrongZone, false);
+        beepInvalid();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        return;
+      }
+
       // Phòng hờ: về lý thuyết không thể chạm tới đây vì ô scan chỉ hiện ra
       // SAU KHI đã bấm "Bắt đầu phiên" (OUT bắt buộc chọn store trước đó) -
       // nhưng vẫn giữ lại điều kiện chặn này cho chắc chắn, không để lọt.
@@ -2783,6 +2905,16 @@
         .withSuccessHandler(function(res) {
           sending = false;
 
+          // Server chưa giành được lượt ghi -> lô này CHẮC CHẮN chưa ghi gì:
+          // đưa lại vào hàng đợi và tự gửi lại, không tính là lỗi.
+          if (res && res.busy) {
+            pendingQueue = batch.concat(pendingQueue);
+            updateCounter();
+            showPendingMsg('lastResult', t('serverBusyRetryMsg'));
+            setTimeout(flushNow, 1500);
+            return;
+          }
+
           if (!res.success) {
             fail += batch.length;
             showResult(res.message, false);
@@ -2846,6 +2978,7 @@
           token: session.token,
           action: mode,
           store: selectedStoreId,
+          zone: sessionZoneFor(mode),
           items: batch
         });
     }
@@ -3440,6 +3573,7 @@
           token: session.token,
           action: 'CANCEL_OUT',
           store: '',
+          zone: sessionZoneFor('OUT'),
           items: toteIds.map(id => ({ toteId: id, clientScanId: 'CANCEL_' + Date.now() + '_' + id }))
         });
     }
@@ -3783,6 +3917,7 @@
           token: session.token,
           action: cancelAction,
           store: driverStoreId,
+          zone: sessionZoneFor('DRIVER'),
           items: toteIds.map(id => ({ toteId: id, clientScanId: 'CANCEL_' + Date.now() + '_' + id }))
         });
     }
@@ -3811,6 +3946,15 @@
       if (!isItemCode(toteId)) {
         showDriverMsg(t('invalidCodePrefix') + toteId, false);
         addDriverRecent(toteId, t('notToteIdMsg'), false);
+        beepInvalid();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        return;
+      }
+
+      const wrongZone = wrongZoneMessage(toteId, sessionZoneFor('DRIVER'));
+      if (wrongZone) {
+        showDriverMsg(wrongZone, false);
+        addDriverRecent(toteId, wrongZone, false);
         beepInvalid();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         return;
@@ -3869,6 +4013,16 @@
         .withSuccessHandler(function(res) {
           driverSending = false;
 
+          // Server chưa giành được lượt ghi -> lô này CHẮC CHẮN chưa ghi gì:
+          // đưa lại vào hàng đợi và tự gửi lại, không tính là lỗi.
+          if (res && res.busy) {
+            driverPendingQueue = batch.concat(driverPendingQueue);
+            updateDriverCounter();
+            showPendingMsg('driverCameraMsg', t('serverBusyRetryMsg'));
+            setTimeout(driverFlushNow, 1500);
+            return;
+          }
+
           if (!res.success) {
             driverFail += batch.length;
             showDriverMsg(res.message, false);
@@ -3921,8 +4075,17 @@
           token: session.token,
           action: flushMode,
           store: flushStore,
+          zone: sessionZoneFor('DRIVER'),
           items: batch
         });
+    }
+
+    // Dòng trạng thái màu vàng "đang chờ" (không phải lỗi)
+    function showPendingMsg(id, msg) {
+      const box = document.getElementById(id);
+      if (!box) return;
+      box.className = 'result pending';
+      box.innerText = msg;
     }
 
     function showDriverMsg(msg, success) {
@@ -4127,7 +4290,8 @@
         })
         .getDashboard({
           token: session.token,
-          query: ''
+          query: '',
+          zone: viewZoneParam()
         });
     }
 
@@ -4159,34 +4323,79 @@
         return;
       }
 
-      filtered.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'dashboard-card';
+      const zones = dashZonesInView();
+      const isStore = session.role === 'STORE';
+      const CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
-        // Danh sách tote gói trong <details> - GẤP LẠI mặc định, bấm mới xổ
-        // ra xem chi tiết từng tote. STORE giờ cũng xem được (chỉ tote của
-        // chính họ - server đã lọc theo storeId).
-        const chips = (s.totes || []).map(t => `<span class="chip">${t.toteId}</span>`).join('') || '-';
+      // Mỗi cửa hàng: tên + số Tote / Rổ đang nợ. Bấm vào mới mở chi tiết theo
+      // màu và danh sách mã (GẤP LẠI mặc định).
+      box.innerHTML = filtered.map(function(s) {
+        const badges = zones.map(function(z) {
+          const n = s.kinds ? zoneQtyFromKinds(s.kinds, z) : s.qty;
+          return '<span class="ds-badge ' + zoneCls(z) + (n ? '' : ' zero') + '">' + ZONE_ICON[z] +
+            '<span>' + escHtml_(zoneTypeLabel(z)) + '</span><b>' + n + '</b></span>';
+        }).join('');
+        // Danh sách mã chia nhóm theo loại (Tote vàng, Rổ đỏ...). Tài khoản cửa
+        // hàng thấy thêm ngày mã về tới cửa hàng để biết rổ nào giữ lâu.
+        const groups = {};
+        (s.totes || []).forEach(function(x) {
+          const k = itemKind(x.toteId);
+          (groups[k] = groups[k] || []).push(x);
+        });
+        const codes = sortedKinds(Object.keys(groups)).map(function(k) {
+          return '<div class="ds-group">' + kindChipHtml(k, groups[k].length) + '<div class="ds-chips">' +
+            groups[k].map(function(x) {
+              const when = isStore ? shortDate(x.lastUpdate) : '';
+              return '<span class="chip">' + escHtml_(x.toteId) + (when ? ' <small>· ' + escHtml_(when) + '</small>' : '') + '</span>';
+            }).join('') + '</div></div>';
+        }).join('') || '-';
 
-        div.innerHTML = `
-          <div class="dashboard-header">
-            <div class="dashboard-title">${s.storeId} - ${s.storeName || ''}</div>
-            <div class="qty">${s.qty}</div>
-          </div>
-          ${s.kinds ? '<div class="kinds">' + sortedKinds(Object.keys(s.kinds)).map(function(k) { return kindChipHtml(k, s.kinds[k]); }).join('') + '</div>' : ''}
-          <details>
-            <summary>${tf('viewDebtTotesMsg', { n: s.qty })}</summary>
-            <div style="margin-top:8px">${chips}</div>
-          </details>
-        `;
-
-        box.appendChild(div);
-      });
+        return '<details class="dash-store"' + (isStore ? ' open' : '') + '>' +
+          '<summary><span class="ds-main"><b>' + escHtml_(s.storeId) + '</b> - ' + escHtml_(s.storeName || '') + '</span>' +
+            '<span class="ds-badges">' + badges + '</span>' + CHEV + '</summary>' +
+          '<div class="ds-body">' +
+            (s.kinds ? kindsByZoneHtml(s.kinds) : '') +
+            '<div class="ds-codes-title">' + escHtml_(tf('dashCodesTitle', { n: s.qty })) + '</div>' +
+            codes +
+          '</div>' +
+        '</details>';
+      }).join('');
     }
 
-    // Vẽ khối "Tổng tote đang ở STORE / Tổng tote đang ở KHO / Nợ nhiều
-    // nhất" - data truyền vào ĐÃ được server sort giảm dần theo qty
-    // (getDashboard), nên chỉ cần lấy 5 dòng đầu là top 5, không cần sort lại.
+    // Màn Tồn đang xem những kho nào: ADMIN theo thanh chọn kho, cửa hàng thấy
+    // cả hai, tài khoản kho chỉ thấy kho của mình.
+    function dashZonesInView() {
+      if (session.role === 'ADMIN') return viewZone === 'ALL' ? ['COLD', 'AMB'] : [viewZone];
+      if (session.role === 'STORE') return ['COLD', 'AMB'];
+      return [accountZone() === 'AMB' ? 'AMB' : 'COLD'];
+    }
+
+    // "2026-09-18 10:05:00" -> "18/09"
+    function shortDate(text) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(text || ''));
+      return m ? m[3] + '/' + m[2] : '';
+    }
+
+    function zoneQtyFromKinds(kinds, zone) {
+      return Object.keys(kinds || {}).reduce(function(sum, k) {
+        return sum + (zoneOfKind(k) === zone ? kinds[k] : 0);
+      }, 0);
+    }
+
+    function zoneCls(zone) {
+      return zone === 'AMB' ? 'zone-dry' : 'zone-cold';
+    }
+
+    function zoneTypeLabel(zone) {
+      return t(zone === 'AMB' ? 'kindBAS' : 'kindTOT');
+    }
+
+    let dashOpenZone = null;
+    function toggleDashZone(zone) {
+      dashOpenZone = dashOpenZone === zone ? null : zone;
+      renderDashStats(dashboardData);
+    }
+
     function renderDashStats(data) {
       const totalStoreQty = data.reduce((sum, s) => sum + (s.qty || 0), 0);
       const top = data.slice(0, 5);
@@ -4199,27 +4408,28 @@
         </div>
       `).join('');
 
-      // Bảng "Theo loại": mỗi loại (rổ đỏ, rổ nâu, tote vàng, tote nâu...) đang
-      // ở cửa hàng và đang ở kho bao nhiêu. Backend cũ chưa có dữ liệu loại thì bỏ qua.
       const kindTotals = {};
       data.forEach(function(s) {
         Object.keys(s.kinds || {}).forEach(function(k) { kindTotals[k] = (kindTotals[k] || 0) + s.kinds[k]; });
       });
-      const kindKeys = sortedKinds(Object.keys(Object.assign({}, kindTotals, dashboardWarehouseKinds)));
-      const kindPanel = kindKeys.length ? `
-        <div class="panel">
-          <h3 style="margin:0 0 4px;padding:0;background:none;color:var(--ink);text-transform:none;letter-spacing:0;font-size:12.5px;">${t('dashByKindTitle')}</h3>
-          <table class="kind-table">
-            <tr><th>${t('colKind')}</th><th>${t('kindAtStores')}</th><th>${t('kindAtWarehouse')}</th></tr>
-            ${kindKeys.map(function(k) {
-              return '<tr><td>' + kindChipHtml(k) + '</td><td>' + (kindTotals[k] || 0) + '</td><td>' + (dashboardWarehouseKinds[k] || 0) + '</td></tr>';
-            }).join('')}
-          </table>
-        </div>` : '';
+      const hasKinds = data.some(function(s) { return !!s.kinds; });
+      const zones = dashZonesInView();
+      if (zones.indexOf(dashOpenZone) === -1) dashOpenZone = null;
+      const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
-      const statsBox = document.getElementById('dashStats');
-      statsBox.classList.remove('hidden');
-      statsBox.innerHTML = `
+      // Mỗi kho 1 thẻ: Tote bên trái, Rổ bên phải - đang ở kho / đang ở cửa hàng.
+      const summary = hasKinds ? '<div class="zsum-row" style="grid-template-columns:repeat(' + zones.length + ',1fr)">' +
+        zones.map(function(z) {
+          const atStores = Object.keys(kindTotals).reduce(function(a, k) { return a + (zoneOfKind(k) === z ? kindTotals[k] : 0); }, 0);
+          const atWh = zoneQtyFromKinds(dashboardWarehouseKinds, z);
+          const open = dashOpenZone === z;
+          return '<button type="button" class="zsum ' + zoneCls(z) + (open ? ' open' : '') + '" onclick="toggleDashZone(\'' + z + '\')">' +
+            '<span class="zs-head"><span class="zs-icon">' + ZONE_ICON[z] + '</span><span><b>' + escHtml_(zoneTypeLabel(z)) + '</b><small>' + escHtml_(zoneName(z)) + '</small></span></span>' +
+            '<span class="zs-row"><span>' + escHtml_(t('kindAtWarehouse')) + '</span><b>' + atWh + '</b></span>' +
+            '<span class="zs-row"><span>' + escHtml_(t('kindAtStores')) + '</span><b>' + atStores + '</b></span>' +
+            '<span class="zs-more">' + escHtml_(open ? t('dashHideDetail') : t('dashViewDetail')) + CHEV + '</span>' +
+          '</button>';
+        }).join('') + '</div>' : `
         <div class="kpi-row">
           <div class="kpi">
             <div class="num">${totalStoreQty}</div>
@@ -4229,8 +4439,23 @@
             <div class="num">${dashboardWarehouseQty}</div>
             <div class="lbl">${t('totalWarehouseQtyLabel')}</div>
           </div>
-        </div>
-        ${kindPanel}
+        </div>`;
+
+      // Chi tiết theo màu của kho vừa bấm
+      let detail = '';
+      if (dashOpenZone) {
+        const ks = sortedKinds(Object.keys(Object.assign({}, kindTotals, dashboardWarehouseKinds)).filter(function(k) { return zoneOfKind(k) === dashOpenZone; }));
+        detail = '<div class="panel zs-detail ' + zoneCls(dashOpenZone) + '">' +
+          '<table class="kind-table"><tr><th>' + escHtml_(t('colKind')) + '</th><th>' + escHtml_(t('kindAtWarehouse')) + '</th><th>' + escHtml_(t('kindAtStores')) + '</th></tr>' +
+          (ks.length ? ks.map(function(k) {
+            return '<tr><td>' + kindChipHtml(k) + '</td><td>' + (dashboardWarehouseKinds[k] || 0) + '</td><td>' + (kindTotals[k] || 0) + '</td></tr>';
+          }).join('') : '<tr><td colspan="3">' + escHtml_(t('noTotesFound')) + '</td></tr>') +
+          '</table></div>';
+      }
+
+      const statsBox = document.getElementById('dashStats');
+      statsBox.classList.remove('hidden');
+      statsBox.innerHTML = summary + detail + `
         <div class="panel">
           <h3 style="margin:0 0 4px;padding:0;background:none;color:var(--ink);text-transform:none;letter-spacing:0;font-size:12.5px;">${t('topDebtTitle')}</h3>
           ${rankRows}
@@ -4282,7 +4507,7 @@
           if (handleSessionError(err)) return;
           setTransitMessage(t('genericErrPrefix') + getErrorMessage(err));
         })
-        .getInTransitSummary({ token: session.token });
+        .getInTransitSummary({ token: session.token, zone: viewZoneParam() });
     }
 
     // Hiển thị thời gian đã ở trạng thái này thành chữ dễ đọc (phút/giờ),
@@ -4548,7 +4773,8 @@
         .getDailyOutSummary({
           token: session.token,
           date,
-          query
+          query,
+          zone: viewZoneParam()
         });
     }
 
@@ -4661,7 +4887,8 @@
           token: session.token,
           date,
           action,
-          query
+          query,
+          zone: viewZoneParam()
         });
     }
 
@@ -5080,7 +5307,7 @@
           document.getElementById('homeActivity').innerHTML =
             '<div class="empty-note">' + t('summaryLoadErrPrefix') + getErrorMessage(err) + '</div>';
         })
-        .getHomeSummary({ token: session.token });
+        .getHomeSummary({ token: session.token, zone: viewZoneParam() });
     }
 
     function getGreeting() {
@@ -5187,6 +5414,11 @@
     // =====================================================================
     let currentScreen = 'home';
 
+    // Màn mở đầu / màn "gốc" khi bấm Back: tài xế là Giao Nhận, còn lại là Trang chủ.
+    function defaultScreen() {
+      return session && session.role === 'DRIVER' ? 'driver' : 'home';
+    }
+
     function pushScreenState(name) {
       if (!session) return;
       const st = history.state;
@@ -5237,9 +5469,9 @@
       }
 
       // Đã lùi về mốc gốc của app
-      if (currentScreen !== 'home') {
-        showScreen('home', true);
-        history.pushState({ app: 'screen', screen: 'home' }, '');
+      if (currentScreen !== defaultScreen()) {
+        showScreen(defaultScreen(), true);
+        history.pushState({ app: 'screen', screen: defaultScreen() }, '');
         return;
       }
 
@@ -5292,7 +5524,7 @@
     function kindLabel(key) {
       const parts = String(key).split('_');
       const type = t('kind' + parts[0]);
-      if (!parts[1]) return type;
+      if (!parts[1]) return tf('kindFmt', { type: type, color: t('kindNoColor') });
       const color = I18N.vi['color' + parts[1]] ? t('color' + parts[1]) : parts[1];
       return tf('kindFmt', { type: type, color: color });
     }
@@ -5309,6 +5541,110 @@
         if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
         return a.localeCompare(b);
       });
+    }
+
+    // =====================================================================
+    // NHÓM 31: KHO LẠNH (TOT) / KHO KHÔ (BAS)
+    // Mỗi tài khoản thuộc đúng 1 kho (cột KHO trong USER_ACCESS): app chạy y
+    // hệt nhau, kho lạnh dùng mã TOT, kho khô dùng mã BAS (chữ "tote" trên
+    // giao diện tự đổi thành "rổ"). Riêng ADMIN thấy cả hai kho, có thanh chọn
+    // Tất cả | Kho lạnh | Kho khô ở các màn báo cáo.
+    // Backend vẫn kiểm tra lại mọi lượt quét - chặn ở đây chỉ để báo sớm.
+    // =====================================================================
+    let viewZone = 'ALL';
+    try {
+      const savedZone = localStorage.getItem('TOTE_VIEW_ZONE');
+      if (savedZone === 'COLD' || savedZone === 'AMB') viewZone = savedZone;
+    } catch (e) {}
+
+    const ZONE_ICON = {
+      COLD: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M5 10h14"/><path d="M9 5.5v2M9 13v3.5"/></svg>',
+      AMB: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>'
+    };
+    const ZONE_SCREENS = ['home', 'dash', 'transit', 'dailyOut', 'abnormal'];
+
+    function accountZone() {
+      const z = session && session.zone;
+      return (z === 'COLD' || z === 'AMB') ? z : 'ALL';
+    }
+
+    function zoneOfCode(code) {
+      return String(code || '').toUpperCase().indexOf('BAS') === 0 ? 'AMB' : 'COLD';
+    }
+
+    function zoneOfKind(key) {
+      return String(key).indexOf('BAS') === 0 ? 'AMB' : 'COLD';
+    }
+
+    function zoneName(zone) {
+      return t(zone === 'AMB' ? 'zoneDry' : 'zoneCold');
+    }
+
+    function zoneTagHtml(zone) {
+      return '<span class="zone-tag ' + (zone === 'AMB' ? 'zone-dry' : 'zone-cold') + '">' + ZONE_ICON[zone] + escHtml_(zoneName(zone)) + '</span>';
+    }
+
+    // Kho áp dụng khi quét: theo tài khoản; ADMIN không giới hạn.
+    function sessionZoneFor() {
+      const own = accountZone();
+      return own !== 'ALL' ? own : '';
+    }
+
+    // Tài khoản kho khô: đổi chữ "tote" thành "rổ" (EN: "basket") trên giao diện.
+    function dryWording(text) {
+      if (currentLang === 'en') {
+        return text.replace(/TOTE/g, 'BASKET').replace(/Tote/g, 'Basket').replace(/tote/g, 'basket');
+      }
+      return text.replace(/TOTE/g, 'RỔ').replace(/Tote/g, 'Rổ').replace(/tote/g, 'rổ');
+    }
+
+    function viewZoneParam() {
+      return session && session.role === 'ADMIN' && viewZone !== 'ALL' ? viewZone : '';
+    }
+
+    function wrongZoneMessage(code, zone) {
+      if (!zone || zoneOfCode(code) === zone) return '';
+      return tf('wrongZoneMsg', { code: code, codeZone: zoneName(zoneOfCode(code)), sessionZone: zoneName(zone) });
+    }
+
+    function renderZoneBar() {
+      document.querySelectorAll('#zoneBar .zb-btns button').forEach(function(btn) {
+        const on = btn.getAttribute('data-zone') === viewZone;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function updateZoneBar() {
+      const bar = document.getElementById('zoneBar');
+      if (!bar) return;
+      const show = !!session && session.role === 'ADMIN' && ZONE_SCREENS.indexOf(currentScreen) !== -1;
+      bar.classList.toggle('hidden', !show);
+      if (show) renderZoneBar();
+    }
+
+    function setViewZone(zone) {
+      viewZone = zone;
+      try { localStorage.setItem('TOTE_VIEW_ZONE', zone); } catch (e) {}
+      renderZoneBar();
+      if (currentScreen === 'home') loadHomeSummary();
+      else if (currentScreen === 'dash') loadDashboard();
+      else if (currentScreen === 'transit') loadInTransitSummary();
+      else if (currentScreen === 'dailyOut') loadDailyOutSummary();
+      else if (currentScreen === 'abnormal') loadAbnormalSummary();
+    }
+
+    // Màn Tồn: chip loại hàng nhóm theo kho lạnh / kho khô
+    function kindsByZoneHtml(kinds) {
+      const keys = Object.keys(kinds || {});
+      const split = keys.some(function(k) { return zoneOfKind(k) === 'COLD'; }) && keys.some(function(k) { return zoneOfKind(k) === 'AMB'; });
+      if (!split) {
+        return keys.length ? '<div class="kinds">' + sortedKinds(keys).map(function(k) { return kindChipHtml(k, kinds[k]); }).join('') + '</div>' : '';
+      }
+      return ['COLD', 'AMB'].map(function(z) {
+        const ks = sortedKinds(keys.filter(function(k) { return zoneOfKind(k) === z; }));
+        return '<div class="kinds">' + zoneTagHtml(z) + ks.map(function(k) { return kindChipHtml(k, kinds[k]); }).join('') + '</div>';
+      }).join('');
     }
 
     // =====================================================================
