@@ -421,6 +421,32 @@
   .btn-gray{ background:var(--card); color:var(--heading); border:1.5px solid var(--border); box-shadow:none; }
   .btn-gray:active{ background:var(--bg); }
   .export-row{ display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:10px; }
+  /* Ô sắp xếp (NHÓM 32): nằm bên trái hàng nút, hoặc cuối dòng .sort-line */
+  .sort-pick{
+    display:inline-flex; align-items:center; gap:6px; margin:0 auto 0 0; padding:0 4px 0 10px; height:34px;
+    border:1.5px solid var(--border); border-radius:999px; background:var(--card); color:var(--heading);
+    font-size:12px; font-weight:700; text-transform:none; letter-spacing:0; max-width:100%;
+  }
+  .sort-pick svg{ width:15px; height:15px; flex-shrink:0; color:var(--muted); }
+  .sort-pick select{
+    border:0; background:transparent; color:inherit; font:inherit; padding:0 4px 0 0; height:30px; margin:0;
+    width:auto; min-width:0; box-shadow:none; outline:none; cursor:pointer;
+  }
+  .sort-pick select option{ background:var(--card); color:var(--heading); }
+  .sort-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:8px 0 4px; }
+  .sort-line .sort-pick{ margin:0 0 0 auto; }
+  .help-btn{
+    width:32px; height:32px; border-radius:50%; border:1.5px solid var(--border); background:var(--card);
+    color:var(--heading); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; padding:0; cursor:pointer;
+  }
+  .help-btn svg{ width:18px; height:18px; }
+  .help-btn:active{ transform:scale(.92); }
+  .help-box{ max-width:440px; max-height:82vh; overflow-y:auto; }
+  .help-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+  .help-head h3{ margin:0 !important; }
+  .help-body{ margin:0; padding-left:18px; font-size:13.5px; line-height:20px; color:var(--ink); }
+  .help-body li{ margin:0 0 9px; }
+  .help-body b{ color:var(--heading); }
   .btn-icon{
     width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
     border:1.5px solid var(--border); border-radius:50%; background:var(--card); color:var(--heading);
@@ -889,7 +915,20 @@
             <div id="userLine" style="font-size:11.5px;font-weight:800;">USER</div>
             <div id="roleLine" style="font-size:9.5px;color:var(--muted);">ROLE</div>
           </div>
+          <button type="button" class="help-btn" id="helpBtn" onclick="openHelp()" data-i18n-title="helpBtnTitle" title="Hướng dẫn sử dụng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.5-2.7 4.1"/><path d="M12 17.6h.01"/></svg></button>
           <div class="avatar" id="userAvatar" onclick="showScreen('settings')">--</div>
+        </div>
+      </div>
+
+      <!-- Hướng dẫn sử dụng: bấm nút "?" trên thanh trên cùng, nội dung theo
+           màn đang mở (xem NHÓM 32). -->
+      <div id="helpOverlay" class="session-overlay hidden" onclick="if (event.target === this) closeHelp()">
+        <div class="session-confirm-box help-box" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+          <div class="help-head">
+            <h3 id="helpTitle"></h3>
+            <button type="button" class="btn-icon" onclick="closeHelp()" data-i18n-title="closeBtn" title="Đóng"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+          <ul id="helpBody" class="help-body"></ul>
         </div>
       </div>
 
@@ -1350,7 +1389,7 @@
             <span data-i18n="filteringRegion">Đang lọc khu vực:</span> <b id="storeFilterName"></b>
             <button class="btn-export" data-i18n="clearFilterBtn" onclick="setStoreRegionFilter(null)">Bỏ lọc</button>
           </div>
-          <div id="storeListCount" class="empty-note"></div>
+          <div class="sort-line"><div id="storeListCount" class="empty-note"></div><label class="sort-pick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="storeSort" onchange="setSort('store', this.value, renderAllStores)"><option value="id" data-i18n="sort_id"></option><option value="name" data-i18n="sort_name"></option></select></label></div>
           <div id="allStores" class="recent"></div>
         </div>
 
@@ -1366,17 +1405,11 @@
             <div id="dashStoreList" class="store-list"></div>
           </div>
           <button id="dashSearchBtn" class="btn" data-i18n="searchBtn" onclick="loadDashboard()">TÌM KIẾM</button>
-          <div class="export-row"><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDashboard)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDashboard()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
+          <div class="export-row"><label class="sort-pick" id="dashSortPick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="dashSort" onchange="setSort('dash', this.value, renderDashboard)"><option value="qtyDesc" data-i18n="sort_qtyDesc"></option><option value="qtyAsc" data-i18n="sort_qtyAsc"></option><option value="name" data-i18n="sort_name"></option><option value="id" data-i18n="sort_id"></option></select></label><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDashboard)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDashboard()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
           <div id="dashResult"></div>
         </div>
 
         <div id="screen-transit" class="screen">
-          <div class="summary-box">
-            <div class="summary-title" data-i18n="transitTitle">Tote Đang Trên Đường</div>
-            <div><span data-i18n="transitDesc1">Theo dõi tote đang ở 2 trạng thái vận chuyển -</span> <b data-i18n="transitDesc1b">đang giao tới cửa hàng</b> <span data-i18n="transitDesc1c">(kho đã xuất, chưa ai quét nhận) và</span> <b data-i18n="transitDesc1d">đang về kho</b> <span data-i18n="transitDesc1e">(cửa hàng đã trả vỏ, kho chưa quét nhận lại).</span></div>
-            <div data-i18n="transitDesc2">Sắp xếp theo tote nằm lâu nhất trước - dùng để phát hiện tote bị quên quét/thất lạc.</div>
-          </div>
-
           <div class="export-row"><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadInTransitSummary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportInTransit()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
 
           <div id="transitStats" class="transit-tabs" role="tablist">
@@ -1402,6 +1435,7 @@
                 onkeydown="if (event.key === 'Enter' || event.key === 'Escape') closeTransitSuggest()">
               <div id="transitSuggest" class="store-list"></div>
             </div>
+            <div class="sort-line"><label class="sort-pick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="transitSort" onchange="setSort('transit', this.value, rerenderTransitSorted)"><option value="qtyDesc" data-i18n="sort_qtyDesc"></option><option value="qtyAsc" data-i18n="sort_qtyAsc"></option><option value="oldest" data-i18n="sort_oldest"></option><option value="name" data-i18n="sort_name"></option><option value="id" data-i18n="sort_id"></option></select></label></div>
             <button id="transitOtherHint" class="tp-hint hidden" onclick="switchTransitTabFromHint()"></button>
             <div id="transitList"></div>
             <div class="tp-actions">
@@ -1412,12 +1446,6 @@
         </div>
 
         <div id="screen-dailyOut" class="screen">
-          <div class="summary-box">
-            <div class="summary-title" data-i18n="dailyOutTitle">Tổng Hợp Tote Xuất Theo Ngày</div>
-            <div data-i18n="dailyOutDesc1">Dùng để đối chiếu số tote xuất thực tế với chứng từ viết tay.</div>
-            <div><span data-i18n="dailyOutDesc2a">Hệ thống lấy dữ liệu từ log</span> <b>OUT / OK</b> <span data-i18n="dailyOutDesc2b">trong ngày đã chọn.</span></div>
-          </div>
-
           <label data-i18n="dateOutLabel">Ngày Xuất</label>
           <input id="dailyOutDate" type="date">
 
@@ -1428,17 +1456,11 @@
           </div>
 
           <button class="btn" data-i18n="viewSummaryBtn" onclick="loadDailyOutSummary()">XEM TỔNG HỢP</button>
-          <div class="export-row"><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDailyOutSummary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDailyOut()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
+          <div class="export-row"><label class="sort-pick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="dailyOutSort" onchange="setSort('dailyOut', this.value, rerenderDailyOutSorted)"><option value="qtyDesc" data-i18n="sort_qtyDesc"></option><option value="qtyAsc" data-i18n="sort_qtyAsc"></option><option value="name" data-i18n="sort_name"></option><option value="id" data-i18n="sort_id"></option></select></label><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDailyOutSummary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDailyOut()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
           <div id="dailyOutResult"></div>
         </div>
 
         <div id="screen-abnormal" class="screen">
-          <div class="summary-box">
-            <div class="summary-title" data-i18n="abnormalTitle">Abnormal In / Out</div>
-            <div data-i18n="abnormalDesc1">Theo dõi các lần scan bất thường để kho xử lý ngay trong ngày.</div>
-            <div><span data-i18n="abnormalDesc2">Dữ liệu lấy từ log có</span> <b>RESULT = ABNORMAL</b>.</div>
-          </div>
-
           <label data-i18n="dateLabel">Ngày</label>
           <input id="abnormalDate" type="date">
 
@@ -1461,7 +1483,7 @@
           </div>
 
           <button class="btn" data-i18n="viewAbnormalBtn" onclick="loadAbnormalSummary()">XEM ABNORMAL</button>
-          <div class="export-row"><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadAbnormalSummary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportAbnormal()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
+          <div class="export-row"><label class="sort-pick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="abnormalSort" onchange="setSort('abnormal', this.value, rerenderAbnormalSorted)"><option value="qtyDesc" data-i18n="sort_qtyDesc"></option><option value="qtyAsc" data-i18n="sort_qtyAsc"></option><option value="name" data-i18n="sort_name"></option><option value="id" data-i18n="sort_id"></option></select></label><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadAbnormalSummary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportAbnormal()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
           <div id="abnormalResult"></div>
         </div>
 
@@ -1776,6 +1798,9 @@
         wrongZoneMsg: 'Mã {code} thuộc {codeZone}, phiên này là {sessionZone}',
         serverBusyRetryMsg: 'Máy chủ đang bận - các mã đang CHỜ sẽ tự gửi lại, không cần quét lại',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
+        helpBtnTitle: 'Hướng dẫn sử dụng', helpTitlePrefix: 'Hướng dẫn', closeBtn: 'Đóng', sortLabel: 'Sắp xếp',
+        sort_qtyDesc: 'SL nhiều → ít', sort_qtyAsc: 'SL ít → nhiều', sort_oldest: 'Nằm lâu nhất',
+        sort_name: 'Tên cửa hàng A → Z', sort_id: 'Mã cửa hàng',
         homeTrendTitle: 'Xu hướng OUT vs IN', homeActivityTitle: 'Hoạt động gần đây',
         range7: '7 ngày', range30: '30 ngày', seriesOut: 'Xuất (OUT)', seriesIn: 'Nhập (IN)',
         trendTableToggle: 'Xem bảng số liệu', colDate: 'Ngày',
@@ -1974,6 +1999,9 @@
         wrongZoneMsg: 'Code {code} belongs to {codeZone}, this session is {sessionZone}',
         serverBusyRetryMsg: 'Server busy - WAITING codes will be resent automatically, no need to rescan',
         pressBackAgainToExit: 'Press Back again to exit the app',
+        helpBtnTitle: 'User guide', helpTitlePrefix: 'Guide', closeBtn: 'Close', sortLabel: 'Sort',
+        sort_qtyDesc: 'Qty high → low', sort_qtyAsc: 'Qty low → high', sort_oldest: 'Longest waiting',
+        sort_name: 'Store name A → Z', sort_id: 'Store code',
         homeTrendTitle: 'OUT vs IN trend', homeActivityTitle: 'Recent activity',
         range7: '7 days', range30: '30 days', seriesOut: 'Out', seriesIn: 'In',
         trendTableToggle: 'View data table', colDate: 'Date',
@@ -2577,6 +2605,8 @@
     function showScreen(name, fromHistory) {
       if (!fromHistory) pushScreenState(name);
       currentScreen = name;
+      closeHelp();
+      syncSortPickers();
       updateZoneBar();
       document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
       document.querySelectorAll('.rail-item').forEach(x => x.classList.remove('active'));
@@ -3216,9 +3246,11 @@
 
       const box = document.getElementById('allStores');
       const q = normalizeText(document.getElementById('storeListSearch').value);
-      const list = stores.filter(st => {
+      const list = sortStoreRows(stores.filter(st => {
         if (storeRegionFilter && storeRegionKey(st) !== storeRegionFilter) return false;
         return !q || normalizeText(`${st.id} ${st.name} ${st.region || ''}`).includes(q);
+      }), getSort('store'), {
+        qty: function() { return 0; }, name: function(st) { return st.name; }, id: function(st) { return st.id; }
       });
 
       const filterBar = document.getElementById('storeFilterBar');
@@ -4325,11 +4357,16 @@
 
       const zones = dashZonesInView();
       const isStore = session.role === 'STORE';
+      // Cửa hàng chỉ có 1 dòng của chính mình -> không cần ô sắp xếp
+      document.getElementById('dashSortPick').classList.toggle('hidden', isStore);
+      const sortedStores = sortStoreRows(filtered, getSort('dash'), {
+        qty: function(s) { return s.qty || 0; }, name: function(s) { return s.storeName; }, id: function(s) { return s.storeId; }
+      });
       const CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
       // Mỗi cửa hàng: tên + số Tote / Rổ đang nợ. Bấm vào mới mở chi tiết theo
       // màu và danh sách mã (GẤP LẠI mặc định).
-      box.innerHTML = filtered.map(function(s) {
+      box.innerHTML = sortedStores.map(function(s) {
         const badges = zones.map(function(z) {
           const n = s.kinds ? zoneQtyFromKinds(s.kinds, z) : s.qty;
           return '<span class="ds-badge ' + zoneCls(z) + (n ? '' : ' zero') + '">' + ZONE_ICON[z] +
@@ -4678,7 +4715,12 @@
       icon.innerHTML = document.querySelector('#' + meta.tabId + ' .tt-icon').innerHTML;
 
       const q = normalizeText(document.getElementById('transitSearch').value);
-      const rows = filterTransitGroup(res[transitTab], q);
+      const rows = sortStoreRows(filterTransitGroup(res[transitTab], q), getSort('transit'), {
+        qty: function(r) { return r.g.qty || 0; },
+        name: function(r) { return r.g.storeName; },
+        id: function(r) { return r.g.storeId; },
+        age: function(r) { return (r.g.totes || []).reduce(function(m, x) { return Math.max(m, x.hours || 0); }, 0); }
+      });
       const total = (res[transitTab] || []).length;
       document.getElementById('transitPanelCount').textContent =
         q ? tf('transitStoresCount', { n: rows.length }) + ' / ' + total : tf('transitStoresCount', { n: total });
@@ -4804,7 +4846,9 @@
         return;
       }
 
-      res.rows.forEach(r => {
+      sortStoreRows(res.rows, getSort('dailyOut'), {
+        qty: function(r) { return r.okQty || 0; }, name: function(r) { return r.storeName; }, id: function(r) { return r.storeId; }
+      }).forEach(r => {
         const div = document.createElement('div');
         div.className = 'dashboard-card';
         const users = (r.users || []).join(', ') || '-';
@@ -4921,7 +4965,9 @@
       }
 
       if (res.summary && res.summary.length) {
-        res.summary.forEach(s => {
+        sortStoreRows(res.summary, getSort('abnormal'), {
+          qty: function(s) { return s.totalQty || 0; }, name: function(s) { return s.storeName; }, id: function(s) { return s.storeId; }
+        }).forEach(s => {
           const div = document.createElement('div');
           div.className = 'dashboard-card';
           div.innerHTML = `
@@ -5430,6 +5476,7 @@
     // Trả về true nếu có lớp nào đó để đóng.
     function closeTopLayer() {
       const overlays = {
+        helpOverlay: closeHelp,
         sessionConfirmOverlay: cancelEndScanSession,
         cancelSessionOverlay: closeCancelSessionOverlay,
         cancelInSessionOverlay: closeCancelInSessionOverlay,
@@ -5499,6 +5546,238 @@
       setTimeout(function() { btn.classList.remove('spinning'); }, 800);
       loadFn();
     }
+
+
+    // =====================================================================
+    // NHÓM 32: SẮP XẾP DANH SÁCH + HƯỚNG DẪN SỬ DỤNG
+    // Sắp xếp: mỗi màn nhớ lựa chọn riêng trên máy này (localStorage).
+    // Hướng dẫn: nút "?" trên thanh trên cùng mở hướng dẫn của MÀN ĐANG MỞ.
+    // Muốn sửa nội dung hướng dẫn: sửa HELP_TEXT bên dưới (có cả VI và EN).
+    // =====================================================================
+    const SORT_DEFAULTS = { dash: 'qtyDesc', transit: 'qtyDesc', dailyOut: 'qtyDesc', abnormal: 'qtyDesc', store: 'id' };
+    const sortChoice = {};
+
+    function getSort(key) {
+      if (!sortChoice[key]) {
+        let saved = null;
+        try { saved = localStorage.getItem('TOTE_SORT_' + key); } catch (e) {}
+        const sel = document.getElementById(key + 'Sort');
+        const valid = sel && Array.from(sel.options).some(function(o) { return o.value === saved; });
+        sortChoice[key] = valid ? saved : SORT_DEFAULTS[key];
+      }
+      return sortChoice[key];
+    }
+
+    function setSort(key, value, rerender) {
+      sortChoice[key] = value;
+      try { localStorage.setItem('TOTE_SORT_' + key, value); } catch (e) {}
+      rerender();
+    }
+
+    function syncSortPickers() {
+      Object.keys(SORT_DEFAULTS).forEach(function(key) {
+        const sel = document.getElementById(key + 'Sort');
+        if (sel) sel.value = getSort(key);
+      });
+    }
+
+    // f = { qty, name, id, age }: hàm lấy số lượng / tên / mã / thời gian nằm lâu của 1 dòng
+    function sortStoreRows(list, mode, f) {
+      const text = function(v) { return String(v || ''); };
+      const byId = function(a, b) { return text(f.id(a)).localeCompare(text(f.id(b)), undefined, { numeric: true, sensitivity: 'base' }); };
+      // Nhiều tên cửa hàng bắt đầu bằng chính mã (VD "VN0459 Ngu Xa") -> bỏ phần
+      // mã ở đầu để xếp theo đúng tên.
+      const nameKey = function(r) {
+        const id = text(f.id(r)).trim();
+        let n = text(f.name(r)).trim();
+        if (id && n.toUpperCase().indexOf(id.toUpperCase()) === 0) n = n.slice(id.length).replace(/^[\s\-–:]+/, '');
+        return n || id;
+      };
+      const byName = function(a, b) {
+        return nameKey(a).localeCompare(nameKey(b), 'vi', { numeric: true, sensitivity: 'base' }) || byId(a, b);
+      };
+      const cmp = {
+        qtyDesc: function(a, b) { return f.qty(b) - f.qty(a) || byId(a, b); },
+        qtyAsc:  function(a, b) { return f.qty(a) - f.qty(b) || byId(a, b); },
+        oldest:  function(a, b) { return ((f.age ? f.age(b) : 0) - (f.age ? f.age(a) : 0)) || f.qty(b) - f.qty(a) || byId(a, b); },
+        name: byName,
+        id: byId
+      }[mode] || byId;
+      return (list || []).slice().sort(cmp);
+    }
+
+    function rerenderTransitSorted() {
+      transitShown = TRANSIT_PREVIEW;
+      renderTransit();
+    }
+
+    function rerenderDailyOutSorted() {
+      if (lastDailyOutRes) renderDailyOutSummary(lastDailyOutRes);
+    }
+
+    function rerenderAbnormalSorted() {
+      if (lastAbnormalRes) renderAbnormalSummary(lastAbnormalRes);
+    }
+
+    const HELP_TEXT = {
+      vi: {
+        home: { title: 'Trang chủ', items: [
+          '<b>Các ô số</b> trên cùng: số tote đang ở cửa hàng, số tote xuất (OUT) và nhập (IN) hôm nay, số lượt quét bất thường hôm nay.',
+          '<b>Kho ảo còn lại</b> (ADMIN / kho): số mã đã tạo sẵn nhưng chưa dán label và quét lần đầu.',
+          'Bấm <b>XUẤT KHO</b> hoặc <b>NHẬP KHO</b> để vào màn quét ngay.',
+          '<b>Biểu đồ OUT vs IN</b>: chọn 7 hoặc 30 ngày; bấm "Xem bảng số liệu" để xem số từng ngày.',
+          '<b>Phân bổ</b>: tote hiện đang nằm ở đâu (kho, cửa hàng, trên đường...).',
+          'ADMIN: thanh <b>Hiển thị</b> phía trên để xem riêng kho lạnh, kho khô hoặc tất cả.'
+        ] },
+        pda: { title: 'Quét xuất / nhập kho', items: [
+          '<b>OUT (xuất kho)</b>: chọn cửa hàng → <b>Bắt đầu phiên quét</b> → quét lần lượt từng mã → <b>Kết thúc phiên</b>, xem lại tổng kết rồi xác nhận.',
+          '<b>IN (nhập kho)</b>: không cần chọn cửa hàng - bắt đầu phiên rồi quét các tote cửa hàng trả về.',
+          'Số <b>CHỜ</b> là mã đã quét nhưng chưa gửi lên máy chủ. App tự gửi (kể cả khi mạng chậm hay máy chủ bận) - <b>không cần quét lại</b>.',
+          'Tài khoản kho lạnh chỉ quét mã <b>TOT</b>, kho khô chỉ quét mã <b>BAS</b>; quét nhầm loại sẽ bị báo ngay.',
+          'Mã bị đánh dấu <b>bất thường</b> (VD nhập kho một tote chưa từng xuất) vẫn được ghi lại và sẽ hiện ở mục <b>Lỗi</b> để kiểm tra.',
+          'Chọn nhầm cửa hàng? Bấm <b>Hủy phiên</b> để hoàn tác các tote đã quét trong phiên đó.'
+        ] },
+        driver: { title: 'Giao nhận tại cửa hàng', items: [
+          'Chọn loại phiên: <b>NHẬN RỔ</b> (cửa hàng nhận hàng kho giao tới) hoặc <b>XUẤT RỔ</b> (cửa hàng trả vỏ cho tài xế mang về kho).',
+          'Tài xế: chọn đúng cửa hàng đang đứng trước khi bắt đầu. Tài khoản cửa hàng thì tự động là cửa hàng của mình.',
+          'Bấm bắt đầu phiên rồi đưa mã vào khung camera để quét; quét xong bấm kết thúc phiên và xác nhận.',
+          'Cửa hàng quét được cả <b>TOT</b> (kho lạnh) và <b>BAS</b> (kho khô).',
+          'Số <b>CHỜ</b> sẽ tự gửi lại khi có mạng - <b>không cần quét lại</b>.'
+        ] },
+        store: { title: 'Danh sách cửa hàng', items: [
+          'Hai ô số trên cùng: tổng số cửa hàng và số cửa hàng đã có vị trí (chỉ đường được).',
+          'Bấm vào một thanh <b>khu vực</b> để chỉ xem cửa hàng ở khu vực đó; bấm <b>Bỏ lọc</b> để xem lại tất cả.',
+          'Gõ vào ô tìm kiếm để tìm theo mã, tên hoặc khu vực.',
+          'Nút <b>Chỉ đường</b> mở Google Maps tới cửa hàng.',
+          'Ô <b>sắp xếp</b> (biểu tượng mũi tên lên/xuống) để xếp theo mã hoặc tên cửa hàng.'
+        ] },
+        dash: { title: 'Tồn kho', items: [
+          '<b>Ở kho / Ở cửa hàng</b>: tổng số Tote và Rổ - bấm vào thẻ để xem chi tiết theo màu.',
+          'Mỗi dòng là một cửa hàng đang giữ tote, kèm số <b>Tote</b> và <b>Rổ</b>; bấm vào để xem theo màu và danh sách mã.',
+          'Ô <b>sắp xếp</b>: xếp theo số lượng nhiều → ít, ít → nhiều, tên hoặc mã cửa hàng.',
+          'Gõ tên/mã cửa hàng để lọc nhanh; nút <b>Excel</b> để tải báo cáo.',
+          'Tài khoản cửa hàng: thấy chi tiết của cửa hàng mình, kèm ngày từng mã về tới cửa hàng.'
+        ] },
+        transit: { title: 'Vận chuyển', items: [
+          'Theo dõi tote ở 2 trạng thái: <b>Đang giao tới cửa hàng</b> (kho đã xuất, cửa hàng chưa quét nhận) và <b>Đang về kho</b> (cửa hàng đã trả vỏ, kho chưa quét nhập).',
+          'Bấm vào thẻ ở trên để chuyển giữa hai mục.',
+          'Ô tìm kiếm tìm theo cửa hàng hoặc mã rổ, có gợi ý khi gõ.',
+          'Ô <b>sắp xếp</b>: theo số lượng, theo <b>nằm lâu nhất</b> (để phát hiện tote bị quên quét / thất lạc), theo tên hoặc mã cửa hàng.',
+          'Bấm vào một cửa hàng để xem từng mã và thời gian đã nằm ở trạng thái này.',
+          'Mặc định chỉ hiện vài cửa hàng đầu - bấm <b>Xem thêm</b> để mở tiếp.'
+        ] },
+        dailyOut: { title: 'Xuất kho theo ngày', items: [
+          'Dùng để đối chiếu số tote xuất thực tế với chứng từ viết tay.',
+          'Chọn ngày (và cửa hàng nếu cần) rồi bấm <b>XEM TỔNG HỢP</b>. Dữ liệu lấy từ log <b>OUT / OK</b> trong ngày đó.',
+          '<b>Trùng (đã bỏ qua)</b>: tote bị quét OUT nhiều lần trong ngày chỉ được tính 1 lần.',
+          'Ô <b>sắp xếp</b>: xếp cửa hàng theo số lượng xuất, tên hoặc mã.',
+          'Bấm "Xem mã tote OUT / OK" trong từng cửa hàng để xem danh sách mã đã xuất; nút <b>Excel</b> để tải báo cáo.'
+        ] },
+        abnormal: { title: 'Lỗi / bất thường', items: [
+          'Liệt kê các lượt quét <b>bất thường</b> trong ngày để kho xử lý ngay (dữ liệu từ log có RESULT = ABNORMAL).',
+          'Quét bất thường không bị chặn, chỉ bị đánh dấu - ví dụ nhập kho một tote chưa từng xuất.',
+          'Chọn ngày, loại nghiệp vụ, hoặc tìm theo cửa hàng / mã / người quét.',
+          'Phần trên tổng hợp theo cửa hàng (dùng ô <b>sắp xếp</b> để xếp theo số lượng, tên hoặc mã), phần dưới là chi tiết từng lượt quét.'
+        ] },
+        track: { title: 'Tra lịch sử', items: [
+          'Quét hoặc gõ mã tote rồi bấm <b>TRA CỨU</b>.',
+          'Kết quả hiện trạng thái hiện tại và toàn bộ lịch sử: ai quét, lúc nào, ở cửa hàng nào, kết quả OK hay bất thường.'
+        ] },
+        settings: { title: 'Cài đặt', items: [
+          'Chọn chế độ <b>Sáng / Tối</b> và ngôn ngữ <b>Tiếng Việt / English</b> - chỉ lưu trên máy này.',
+          '<b>Đổi mật khẩu</b>: nhập mật khẩu cũ và mật khẩu mới.',
+          'Nút <b>Thoát</b> ở thanh bên trái để đăng xuất.'
+        ] }
+      },
+      en: {
+        home: { title: 'Home', items: [
+          '<b>Top tiles</b>: totes currently at stores, totes shipped (OUT) and received (IN) today, abnormal scans today.',
+          '<b>Virtual stock left</b> (ADMIN / warehouse): codes created in advance that have not been labelled and scanned yet.',
+          'Tap <b>OUTBOUND</b> or <b>INBOUND</b> to start scanning right away.',
+          '<b>OUT vs IN chart</b>: pick 7 or 30 days; tap "View data table" for daily numbers.',
+          '<b>Distribution</b>: where totes are right now (warehouse, stores, in transit...).',
+          'ADMIN: the <b>View</b> bar at the top switches between cold, ambient or all warehouses.'
+        ] },
+        pda: { title: 'Outbound / inbound scanning', items: [
+          '<b>OUT</b>: pick a store → <b>Start scan session</b> → scan each code → <b>End session</b>, review the summary and confirm.',
+          '<b>IN</b>: no store needed - start a session and scan the totes returned by stores.',
+          '<b>WAITING</b> codes are scanned but not yet sent. The app resends them automatically (even on slow network or a busy server) - <b>no need to rescan</b>.',
+          'Cold-warehouse accounts scan <b>TOT</b> codes only, ambient accounts <b>BAS</b> codes only; a wrong type is flagged immediately.',
+          '<b>Abnormal</b> scans (e.g. receiving a tote that was never shipped) are still recorded and listed under <b>Errors</b> for review.',
+          'Picked the wrong store? Use <b>Cancel session</b> to undo the totes scanned in that session.'
+        ] },
+        driver: { title: 'Store delivery', items: [
+          'Pick the session type: <b>RECEIVE</b> (store receives goods from the warehouse) or <b>RETURN</b> (store hands empty totes to the driver).',
+          'Drivers: select the store you are at before starting. Store accounts are set to their own store automatically.',
+          'Start the session and hold each code inside the camera frame; when done, end the session and confirm.',
+          'Stores can scan both <b>TOT</b> (cold) and <b>BAS</b> (ambient) codes.',
+          '<b>WAITING</b> codes are resent automatically when the network is back - <b>no need to rescan</b>.'
+        ] },
+        store: { title: 'Store list', items: [
+          'Top tiles: total stores and stores with a location (directions available).',
+          'Tap a <b>region</b> bar to show only that region; tap <b>Clear</b> to show all.',
+          'Type in the search box to find by code, name or region.',
+          '<b>Directions</b> opens Google Maps to the store.',
+          'Use the <b>sort</b> box (up/down arrows icon) to order by store code or name.'
+        ] },
+        dash: { title: 'Stock', items: [
+          '<b>At warehouse / At stores</b>: total Totes and Baskets - tap a tile for the colour breakdown.',
+          'Each row is a store holding totes, with <b>Tote</b> and <b>Basket</b> counts; tap it to see colours and codes.',
+          '<b>Sort</b> box: quantity high → low, low → high, store name or store code.',
+          'Type a store name/code to filter; the <b>Excel</b> button downloads the report.',
+          'Store accounts see their own store in detail, with the date each code arrived.'
+        ] },
+        transit: { title: 'In transit', items: [
+          'Tracks totes in 2 states: <b>Heading to store</b> (shipped, store has not scanned it in) and <b>Returning to warehouse</b> (store returned it, warehouse has not scanned it in).',
+          'Tap the tiles at the top to switch between the two.',
+          'Search by store or code, with suggestions as you type.',
+          '<b>Sort</b> box: by quantity, by <b>longest waiting</b> (to spot forgotten / lost totes), by store name or code.',
+          'Tap a store to see each code and how long it has been in this state.',
+          'Only the first few stores are shown - tap <b>Show more</b> for the rest.'
+        ] },
+        dailyOut: { title: 'Daily outbound', items: [
+          'Used to reconcile actual outbound totes against paper records.',
+          'Pick a date (and a store if needed) and tap <b>VIEW SUMMARY</b>. Data comes from <b>OUT / OK</b> log rows on that day.',
+          '<b>Duplicates (skipped)</b>: a tote scanned OUT several times in a day is counted once.',
+          '<b>Sort</b> box: order stores by quantity, name or code.',
+          'Open "View unique OUT / OK tote IDs" in each store for the shipped codes; the <b>Excel</b> button downloads the report.'
+        ] },
+        abnormal: { title: 'Errors / abnormal', items: [
+          'Lists <b>abnormal</b> scans of the day so the warehouse can handle them right away (log rows with RESULT = ABNORMAL).',
+          'Abnormal scans are not blocked, only flagged - e.g. receiving a tote that was never shipped.',
+          'Filter by date, action type, or search by store / code / user.',
+          'The top part summarises by store (use the <b>sort</b> box for quantity, name or code); below are the individual scans.'
+        ] },
+        track: { title: 'Tote history', items: [
+          'Scan or type a tote code and tap <b>SEARCH</b>.',
+          'Shows the current status and full history: who scanned it, when, at which store, OK or abnormal.'
+        ] },
+        settings: { title: 'Settings', items: [
+          'Choose <b>Light / Dark</b> mode and <b>Tiếng Việt / English</b> - saved on this device only.',
+          '<b>Change password</b>: enter your old and new password.',
+          'The <b>Log out</b> button is in the left bar.'
+        ] }
+      }
+    };
+
+    function openHelp() {
+      const pack = HELP_TEXT[currentLang] || HELP_TEXT.vi;
+      const help = pack[currentScreen] || HELP_TEXT.vi[currentScreen];
+      if (!help) return;
+      const word = (session && session.zone === 'AMB') ? dryWording : function(x) { return x; };
+      document.getElementById('helpTitle').textContent = word(t('helpTitlePrefix') + ' · ' + help.title);
+      document.getElementById('helpBody').innerHTML = help.items.map(function(x) { return '<li>' + word(x) + '</li>'; }).join('');
+      document.getElementById('helpOverlay').classList.remove('hidden');
+    }
+
+    function closeHelp() {
+      const el = document.getElementById('helpOverlay');
+      if (el) el.classList.add('hidden');
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeHelp();
+    });
 
     // =====================================================================
     // NHÓM 30: LOẠI + MÀU CỦA RỔ / TOTE
