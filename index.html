@@ -213,15 +213,11 @@
      nhiều trình duyệt mobile (đặc biệt Safari iOS) app bị bó lại trong 1
      khung nhỏ hơn màn hình thật, còn lại là khoảng trống xám. */
   .login-screen{ width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; }
-  /* Cao CỐ ĐỊNH (không dùng % chiều cao màn hình) - trên PDA/mobile, mỗi lần
-     bật bàn phím ảo để gõ Login ID/Password, chiều cao khả dụng của trình
-     duyệt co lại, nếu hero cao theo % thì nó sẽ co/nhảy theo, nhìn như bị
-     "thu hẹp". Cố định px thì hero luôn đứng yên, chỉ có login-panel bên
-     dưới tự cuộn nếu bị bàn phím che bớt. */
+  /* Hero cao px cố định (không theo % màn hình) để không co/nhảy khi bàn phím ảo bật; nó nằm trong .login-scroll nên cuộn đi được. */
   .login-hero{
-    position:relative; height:180px; flex-shrink:0; overflow:hidden;
+    position:relative; height:150px; flex-shrink:0; overflow:hidden;
     background:linear-gradient(160deg,#081324 0%, #0A1930 50%, #10315C 100%);
-    display:flex; flex-direction:column; justify-content:flex-start; padding:22px 22px 0;
+    display:flex; flex-direction:column; justify-content:flex-start; padding:16px 22px 0;
   }
   .login-hero::after{
     content:''; position:absolute; inset:0; pointer-events:none;
@@ -230,38 +226,17 @@
   .brand-mark{ position:relative; z-index:2; display:flex; align-items:center; gap:8px; }
   .brand-mark-icon{ width:24px; height:24px; object-fit:contain; }
   .brand-mark span{ color:#fff; font-weight:800; font-size:12px; letter-spacing:1.6px; }
-  .hero-copy{ position:relative; z-index:2; margin-top:12px; }
+  .hero-copy{ position:relative; z-index:2; }
   .hero-copy h1{ color:#fff; font-size:21px; line-height:1.28; font-weight:800; margin:0 0 6px; }
   .hero-copy p{ color:#AEC0DA; font-size:12px; line-height:1.5; margin:0; max-width:70%; }
   .hero-illustration{ position:absolute; right:-14px; bottom:-4px; z-index:1; width:56%; height:auto; }
 
-  .login-panel{ flex:1; background:var(--card); padding:22px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  /* PDA / điện thoại nhỏ: khi bàn phím ảo bật (class .kb, do JS gắn lúc bấm vào
-     ô nhập) hoặc màn hình thấp, thu gọn phần đầu trang chỉ còn thanh logo để
-     dành chỗ cho ô Login ID, Password và nút Đăng nhập - luôn thấy đủ cả 3. */
-  .login-hero, .login-panel{ transition:height .18s ease, padding .18s ease; }
-  .login-screen.kb .login-hero{ height:54px; padding:14px 18px 0; }
-  .login-screen.kb .hero-copy, .login-screen.kb .hero-illustration{ display:none; }
-  .login-screen.kb .login-panel{ padding:12px 18px; }
-  .login-screen.kb .login-panel h2{ font-size:16px; margin:0 0 8px; }
-  .login-screen.kb .login-panel .sub{ display:none; }
-  .login-screen.kb .field{ margin-bottom:9px; }
-  .login-screen.kb .field label{ margin-bottom:3px; }
-  .login-screen.kb .field input{ height:42px; }
-  .login-screen.kb .btn-primary{ height:44px; margin-top:2px; }
-  .login-screen.kb .login-msg{ margin-top:8px; padding:8px 12px; }
-  @media (max-height:520px){
-    .login-hero{ height:54px; padding:14px 18px 0; }
-    .hero-copy, .hero-illustration{ display:none; }
-    .login-panel{ padding:12px 18px; }
-    .login-panel h2{ font-size:16px; margin:0 0 8px; }
-    .login-panel .sub{ display:none; }
-    .field{ margin-bottom:9px; }
-    .field label{ margin-bottom:3px; }
-    .field input{ height:42px; }
-    .btn-primary{ height:44px; margin-top:2px; }
-    .login-msg{ margin-top:8px; padding:8px 12px; }
-  }
+  /* Chỉ thanh logo (.login-topbar) được GHIM ở trên cùng. Phần còn lại (hình
+     minh họa + form) nằm trong .login-scroll và cuộn tự nhiên: bật bàn phím ảo
+     thì vùng cuộn co lại, ô đang gõ tự cuộn lên trên bàn phím (xem JS). */
+  .login-topbar{ flex-shrink:0; background:#081324; padding:13px 18px; z-index:3; }
+  .login-scroll{ flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; -webkit-overflow-scrolling:touch; }
+  .login-panel{ flex:1 0 auto; background:var(--card); padding:22px 20px 28px; }
   .login-panel h2{ font-size:19px; font-weight:800; margin:0 0 3px; }
   .login-panel .sub{ color:var(--muted); font-size:12px; margin:0 0 18px; }
   .field{ margin-bottom:13px; }
@@ -870,11 +845,15 @@
   </div>
 
   <div id="loginPage" class="login-screen">
-    <div class="login-hero">
+    <div class="login-topbar">
       <div class="brand-mark">
         <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSI4IiB5PSI4IiB3aWR0aD0iODQiIGhlaWdodD0iODQiIHJ4PSIxNiIgZmlsbD0iIzBBMTkzMCIgc3Ryb2tlPSIjMDBEMkEwIiBzdHJva2Utd2lkdGg9IjgiLz48cGF0aCBkPSJNNTAgMjQgNzQgMzggNTAgNTIgMjYgMzhaIiBmaWxsPSIjMDBEMkEwIi8+PHBhdGggZD0iTTI2IDM4IDUwIDUyIDUwIDgyIDI2IDY4WiIgZmlsbD0iIzAwQTc4NCIvPjxwYXRoIGQ9Ik01MCA1MiA3NCAzOCA3NCA2OCA1MCA4MloiIGZpbGw9IiMxNzNBNkIiLz48L3N2Zz4=" alt="SDS - GS25 Bình Điền WH" class="brand-mark-icon">
         <span>SDS - GS25 BÌNH ĐIỀN WH</span>
       </div>
+    </div>
+
+    <div class="login-scroll">
+    <div class="login-hero">
       <div class="hero-copy">
         <h1>SDS - GS25<br>Bình Điền WH</h1>
         <p>Real time tracking basket.</p>
@@ -927,6 +906,7 @@
       <button class="btn-primary" data-i18n="loginBtn" onclick="doLogin()">ĐĂNG NHẬP</button>
       <div id="loginMsg" class="login-msg"></div>
     </div>
+    </div><!-- /login-scroll -->
   </div>
 
   <div id="appPage" class="page hidden">
@@ -2472,25 +2452,17 @@
       if (e.key === 'Enter') doLogin();
     }
 
-    // Bấm vào ô nhập (bàn phím ảo bật) -> thu gọn phần đầu trang để form không bị
-    // bàn phím che; rời khỏi ô nhập -> trả lại như cũ. Ô đang gõ tự cuộn vào giữa.
+    // Bấm vào ô nhập (bàn phím ảo bật) -> vùng cuộn co lại, tự cuộn ô đang gõ lên
+    // giữa vùng còn nhìn thấy để không bị bàn phím che.
     (function() {
       const page = document.getElementById('loginPage');
       if (!page) return;
 
       page.addEventListener('focusin', function(e) {
         if (!e.target || e.target.tagName !== 'INPUT') return;
-        page.classList.add('kb');
         setTimeout(function() {
           try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {}
-        }, 250);
-      });
-
-      page.addEventListener('focusout', function() {
-        setTimeout(function() {
-          const a = document.activeElement;
-          if (!a || a.tagName !== 'INPUT' || !page.contains(a)) page.classList.remove('kb');
-        }, 120);
+        }, 300);
       });
     })();
 
