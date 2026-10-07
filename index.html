@@ -114,7 +114,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="application-name" content="SDS - GS25 Bình Điền WH">
 <meta name="apple-mobile-web-app-title" content="SDS GS25 WH">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -235,7 +235,33 @@
   .hero-copy p{ color:#AEC0DA; font-size:12px; line-height:1.5; margin:0; max-width:70%; }
   .hero-illustration{ position:absolute; right:-14px; bottom:-4px; z-index:1; width:56%; height:auto; }
 
-  .login-panel{ flex:1; background:var(--card); padding:22px 20px; overflow-y:auto; }
+  .login-panel{ flex:1; background:var(--card); padding:22px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  /* PDA / điện thoại nhỏ: khi bàn phím ảo bật (class .kb, do JS gắn lúc bấm vào
+     ô nhập) hoặc màn hình thấp, thu gọn phần đầu trang chỉ còn thanh logo để
+     dành chỗ cho ô Login ID, Password và nút Đăng nhập - luôn thấy đủ cả 3. */
+  .login-hero, .login-panel{ transition:height .18s ease, padding .18s ease; }
+  .login-screen.kb .login-hero{ height:54px; padding:14px 18px 0; }
+  .login-screen.kb .hero-copy, .login-screen.kb .hero-illustration{ display:none; }
+  .login-screen.kb .login-panel{ padding:12px 18px; }
+  .login-screen.kb .login-panel h2{ font-size:16px; margin:0 0 8px; }
+  .login-screen.kb .login-panel .sub{ display:none; }
+  .login-screen.kb .field{ margin-bottom:9px; }
+  .login-screen.kb .field label{ margin-bottom:3px; }
+  .login-screen.kb .field input{ height:42px; }
+  .login-screen.kb .btn-primary{ height:44px; margin-top:2px; }
+  .login-screen.kb .login-msg{ margin-top:8px; padding:8px 12px; }
+  @media (max-height:520px){
+    .login-hero{ height:54px; padding:14px 18px 0; }
+    .hero-copy, .hero-illustration{ display:none; }
+    .login-panel{ padding:12px 18px; }
+    .login-panel h2{ font-size:16px; margin:0 0 8px; }
+    .login-panel .sub{ display:none; }
+    .field{ margin-bottom:9px; }
+    .field label{ margin-bottom:3px; }
+    .field input{ height:42px; }
+    .btn-primary{ height:44px; margin-top:2px; }
+    .login-msg{ margin-top:8px; padding:8px 12px; }
+  }
   .login-panel h2{ font-size:19px; font-weight:800; margin:0 0 3px; }
   .login-panel .sub{ color:var(--muted); font-size:12px; margin:0 0 18px; }
   .field{ margin-bottom:13px; }
@@ -896,8 +922,8 @@
     <div class="login-panel">
       <h2 data-i18n="loginTitle">Đăng nhập</h2>
       <p class="sub" data-i18n="loginSub">Nhập tài khoản kho vận của bạn</p>
-      <div class="field"><label data-i18n="loginIdLabel">Login ID</label><input id="loginId" class="upper" placeholder="VD: WH001" autocomplete="off"></div>
-      <div class="field"><label data-i18n="loginPassLabel">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="off" onkeydown="handleLoginKey(event)"></div>
+      <div class="field"><label data-i18n="loginIdLabel">Login ID</label><input id="loginId" class="upper" placeholder="VD: WH001" autocomplete="off" enterkeyhint="next" onkeydown="if (event.key === 'Enter') { event.preventDefault(); document.getElementById('password').focus(); }"></div>
+      <div class="field"><label data-i18n="loginPassLabel">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="off" enterkeyhint="go" onkeydown="handleLoginKey(event)"></div>
       <button class="btn-primary" data-i18n="loginBtn" onclick="doLogin()">ĐĂNG NHẬP</button>
       <div id="loginMsg" class="login-msg"></div>
     </div>
@@ -2445,6 +2471,28 @@
     function handleLoginKey(e) {
       if (e.key === 'Enter') doLogin();
     }
+
+    // Bấm vào ô nhập (bàn phím ảo bật) -> thu gọn phần đầu trang để form không bị
+    // bàn phím che; rời khỏi ô nhập -> trả lại như cũ. Ô đang gõ tự cuộn vào giữa.
+    (function() {
+      const page = document.getElementById('loginPage');
+      if (!page) return;
+
+      page.addEventListener('focusin', function(e) {
+        if (!e.target || e.target.tagName !== 'INPUT') return;
+        page.classList.add('kb');
+        setTimeout(function() {
+          try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {}
+        }, 250);
+      });
+
+      page.addEventListener('focusout', function() {
+        setTimeout(function() {
+          const a = document.activeElement;
+          if (!a || a.tagName !== 'INPUT' || !page.contains(a)) page.classList.remove('kb');
+        }, 120);
+      });
+    })();
 
     function doLogin() {
       const loginId = document.getElementById('loginId').value.trim();
