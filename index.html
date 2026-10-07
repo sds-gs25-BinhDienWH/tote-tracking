@@ -2153,8 +2153,8 @@
 
     function t(key) {
       const text = (I18N[currentLang] && I18N[currentLang][key]) || (I18N.vi[key]) || key;
-      if (typeof session !== 'undefined' && session && session.zone === 'AMB' && !/^(kind|color|zone)/.test(key)) {
-        return dryWording(text);
+      if (typeof session !== 'undefined' && session && session.zone === 'COLD' && !/^(kind|color|zone)/.test(key)) {
+        return basketWording(text);
       }
       return text;
     }
@@ -2190,7 +2190,7 @@
         if (!el.hasAttribute('data-orig-placeholder')) el.setAttribute('data-orig-placeholder', el.placeholder);
         if (el.hasAttribute('data-i18n-placeholder')) return;
         const orig = el.getAttribute('data-orig-placeholder');
-        el.placeholder = (session && session.zone === 'AMB') ? dryWording(orig) : orig;
+        el.placeholder = (session && session.zone === 'COLD') ? basketWording(orig) : orig;
       });
     }
 
@@ -4402,8 +4402,8 @@
     // Màn Tồn đang xem những kho nào: ADMIN theo thanh chọn kho, cửa hàng thấy
     // cả hai, tài khoản kho chỉ thấy kho của mình.
     function dashZonesInView() {
-      if (session.role === 'ADMIN') return viewZone === 'ALL' ? ['COLD', 'AMB'] : [viewZone];
-      if (session.role === 'STORE') return ['COLD', 'AMB'];
+      if (session.role === 'ADMIN') return viewZone === 'ALL' ? ['AMB', 'COLD'] : [viewZone];
+      if (session.role === 'STORE') return ['AMB', 'COLD'];
       return [accountZone() === 'AMB' ? 'AMB' : 'COLD'];
     }
 
@@ -4424,7 +4424,7 @@
     }
 
     function zoneTypeLabel(zone) {
-      return t(zone === 'AMB' ? 'kindBAS' : 'kindTOT');
+      return t(zone === 'COLD' ? 'kindBAS' : 'kindTOT');
     }
 
     let dashOpenZone = null;
@@ -4454,7 +4454,7 @@
       if (zones.indexOf(dashOpenZone) === -1) dashOpenZone = null;
       const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
-      // Mỗi kho 1 thẻ: Tote bên trái, Rổ bên phải - đang ở kho / đang ở cửa hàng.
+      // Mỗi kho 1 thẻ: Tote (kho khô) bên trái, Rổ (kho lạnh) bên phải - đang ở kho / đang ở cửa hàng.
       const summary = hasKinds ? '<div class="zsum-row" style="grid-template-columns:repeat(' + zones.length + ',1fr)">' +
         zones.map(function(z) {
           const atStores = Object.keys(kindTotals).reduce(function(a, k) { return a + (zoneOfKind(k) === z ? kindTotals[k] : 0); }, 0);
@@ -5633,7 +5633,7 @@
           '<b>OUT (xuất kho)</b>: chọn cửa hàng → <b>Bắt đầu phiên quét</b> → quét lần lượt từng mã → <b>Kết thúc phiên</b>, xem lại tổng kết rồi xác nhận.',
           '<b>IN (nhập kho)</b>: không cần chọn cửa hàng - bắt đầu phiên rồi quét các tote cửa hàng trả về.',
           'Số <b>CHỜ</b> là mã đã quét nhưng chưa gửi lên máy chủ. App tự gửi (kể cả khi mạng chậm hay máy chủ bận) - <b>không cần quét lại</b>.',
-          'Tài khoản kho lạnh chỉ quét mã <b>TOT</b>, kho khô chỉ quét mã <b>BAS</b>; quét nhầm loại sẽ bị báo ngay.',
+          'Tài khoản kho lạnh chỉ quét mã <b>BAS</b> (rổ), kho khô chỉ quét mã <b>TOT</b> (tote); quét nhầm loại sẽ bị báo ngay.',
           'Mã bị đánh dấu <b>bất thường</b> (VD nhập kho một tote chưa từng xuất) vẫn được ghi lại và sẽ hiện ở mục <b>Lỗi</b> để kiểm tra.',
           'Chọn nhầm cửa hàng? Bấm <b>Hủy phiên</b> để hoàn tác các tote đã quét trong phiên đó.'
         ] },
@@ -5641,7 +5641,7 @@
           'Chọn loại phiên: <b>NHẬN RỔ</b> (cửa hàng nhận hàng kho giao tới) hoặc <b>XUẤT RỔ</b> (cửa hàng trả vỏ cho tài xế mang về kho).',
           'Tài xế: chọn đúng cửa hàng đang đứng trước khi bắt đầu. Tài khoản cửa hàng thì tự động là cửa hàng của mình.',
           'Bấm bắt đầu phiên rồi đưa mã vào khung camera để quét; quét xong bấm kết thúc phiên và xác nhận.',
-          'Cửa hàng quét được cả <b>TOT</b> (kho lạnh) và <b>BAS</b> (kho khô).',
+          'Cửa hàng quét được cả <b>BAS</b> (rổ, kho lạnh) và <b>TOT</b> (tote, kho khô).',
           'Số <b>CHỜ</b> sẽ tự gửi lại khi có mạng - <b>không cần quét lại</b>.'
         ] },
         store: { title: 'Danh sách cửa hàng', items: [
@@ -5702,7 +5702,7 @@
           '<b>OUT</b>: pick a store → <b>Start scan session</b> → scan each code → <b>End session</b>, review the summary and confirm.',
           '<b>IN</b>: no store needed - start a session and scan the totes returned by stores.',
           '<b>WAITING</b> codes are scanned but not yet sent. The app resends them automatically (even on slow network or a busy server) - <b>no need to rescan</b>.',
-          'Cold-warehouse accounts scan <b>TOT</b> codes only, ambient accounts <b>BAS</b> codes only; a wrong type is flagged immediately.',
+          'Cold-warehouse accounts scan <b>BAS</b> (basket) codes only, ambient accounts <b>TOT</b> (tote) codes only; a wrong type is flagged immediately.',
           '<b>Abnormal</b> scans (e.g. receiving a tote that was never shipped) are still recorded and listed under <b>Errors</b> for review.',
           'Picked the wrong store? Use <b>Cancel session</b> to undo the totes scanned in that session.'
         ] },
@@ -5710,7 +5710,7 @@
           'Pick the session type: <b>RECEIVE</b> (store receives goods from the warehouse) or <b>RETURN</b> (store hands empty totes to the driver).',
           'Drivers: select the store you are at before starting. Store accounts are set to their own store automatically.',
           'Start the session and hold each code inside the camera frame; when done, end the session and confirm.',
-          'Stores can scan both <b>TOT</b> (cold) and <b>BAS</b> (ambient) codes.',
+          'Stores can scan both <b>BAS</b> (basket, cold) and <b>TOT</b> (tote, ambient) codes.',
           '<b>WAITING</b> codes are resent automatically when the network is back - <b>no need to rescan</b>.'
         ] },
         store: { title: 'Store list', items: [
@@ -5764,7 +5764,7 @@
       const pack = HELP_TEXT[currentLang] || HELP_TEXT.vi;
       const help = pack[currentScreen] || HELP_TEXT.vi[currentScreen];
       if (!help) return;
-      const word = (session && session.zone === 'AMB') ? dryWording : function(x) { return x; };
+      const word = (session && session.zone === 'COLD') ? basketWording : function(x) { return x; };
       document.getElementById('helpTitle').textContent = word(t('helpTitlePrefix') + ' · ' + help.title);
       document.getElementById('helpBody').innerHTML = help.items.map(function(x) { return '<li>' + word(x) + '</li>'; }).join('');
       document.getElementById('helpOverlay').classList.remove('hidden');
@@ -5823,10 +5823,10 @@
     }
 
     // =====================================================================
-    // NHÓM 31: KHO LẠNH (TOT) / KHO KHÔ (BAS)
+    // NHÓM 31: KHO LẠNH (BAS = rổ) / KHO KHÔ (TOT = tote)
     // Mỗi tài khoản thuộc đúng 1 kho (cột KHO trong USER_ACCESS): app chạy y
-    // hệt nhau, kho lạnh dùng mã TOT, kho khô dùng mã BAS (chữ "tote" trên
-    // giao diện tự đổi thành "rổ"). Riêng ADMIN thấy cả hai kho, có thanh chọn
+    // hệt nhau, kho lạnh dùng mã BAS (rổ - chữ "tote" trên giao diện tự đổi
+    // thành "rổ"), kho khô dùng mã TOT (tote). Riêng ADMIN thấy cả hai kho, có thanh chọn
     // Tất cả | Kho lạnh | Kho khô ở các màn báo cáo.
     // Backend vẫn kiểm tra lại mọi lượt quét - chặn ở đây chỉ để báo sớm.
     // =====================================================================
@@ -5848,11 +5848,11 @@
     }
 
     function zoneOfCode(code) {
-      return String(code || '').toUpperCase().indexOf('BAS') === 0 ? 'AMB' : 'COLD';
+      return String(code || '').toUpperCase().indexOf('BAS') === 0 ? 'COLD' : 'AMB';
     }
 
     function zoneOfKind(key) {
-      return String(key).indexOf('BAS') === 0 ? 'AMB' : 'COLD';
+      return String(key).indexOf('BAS') === 0 ? 'COLD' : 'AMB';
     }
 
     function zoneName(zone) {
@@ -5869,8 +5869,8 @@
       return own !== 'ALL' ? own : '';
     }
 
-    // Tài khoản kho khô: đổi chữ "tote" thành "rổ" (EN: "basket") trên giao diện.
-    function dryWording(text) {
+    // Tài khoản kho lạnh (hàng là rổ BAS): đổi chữ "tote" thành "rổ" (EN: "basket") trên giao diện.
+    function basketWording(text) {
       if (currentLang === 'en') {
         return text.replace(/TOTE/g, 'BASKET').replace(/Tote/g, 'Basket').replace(/tote/g, 'basket');
       }
@@ -5913,14 +5913,14 @@
       else if (currentScreen === 'abnormal') loadAbnormalSummary();
     }
 
-    // Màn Tồn: chip loại hàng nhóm theo kho lạnh / kho khô
+    // Màn Tồn: chip loại hàng nhóm theo kho khô (tote) / kho lạnh (rổ)
     function kindsByZoneHtml(kinds) {
       const keys = Object.keys(kinds || {});
       const split = keys.some(function(k) { return zoneOfKind(k) === 'COLD'; }) && keys.some(function(k) { return zoneOfKind(k) === 'AMB'; });
       if (!split) {
         return keys.length ? '<div class="kinds">' + sortedKinds(keys).map(function(k) { return kindChipHtml(k, kinds[k]); }).join('') + '</div>' : '';
       }
-      return ['COLD', 'AMB'].map(function(z) {
+      return ['AMB', 'COLD'].map(function(z) {
         const ks = sortedKinds(keys.filter(function(k) { return zoneOfKind(k) === z; }));
         return '<div class="kinds">' + zoneTagHtml(z) + ks.map(function(k) { return kindChipHtml(k, kinds[k]); }).join('') + '</div>';
       }).join('');
