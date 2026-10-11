@@ -30,7 +30,7 @@
     'login', 'logout', 'getSession', 'getStores', 'addStore', 'scanBatch',
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
-    'changePassword', 'getWarehouseStock', 'getSessionDetail', 'getRecentSessions'
+    'changePassword', 'getWarehouseStock'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -38,7 +38,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getSessionDetail: 1, getRecentSessions: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1
   };
   var MAX_RETRY = 2;
 
@@ -483,18 +483,6 @@
   .help-btn:active{ transform:scale(.92); }
   .help-box{ max-width:440px; max-height:82vh; overflow-y:auto; }
   .end-hint{ font-size:11.5px; color:var(--muted); line-height:16px; margin:-4px 0 12px; }
-  .sid{ display:block; font-size:10.5px; font-weight:700; opacity:.85; letter-spacing:.3px; margin-top:2px; }
-  #sumSessionId, #driverSumSessionId{ font-size:12px; word-break:break-all; text-align:right; }
-  .sess-row{
-    width:100%; text-align:left; display:flex; justify-content:space-between; align-items:center; gap:10px;
-    background:var(--card); border:1px solid var(--border); border-left:4px solid var(--cyan-deep);
-    border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px; box-shadow:var(--shadow);
-  }
-  .sess-row .sr-main{ display:flex; flex-direction:column; min-width:0; }
-  .sess-row .sr-main b{ font-size:13px; color:var(--heading); word-break:break-all; }
-  .sess-row .sr-main small{ font-size:11px; color:var(--muted); font-weight:700; }
-  .sess-row .sr-count{ font-size:15px; font-weight:800; color:var(--heading); text-align:right; flex-shrink:0; }
-  .sess-row .sr-count small{ display:block; font-size:10.5px; font-weight:700; color:var(--red); }
   .session-confirm-box{ max-height:88vh; overflow-y:auto; }
   .help-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   .help-head h3{ margin:0 !important; }
@@ -1215,7 +1203,6 @@
               <span id="activeSessionLabel">
                 <span id="activeSessionOutLabel"><span data-i18n="scanningForLabel">Đang quét cho:</span> <b id="activeSessionStore">-</b></span>
                 <span id="activeSessionInLabel" class="hidden" data-i18n="inRecoveryLabel">Đang thu hồi về kho (IN)</span>
-                <small id="activeSessionId" class="sid"></small>
               </span>
               <span class="session-bar-actions">
                 <button class="btn-link btn-link-danger" data-i18n="cancelSessionBtn" onclick="askCancelCurrentSession()">HỦY PHIÊN</button>
@@ -1268,7 +1255,6 @@
               <div data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
               <div class="session-summary">
                 <div id="sumStoreRow"><span data-i18n="storeLabel">Store</span><b id="sumStore">-</b></div>
-                <div><span data-i18n="sessionIdLabel">Mã phiên</span><b id="sumSessionId">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="sumTotal">0</b></div>
                 <div><span data-i18n="counterOk">OK</span><b id="sumOk">0</b></div>
                 <div><span data-i18n="counterFail">Lỗi</span><b id="sumFail">0</b></div>
@@ -1380,7 +1366,7 @@
 
           <div id="driverScanArea" class="hidden">
             <div id="driverActiveSessionBar" class="active-session-bar">
-              <span><span data-i18n="workingAtLabel">Đang thao tác tại:</span> <b id="driverActiveStore">-</b><small id="driverActiveSessionId" class="sid"></small></span>
+              <span><span data-i18n="workingAtLabel">Đang thao tác tại:</span> <b id="driverActiveStore">-</b></span>
               <span class="session-bar-actions">
                 <button class="btn-link btn-link-danger" data-i18n="cancelSessionBtn" onclick="askCancelDriverSession()">HỦY PHIÊN</button>
                 <button class="btn-link" data-i18n="endSessionBtn" onclick="askEndDriverSession()">KẾT THÚC PHIÊN</button>
@@ -1447,7 +1433,6 @@
               <div data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
               <div class="session-summary">
                 <div><span data-i18n="storeLabel">Store</span><b id="driverSumStore">-</b></div>
-                <div><span data-i18n="sessionIdLabel">Mã phiên</span><b id="driverSumSessionId">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="driverSumTotal">0</b></div>
                 <div><span data-i18n="counterOk">OK</span><b id="driverSumOk">0</b></div>
                 <div><span data-i18n="counterFail">Lỗi</span><b id="driverSumFail">0</b></div>
@@ -1671,18 +1656,6 @@
         </div>
         -->
 
-        <div id="screen-sessions" class="screen">
-          <label data-i18n="sessionLookupLabel">Tra Cứu Phiên</label>
-          <input id="sessionIdInput" class="upper" data-i18n-placeholder="sessionIdPlaceholder" placeholder="NHẬP MÃ PHIÊN, VD: COLDWH-OUT-1011-1437-K7Q2" autocomplete="off" onkeydown="handleSessionKey(event)">
-          <button class="btn" data-i18n="trackBtn" onclick="loadSessionDetail()">TRA CỨU</button>
-          <div id="sessionDetail"></div>
-          <div class="export-row" style="justify-content:space-between;align-items:center">
-            <h3 data-i18n="recentSessionsTitle" style="margin:0">Phiên gần đây</h3>
-            <button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadRecentSessions)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
-          </div>
-          <div id="recentSessions"></div>
-        </div>
-
         <div id="screen-track" class="screen">
           <label data-i18n="trackLabel">Tra Lịch Sử Tote</label>
           <input id="trackToteInput" data-i18n-placeholder="trackPlaceholder" placeholder="SCAN / NHẬP TOTE ID" onkeydown="handleTrackKey(event)">
@@ -1792,10 +1765,6 @@
       <div id="tabTrack" class="rail-item" onclick="showScreen('track')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="6"/><path d="M15 15l6 6"/></svg>
         <span data-i18n="navTrack">Track</span>
-      </div>
-      <div id="tabSessions" class="rail-item" onclick="showScreen('sessions')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
-        <span data-i18n="navSessions">Phiên</span>
       </div>
       <div id="tabSettings" class="rail-item" onclick="showScreen('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -1967,10 +1936,6 @@
         alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi phiên lên hệ thống, vui lòng chờ...',
         recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Lần trước bạn thoát hoặc mất mạng khi đang quét nên các mã này chưa được ghi lên hệ thống. Bấm GHI LÊN HỆ THỐNG để ghi, hoặc BỎ nếu quét nhầm.',
         recoverSaveBtn: 'GHI LÊN HỆ THỐNG', recoverDiscardBtn: 'BỎ', recoverTypeLabel: 'Loại phiên', recoverCountLabel: 'Số mã chưa ghi', recoverNextBtn: 'TIẾP TỤC',
-        navSessions: 'Phiên', sessionIdLabel: 'Mã phiên', sessionLookupLabel: 'Tra Cứu Phiên',
-        sessionIdPlaceholder: 'NHẬP MÃ PHIÊN, VD: COLDWH-OUT-1011-1437-K7Q2', recentSessionsTitle: 'Phiên gần đây',
-        noRecentSessions: 'Chưa có phiên nào được ghi.', sessionByLabel: 'Người quét', sessionTimeLabel: 'Thời gian ghi',
-        sessionCodesLabel: 'Số mã', sessionAbnormalLabel: 'Bất thường',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
         loggingIn: 'ĐANG ĐĂNG NHẬP...',
         helpBtnTitle: 'Hướng dẫn sử dụng', helpTitlePrefix: 'Hướng dẫn', closeBtn: 'Đóng', sortLabel: 'Sắp xếp',
@@ -2185,10 +2150,6 @@
         alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving the session to the system, please wait...',
         recoverTitle: 'Unsaved scans found', recoverHint: 'Last time you left or lost the connection while scanning, so these codes were not saved to the system. Tap SAVE TO SYSTEM to save them, or DISCARD if they were a mistake.',
         recoverSaveBtn: 'SAVE TO SYSTEM', recoverDiscardBtn: 'DISCARD', recoverTypeLabel: 'Session type', recoverCountLabel: 'Unsaved codes', recoverNextBtn: 'CONTINUE',
-        navSessions: 'Sessions', sessionIdLabel: 'Session ID', sessionLookupLabel: 'Session Lookup',
-        sessionIdPlaceholder: 'ENTER SESSION ID, E.G. COLDWH-OUT-1011-1437-K7Q2', recentSessionsTitle: 'Recent sessions',
-        noRecentSessions: 'No saved sessions yet.', sessionByLabel: 'Scanned by', sessionTimeLabel: 'Saved at',
-        sessionCodesLabel: 'Codes', sessionAbnormalLabel: 'Abnormal',
         pressBackAgainToExit: 'Press Back again to exit the app',
         loggingIn: 'LOGGING IN...',
         helpBtnTitle: 'User guide', helpTitlePrefix: 'Guide', closeBtn: 'Close', sortLabel: 'Sort',
@@ -2850,7 +2811,6 @@
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') document.getElementById('tabInv').classList.add('active');
       if (name === 'track') document.getElementById('tabTrack').classList.add('active');
-      if (name === 'sessions') document.getElementById('tabSessions').classList.add('active');
       if (name === 'settings') document.getElementById('tabSettings').classList.add('active');
 
       // Rời khỏi màn Tài xế thì phải tắt camera ngay - không để camera bật
@@ -2867,7 +2827,6 @@
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') { focusInventoryScan(); loadInventoryHistory(); }
       if (name === 'track') setTimeout(() => document.getElementById('trackToteInput').focus(), 50);
-      if (name === 'sessions') loadRecentSessions();
       if (name === 'settings') renderSettingsUI();
     }
 
@@ -3313,7 +3272,6 @@
       commitPrior[kind] = [];
       if (isPda) document.getElementById('sumStoreRow').classList.toggle('hidden', mode !== 'OUT');
       document.getElementById(isPda ? 'sumStore' : 'driverSumStore').innerText = isPda ? sessionStoreLabel : driverStoreLabel;
-      document.getElementById(isPda ? 'sumSessionId' : 'driverSumSessionId').innerText = (isPda ? sessionIds[mode] : driverSessionId) || '-';
       document.getElementById(u.sumTotal).innerText = items.length;
       document.getElementById(u.sumOk).innerText = '-';
       document.getElementById(u.sumFail).innerText = '-';
@@ -3860,7 +3818,6 @@
       if (showActiveBar && mode === 'OUT') {
         document.getElementById('activeSessionStore').innerText = sessionStoreLabel;
       }
-      document.getElementById('activeSessionId').innerText = showActiveBar && sessionIds[mode] ? t('sessionIdLabel') + ': ' + sessionIds[mode] : '';
     }
 
     // Bật/tắt nút "Bắt đầu phiên quét" tuỳ theo đã chọn store hay chưa.
@@ -4088,7 +4045,6 @@
 
       if (driverSessionActive) {
         document.getElementById('driverActiveStore').innerText = driverStoreLabel;
-        document.getElementById('driverActiveSessionId').innerText = driverSessionId ? t('sessionIdLabel') + ': ' + driverSessionId : '';
       }
     }
 
@@ -5936,13 +5892,6 @@
           'Chọn ngày, loại nghiệp vụ, hoặc tìm theo cửa hàng / mã / người quét.',
           'Phần trên tổng hợp theo cửa hàng (dùng ô <b>sắp xếp</b> để xếp theo số lượng, tên hoặc mã), phần dưới là chi tiết từng lượt quét.'
         ] },
-        sessions: { title: 'Tra cứu phiên', items: [
-          'Mỗi phiên quét có một <b>mã phiên</b> (VD <b>COLDWH-OUT-1011-1437-K7Q2</b>), hiện trên thanh phiên và trong hộp Kết thúc phiên.',
-          'Nhập mã phiên rồi bấm <b>TRA CỨU</b> để xem phiên đó đã ghi những mã nào, <b>OK</b> hay <b>bất thường</b>, ai quét và lúc nào.',
-          'Bên dưới là <b>phiên gần đây</b>: bấm vào một phiên để xem chi tiết.',
-          'ADMIN xem được mọi phiên; tài khoản khác chỉ xem phiên do <b>chính mình</b> quét.',
-          'Phiên bị <b>hủy</b> hoặc chưa ghi thì không có dữ liệu để tra.'
-        ] },
         track: { title: 'Tra lịch sử', items: [
           'Quét hoặc gõ mã tote rồi bấm <b>TRA CỨU</b>.',
           'Kết quả hiện trạng thái hiện tại và toàn bộ lịch sử: ai quét, lúc nào, ở cửa hàng nào, kết quả OK hay bất thường.'
@@ -6013,13 +5962,6 @@
           'Abnormal scans are not blocked, only flagged - e.g. receiving a tote that was never shipped.',
           'Filter by date, action type, or search by store / code / user.',
           'The top part summarises by store (use the <b>sort</b> box for quantity, name or code); below are the individual scans.'
-        ] },
-        sessions: { title: 'Session lookup', items: [
-          'Every scan session has a <b>session ID</b> (e.g. <b>COLDWH-OUT-1011-1437-K7Q2</b>), shown on the session bar and in the End session box.',
-          'Enter a session ID and tap <b>SEARCH</b> to see which codes the session saved, <b>OK</b> or <b>abnormal</b>, who scanned and when.',
-          'Below are your <b>recent sessions</b>: tap one to open its details.',
-          'ADMIN can see every session; other accounts only see sessions <b>they scanned themselves</b>.',
-          'A <b>cancelled</b> or unsaved session has no data to look up.'
         ] },
         track: { title: 'Tote history', items: [
           'Scan or type a tote code and tap <b>SEARCH</b>.',
@@ -6171,12 +6113,11 @@
     }
 
     // =====================================================================
-    // NHÓM 36: MÃ PHIÊN + TRA CỨU PHIÊN
-    // Mỗi phiên quét (OUT / IN / Nhận / Trả) có 1 mã phiên sinh lúc bấm "Bắt đầu
-    // phiên", VD COLDWH-OUT-1011-1437-K7Q2 (người quét - loại - tháng+ngày - giờ+phút - 4 ký tự ngẫu nhiên).
-    // Mã được gửi kèm khi ghi, backend lưu vào cột I của TOTE_LOG. Mục "Phiên" cho
-    // tra lại 1 phiên đã ghi những mã nào (ADMIN xem mọi phiên, người khác chỉ xem
-    // phiên của mình).
+    // NHÓM 36: MÃ PHIÊN (chỉ để ADMIN tra trong database, KHÔNG hiện trên app)
+    // Mỗi phiên quét (OUT / IN / Nhận / Trả) tự sinh 1 mã lúc bấm "Bắt đầu phiên",
+    // VD COLDWH-OUT-1011-1437-K7Q2 (người quét - loại - tháng+ngày - giờ+phút - 4 ký tự
+    // ngẫu nhiên). Mã được gửi kèm khi ghi và backend lưu vào cột I (SESSION_ID) của
+    // TOTE_LOG. Người dùng không phải làm gì, muốn xem lại 1 phiên thì lọc cột I trong sheet.
     // =====================================================================
     function makeSessionId(code) {
       const d = new Date();
@@ -6185,91 +6126,6 @@
       // Tên đăng nhập đứng đầu để biết ngay phiên của ai (bỏ ký tự lạ, tối đa 12 ký tự)
       const who = String((session && session.loginId) || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'USER';
       return who + '-' + code + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + rand;
-    }
-
-    function sessionActionText(list) {
-      return (list || []).map(function(a) { return actionLabel(a); }).join(', ') || '-';
-    }
-
-    function loadRecentSessions() {
-      const box = document.getElementById('recentSessions');
-      box.innerHTML = loadingHtml();
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (!res || !res.success) {
-            box.innerHTML = '<div class="empty-note">' + escHtml_(t('genericErrPrefix') + ((res && res.message) || t('couldNotLoadData'))) + '</div>';
-            return;
-          }
-
-          const list = res.sessions || [];
-          if (!list.length) {
-            box.innerHTML = '<div class="empty-note">' + escHtml_(t('noRecentSessions')) + '</div>';
-            return;
-          }
-
-          box.innerHTML = list.map(function(x) {
-            const sub = [actionLabel(x.action), x.store ? (x.store + (x.storeName ? ' - ' + x.storeName : '')) : '', x.user, x.lastTime]
-              .filter(function(v) { return v; }).join(' · ');
-            return '<button type="button" class="sess-row" data-sid="' + escHtml_(x.sessionId) + '" onclick="openSession(this.dataset.sid)">' +
-              '<span class="sr-main"><b>' + escHtml_(x.sessionId) + '</b><small>' + escHtml_(sub) + '</small></span>' +
-              '<span class="sr-count">' + x.total + (x.abnormalQty ? '<small>' + x.abnormalQty + ' ' + escHtml_(t('sessionAbnormalLabel')) + '</small>' : '') + '</span>' +
-            '</button>';
-          }).join('');
-        })
-        .withFailureHandler(function(err) {
-          if (handleSessionError(err)) return;
-          box.innerHTML = '<div class="empty-note">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
-        })
-        .getRecentSessions({ token: session.token });
-    }
-
-    function openSession(id) {
-      document.getElementById('sessionIdInput').value = id;
-      loadSessionDetail();
-      document.getElementById('sessionDetail').scrollIntoView({ block: 'start' });
-    }
-
-    function handleSessionKey(e) {
-      if (e.key === 'Enter') loadSessionDetail();
-    }
-
-    function loadSessionDetail() {
-      const id = (document.getElementById('sessionIdInput').value || '').trim().toUpperCase();
-      const box = document.getElementById('sessionDetail');
-      if (!id) return;
-
-      box.innerHTML = loadingHtml();
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (!res || !res.success) {
-            box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('couldNotLoadData')) + '</div>';
-            return;
-          }
-
-          const stores = (res.stores || []).map(function(s) { return s.id + (s.name ? ' - ' + s.name : ''); }).join(', ');
-          const line = function(label, value) { return '<div>' + escHtml_(label) + ' <b>' + escHtml_(value) + '</b></div>'; };
-
-          box.innerHTML =
-            '<div class="summary-box">' +
-              '<div class="summary-title" style="word-break:break-all">' + escHtml_(res.sessionId) + '</div>' +
-              line(t('recoverTypeLabel') + ':', sessionActionText(res.actions)) +
-              (stores ? line(t('storeLabel') + ':', stores) : '') +
-              line(t('sessionByLabel') + ':', (res.users || []).join(', ') || '-') +
-              line(t('sessionTimeLabel') + ':', res.firstTime + (res.lastTime && res.lastTime !== res.firstTime ? '  →  ' + res.lastTime : '')) +
-              '<div>' + escHtml_(t('sessionCodesLabel')) + ' <b>' + res.total + '</b> &nbsp;|&nbsp; ' + escHtml_(t('counterOk')) + ' <b>' + res.okQty + '</b> &nbsp;|&nbsp; ' +
-                escHtml_(t('sessionAbnormalLabel')) + ' <b' + (res.abnormalQty ? ' style="color:#E1364A"' : '') + '>' + res.abnormalQty + '</b></div>' +
-            '</div>' +
-            renderSessionScanLogDetails((res.rows || []).map(function(x) {
-              return { toteId: x.toteId, message: x.note || x.result, success: x.result === 'OK' };
-            }));
-        })
-        .withFailureHandler(function(err) {
-          if (handleSessionError(err)) return;
-          box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
-        })
-        .getSessionDetail({ token: session.token, sessionId: id });
     }
 
     // =====================================================================
