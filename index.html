@@ -1673,7 +1673,7 @@
 
         <div id="screen-sessions" class="screen">
           <label data-i18n="sessionLookupLabel">Tra Cứu Phiên</label>
-          <input id="sessionIdInput" class="upper" data-i18n-placeholder="sessionIdPlaceholder" placeholder="NHẬP MÃ PHIÊN, VD: OUT-1011-1437-K7Q2" autocomplete="off" onkeydown="handleSessionKey(event)">
+          <input id="sessionIdInput" class="upper" data-i18n-placeholder="sessionIdPlaceholder" placeholder="NHẬP MÃ PHIÊN, VD: COLDWH-OUT-1011-1437-K7Q2" autocomplete="off" onkeydown="handleSessionKey(event)">
           <button class="btn" data-i18n="trackBtn" onclick="loadSessionDetail()">TRA CỨU</button>
           <div id="sessionDetail"></div>
           <div class="export-row" style="justify-content:space-between;align-items:center">
@@ -1968,7 +1968,7 @@
         recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Lần trước bạn thoát hoặc mất mạng khi đang quét nên các mã này chưa được ghi lên hệ thống. Bấm GHI LÊN HỆ THỐNG để ghi, hoặc BỎ nếu quét nhầm.',
         recoverSaveBtn: 'GHI LÊN HỆ THỐNG', recoverDiscardBtn: 'BỎ', recoverTypeLabel: 'Loại phiên', recoverCountLabel: 'Số mã chưa ghi', recoverNextBtn: 'TIẾP TỤC',
         navSessions: 'Phiên', sessionIdLabel: 'Mã phiên', sessionLookupLabel: 'Tra Cứu Phiên',
-        sessionIdPlaceholder: 'NHẬP MÃ PHIÊN, VD: OUT-1011-1437-K7Q2', recentSessionsTitle: 'Phiên gần đây',
+        sessionIdPlaceholder: 'NHẬP MÃ PHIÊN, VD: COLDWH-OUT-1011-1437-K7Q2', recentSessionsTitle: 'Phiên gần đây',
         noRecentSessions: 'Chưa có phiên nào được ghi.', sessionByLabel: 'Người quét', sessionTimeLabel: 'Thời gian ghi',
         sessionCodesLabel: 'Số mã', sessionAbnormalLabel: 'Bất thường',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
@@ -2186,7 +2186,7 @@
         recoverTitle: 'Unsaved scans found', recoverHint: 'Last time you left or lost the connection while scanning, so these codes were not saved to the system. Tap SAVE TO SYSTEM to save them, or DISCARD if they were a mistake.',
         recoverSaveBtn: 'SAVE TO SYSTEM', recoverDiscardBtn: 'DISCARD', recoverTypeLabel: 'Session type', recoverCountLabel: 'Unsaved codes', recoverNextBtn: 'CONTINUE',
         navSessions: 'Sessions', sessionIdLabel: 'Session ID', sessionLookupLabel: 'Session Lookup',
-        sessionIdPlaceholder: 'ENTER SESSION ID, E.G. OUT-1011-1437-K7Q2', recentSessionsTitle: 'Recent sessions',
+        sessionIdPlaceholder: 'ENTER SESSION ID, E.G. COLDWH-OUT-1011-1437-K7Q2', recentSessionsTitle: 'Recent sessions',
         noRecentSessions: 'No saved sessions yet.', sessionByLabel: 'Scanned by', sessionTimeLabel: 'Saved at',
         sessionCodesLabel: 'Codes', sessionAbnormalLabel: 'Abnormal',
         pressBackAgainToExit: 'Press Back again to exit the app',
@@ -5937,7 +5937,7 @@
           'Phần trên tổng hợp theo cửa hàng (dùng ô <b>sắp xếp</b> để xếp theo số lượng, tên hoặc mã), phần dưới là chi tiết từng lượt quét.'
         ] },
         sessions: { title: 'Tra cứu phiên', items: [
-          'Mỗi phiên quét có một <b>mã phiên</b> (VD <b>OUT-1011-1437-K7Q2</b>), hiện trên thanh phiên và trong hộp Kết thúc phiên.',
+          'Mỗi phiên quét có một <b>mã phiên</b> (VD <b>COLDWH-OUT-1011-1437-K7Q2</b>), hiện trên thanh phiên và trong hộp Kết thúc phiên.',
           'Nhập mã phiên rồi bấm <b>TRA CỨU</b> để xem phiên đó đã ghi những mã nào, <b>OK</b> hay <b>bất thường</b>, ai quét và lúc nào.',
           'Bên dưới là <b>phiên gần đây</b>: bấm vào một phiên để xem chi tiết.',
           'ADMIN xem được mọi phiên; tài khoản khác chỉ xem phiên do <b>chính mình</b> quét.',
@@ -6015,7 +6015,7 @@
           'The top part summarises by store (use the <b>sort</b> box for quantity, name or code); below are the individual scans.'
         ] },
         sessions: { title: 'Session lookup', items: [
-          'Every scan session has a <b>session ID</b> (e.g. <b>OUT-1011-1437-K7Q2</b>), shown on the session bar and in the End session box.',
+          'Every scan session has a <b>session ID</b> (e.g. <b>COLDWH-OUT-1011-1437-K7Q2</b>), shown on the session bar and in the End session box.',
           'Enter a session ID and tap <b>SEARCH</b> to see which codes the session saved, <b>OK</b> or <b>abnormal</b>, who scanned and when.',
           'Below are your <b>recent sessions</b>: tap one to open its details.',
           'ADMIN can see every session; other accounts only see sessions <b>they scanned themselves</b>.',
@@ -6173,7 +6173,7 @@
     // =====================================================================
     // NHÓM 36: MÃ PHIÊN + TRA CỨU PHIÊN
     // Mỗi phiên quét (OUT / IN / Nhận / Trả) có 1 mã phiên sinh lúc bấm "Bắt đầu
-    // phiên", VD OUT-1011-1437-K7Q2 (loại - tháng+ngày - giờ+phút - 4 ký tự ngẫu nhiên).
+    // phiên", VD COLDWH-OUT-1011-1437-K7Q2 (người quét - loại - tháng+ngày - giờ+phút - 4 ký tự ngẫu nhiên).
     // Mã được gửi kèm khi ghi, backend lưu vào cột I của TOTE_LOG. Mục "Phiên" cho
     // tra lại 1 phiên đã ghi những mã nào (ADMIN xem mọi phiên, người khác chỉ xem
     // phiên của mình).
@@ -6182,7 +6182,9 @@
       const d = new Date();
       const p = function(n) { return String(n).padStart(2, '0'); };
       const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X');
-      return code + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + rand;
+      // Tên đăng nhập đứng đầu để biết ngay phiên của ai (bỏ ký tự lạ, tối đa 12 ký tự)
+      const who = String((session && session.loginId) || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'USER';
+      return who + '-' + code + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + rand;
     }
 
     function sessionActionText(list) {
