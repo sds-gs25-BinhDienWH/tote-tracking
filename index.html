@@ -30,7 +30,7 @@
     'login', 'logout', 'getSession', 'getStores', 'addStore', 'scanBatch',
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
-    'changePassword'
+    'changePassword', 'getWarehouseStock'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -38,12 +38,49 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1
   };
   var MAX_RETRY = 2;
 
-  function callServer(fnName, args, successHandler, failureHandler, attempt) {
+  // Thanh chạy ngang đầu trang khi đang chờ máy chủ (không tính lệnh quét vì
+  // quét có bộ đếm "CHỜ" riêng). Chỉ hiện nếu chờ quá 150ms để không nháy khi
+  // máy chủ trả lời nhanh.
+  var pending = 0, barTimer = null;
+  function netBar() {
+    var el = document.getElementById('netBar');
+    if (!el && document.body) {
+      el = document.createElement('div');
+      el.id = 'netBar';
+      el.className = 'net-bar';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function netStart() {
+    pending++;
+    if (pending === 1) {
+      clearTimeout(barTimer);
+      barTimer = setTimeout(function () { var b = netBar(); if (b) b.classList.add('on'); }, 150);
+    }
+  }
+  function netDone() {
+    pending = Math.max(0, pending - 1);
+    if (pending === 0) {
+      clearTimeout(barTimer);
+      var b = document.getElementById('netBar');
+      if (b) b.classList.remove('on');
+    }
+  }
+
+  function callServer(fnName, args, successHandler, failureHandler, attempt, net) {
     attempt = attempt || 0;
+    // net.open = lệnh này còn đang được tính cho thanh tiến trình (đóng đúng 1 lần,
+    // kể cả khi tự gửi lại hoặc hàm xử lý kết quả báo lỗi).
+    if (!net) {
+      net = { open: fnName !== 'scanBatch' };
+      if (net.open) netStart();
+    }
+    function netClose() { if (net.open) { net.open = false; netDone(); } }
     fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -63,16 +100,18 @@
         if (data && data.success === false && /^Hàm không hợp lệ/.test(String(data.message || ''))) {
           data.message = 'Chức năng này chưa được cập nhật trên máy chủ, vui lòng báo quản trị viên.';
         }
+        netClose();
         if (successHandler) successHandler(data);
       })
       .catch(function (err) {
         var transient = !err.status || err.status === 404 || err.status === 429 || err.status >= 500;
         if (RETRY_SAFE[fnName] && transient && attempt < MAX_RETRY) {
           setTimeout(function () {
-            callServer(fnName, args, successHandler, failureHandler, attempt + 1);
+            callServer(fnName, args, successHandler, failureHandler, attempt + 1, net);
           }, 700 * (attempt + 1));
           return;
         }
+        netClose();
         if (window.console) console.error('google.script.run (' + fnName + ') lỗi:', err);
         // Không hiện mã lỗi kỹ thuật ("HTTP 404"...) cho người dùng
         var friendly = new Error('Máy chủ đang bận hoặc mạng chập chờn, vui lòng thử lại.');
@@ -457,6 +496,66 @@
   .btn-icon:active{ transform:scale(.92); background:var(--bg); }
   .btn-icon.spinning svg{ animation:spin .7s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Hoạt ảnh chờ tải (NHÓM 33) ---------- */
+  .net-bar{
+    position:fixed; top:0; left:0; right:0; height:3px; z-index:10001; overflow:hidden;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .net-bar.on{ opacity:1; }
+  .net-bar::before{
+    content:''; position:absolute; top:0; bottom:0; left:0; width:38%; border-radius:3px;
+    background:linear-gradient(90deg, transparent, #00D2A0 30%, #00D2A0 70%, transparent);
+    animation:netbar 1.1s ease-in-out infinite;
+  }
+  @keyframes netbar{ from{ transform:translateX(-100%); } to{ transform:translateX(270%); } }
+  .spin{
+    display:inline-block; width:18px; height:18px; flex-shrink:0; border-radius:50%;
+    border:2.5px solid var(--border); border-top-color:var(--cyan-deep); animation:spin .7s linear infinite;
+  }
+  .loading-box{
+    display:flex; align-items:center; justify-content:center; gap:10px; padding:22px 12px;
+    color:var(--muted); font-size:12.5px; font-weight:700; text-align:center;
+  }
+  @keyframes shimmer{ from{ background-position:200% 0; } to{ background-position:-200% 0; } }
+  /* Trang chủ lúc đang tải: các ô số nhấp nháy kiểu khung chờ thay vì hiện "--" */
+  #screen-home.loading .kpi .num, #screen-home.loading .viz-plot{
+    color:transparent; border-radius:8px;
+    background:linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%); background-size:200% 100%;
+    animation:shimmer 1.3s linear infinite;
+  }
+  #screen-home.loading .kpi .num{ display:inline-block; min-width:48px; }
+  #screen-home.loading .viz-plot{ min-height:120px; }
+  .btn-primary.busy{ opacity:.85; pointer-events:none; }
+
+  /* Màn Tồn: 2 tab + khối Tồn kho (NHÓM 34) */
+  .dash-tabs{ display:flex; gap:4px; padding:4px; margin-bottom:10px; background:var(--card); border:1.5px solid var(--border); border-radius:999px; }
+  .dash-tabs button{
+    flex:1; min-height:38px; border-radius:999px; font-size:12.5px; font-weight:800; color:var(--muted);
+    background:transparent; transition:background-color .15s ease, color .15s ease;
+  }
+  .dash-tabs button.active{ background:var(--navy); color:#fff; }
+  .stk-zone{ border-top:4px solid var(--c); }
+  .stk-head{ display:flex; align-items:center; gap:10px; }
+  .stk-title{ display:flex; flex-direction:column; flex:1; min-width:0; }
+  .stk-title b{ font-size:15px; color:var(--heading); }
+  .stk-title small, .stk-big small, .stk-kbig small{ font-size:10.5px; font-weight:700; color:var(--muted); }
+  .stk-big, .stk-kbig{ display:flex; flex-direction:column; align-items:flex-end; line-height:1.1; }
+  .stk-big b{ font-size:30px; color:var(--heading); }
+  .stk-kbig b{ font-size:22px; color:var(--heading); }
+  .stk-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px; }
+  .stk-cell{ background:var(--bg); border-radius:10px; padding:8px 4px; text-align:center; display:flex; flex-direction:column; gap:2px; }
+  .stk-cell b{ font-size:16px; color:var(--heading); }
+  .stk-cell span{ font-size:9.5px; font-weight:700; color:var(--muted); line-height:1.15; }
+  .stk-cell.dim b{ color:var(--muted); }
+  .stk-total{ margin-top:8px; font-size:12px; font-weight:700; color:var(--muted); text-align:right; }
+  .stk-total b{ color:var(--heading); }
+  .stk-kinds{ margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+  .stk-kind{ border-top:1px solid var(--row-border); padding-top:10px; }
+  .stk-krow{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+  .btn-primary .spin{ border-color:rgba(255,255,255,.35); border-top-color:#fff; vertical-align:-4px; margin-right:8px; }
+  @media (prefers-reduced-motion: reduce){ .net-bar::before, .spin{ animation-duration:2.4s; } }
 
   /* Thông báo nổi ngắn (VD "Nhấn Back lần nữa để thoát") */
   .toast{
@@ -1403,6 +1502,14 @@
           <!-- Thống kê tổng quan (chỉ ADMIN/WAREHOUSE) - LUÔN tính trên TOÀN
                BỘ dữ liệu, không bị ảnh hưởng bởi ô tìm kiếm bên dưới, để số
                liệu tổng và "nợ nhiều nhất" luôn đúng thực tế toàn hệ thống. -->
+          <!-- Hai chế độ: Tồn cửa hàng (tote/rổ đang nợ ở từng cửa hàng) và Tồn kho
+               (số lượng trong kho theo loại/màu). Tài khoản cửa hàng chỉ có tồn cửa hàng. -->
+          <div id="dashTabs" class="dash-tabs hidden" role="tablist">
+            <button id="dashTabStores" class="active" role="tab" aria-selected="true" data-i18n="dashTabStores" onclick="setDashTab('stores')">Tồn cửa hàng</button>
+            <button id="dashTabStock" role="tab" aria-selected="false" data-i18n="dashTabStock" onclick="setDashTab('stock')">Tồn kho</button>
+          </div>
+
+          <div id="dashStoreView">
           <div id="dashStats" class="hidden"></div>
 
           <label id="dashLabel" data-i18n="dashFindLabel">Tìm Store Đang Nợ Tote</label>
@@ -1413,6 +1520,12 @@
           <button id="dashSearchBtn" class="btn" data-i18n="searchBtn" onclick="loadDashboard()">TÌM KIẾM</button>
           <div class="export-row"><label class="sort-pick" id="dashSortPick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="dashSort" onchange="setSort('dash', this.value, renderDashboard)"><option value="qtyDesc" data-i18n="sort_qtyDesc"></option><option value="qtyAsc" data-i18n="sort_qtyAsc"></option><option value="name" data-i18n="sort_name"></option><option value="id" data-i18n="sort_id"></option></select></label><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDashboard)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDashboard()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
           <div id="dashResult"></div>
+          </div>
+
+          <div id="dashStockView" class="hidden">
+            <div class="export-row"><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadStock)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportStock()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
+            <div id="stockResult"></div>
+          </div>
         </div>
 
         <div id="screen-transit" class="screen">
@@ -1803,7 +1916,11 @@
         zoneCold: 'Kho lạnh', zoneDry: 'Kho khô', zoneAll: 'Tất cả', viewZoneLabel: 'Hiển thị',
         wrongZoneMsg: 'Mã {code} thuộc {codeZone}, phiên này là {sessionZone}',
         serverBusyRetryMsg: 'Máy chủ đang bận - các mã đang CHỜ sẽ tự gửi lại, không cần quét lại',
+        dashTabStores: 'Tồn cửa hàng', dashTabStock: 'Tồn kho', stockInWarehouse: 'Trong kho', stockToStore: 'Đang giao',
+        stockToWarehouse: 'Đang về kho', stockAtStore: 'Ở cửa hàng', stockReserved: 'Chưa dán label', stockTotal: 'Tổng số mã',
+        stockUpdated: 'Cập nhật lúc {time}', colZone: 'Kho',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
+        loggingIn: 'ĐANG ĐĂNG NHẬP...',
         helpBtnTitle: 'Hướng dẫn sử dụng', helpTitlePrefix: 'Hướng dẫn', closeBtn: 'Đóng', sortLabel: 'Sắp xếp',
         sort_qtyDesc: 'SL nhiều → ít', sort_qtyAsc: 'SL ít → nhiều', sort_oldest: 'Nằm lâu nhất',
         sort_name: 'Tên cửa hàng A → Z', sort_id: 'Mã cửa hàng',
@@ -2004,7 +2121,11 @@
         zoneCold: 'Cold storage', zoneDry: 'Ambient storage', zoneAll: 'All', viewZoneLabel: 'Show',
         wrongZoneMsg: 'Code {code} belongs to {codeZone}, this session is {sessionZone}',
         serverBusyRetryMsg: 'Server busy - WAITING codes will be resent automatically, no need to rescan',
+        dashTabStores: 'Store stock', dashTabStock: 'Warehouse stock', stockInWarehouse: 'In warehouse', stockToStore: 'To store',
+        stockToWarehouse: 'Returning', stockAtStore: 'At stores', stockReserved: 'Not labelled yet', stockTotal: 'Total codes',
+        stockUpdated: 'Updated at {time}', colZone: 'Warehouse',
         pressBackAgainToExit: 'Press Back again to exit the app',
+        loggingIn: 'LOGGING IN...',
         helpBtnTitle: 'User guide', helpTitlePrefix: 'Guide', closeBtn: 'Close', sortLabel: 'Sort',
         sort_qtyDesc: 'Qty high → low', sort_qtyAsc: 'Qty low → high', sort_oldest: 'Longest waiting',
         sort_name: 'Store name A → Z', sort_id: 'Store code',
@@ -2470,10 +2591,25 @@
       const loginId = document.getElementById('loginId').value.trim();
       const password = document.getElementById('password').value.trim();
 
+      const loginBtn = document.querySelector('#loginPage .btn-primary');
+      const loginLabel = loginBtn ? loginBtn.innerHTML : '';
+      const stopLoginBusy = function() {
+        if (!loginBtn) return;
+        loginBtn.classList.remove('busy');
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = loginLabel;
+      };
+      if (loginBtn) {
+        if (loginBtn.disabled) return;
+        loginBtn.disabled = true;
+        loginBtn.classList.add('busy');
+        loginBtn.innerHTML = '<span class="spin"></span>' + escHtml_(t('loggingIn'));
+      }
       showLoginMsg('Đang đăng nhập...');
 
       google.script.run
         .withSuccessHandler(function(res) {
+          stopLoginBusy();
           if (!res.success) {
             showLoginMsg(res.message);
             return;
@@ -2487,6 +2623,7 @@
           if (pendingQueue.length > 0) scheduleFlush();
         })
         .withFailureHandler(function(err) {
+          stopLoginBusy();
           showLoginMsg('Lỗi: ' + getErrorMessage(err));
         })
         .login({ loginId, password });
@@ -2655,7 +2792,7 @@
       if (name === 'home') loadHomeSummary();
       if (name === 'pda') focusScan();
       if (name === 'driver') renderDriverSessionUI();
-      if (name === 'dash') loadDashboard();
+      if (name === 'dash') { updateDashTabs(); refreshDashTab(); }
       if (name === 'transit') loadInTransitSummary();
       if (name === 'dailyOut') { initDailyOutDate(); loadDailyOutSummary(); }
       if (name === 'abnormal') { initAbnormalDate(); loadAbnormalSummary(); }
@@ -4326,7 +4463,7 @@
     }
 
     function loadDashboard() {
-      document.getElementById('dashResult').innerHTML = t('loadingMsg');
+      document.getElementById('dashResult').innerHTML = loadingHtml();
 
       google.script.run
         .withSuccessHandler(function(res) {
@@ -4540,14 +4677,19 @@
       });
     }
 
-    function setTransitMessage(text) {
-      document.getElementById('transitList').innerHTML = '<div class="empty-note">' + escHtml_(text) + '</div>';
+    // Khối "đang tải": vòng quay + chữ, dùng cho mọi màn đang chờ máy chủ.
+    function loadingHtml(text) {
+      return '<div class="loading-box"><span class="spin"></span><span>' + escHtml_(text || t('loadingMsg')) + '</span></div>';
+    }
+
+    function setTransitMessage(text, loading) {
+      document.getElementById('transitList').innerHTML = loading ? loadingHtml(text) : '<div class="empty-note">' + escHtml_(text) + '</div>';
       document.getElementById('transitMoreBtn').classList.add('hidden');
       document.getElementById('transitLessBtn').classList.add('hidden');
     }
 
     function loadInTransitSummary() {
-      setTransitMessage(t('loadingMsg'));
+      setTransitMessage(t('loadingMsg'), true);
 
       google.script.run
         .withSuccessHandler(function(res) {
@@ -4824,7 +4966,7 @@
       const query = document.getElementById('dailyOutSearch').value.trim();
       const box = document.getElementById('dailyOutResult');
 
-      box.innerHTML = '<div class="dashboard-card">' + t('loadingDailyOutMsg') + '</div>';
+      box.innerHTML = loadingHtml(t('loadingDailyOutMsg'));
 
       google.script.run
         .withSuccessHandler(renderDailyOutSummary)
@@ -4939,7 +5081,7 @@
       const query = document.getElementById('abnormalSearch').value.trim();
       const box = document.getElementById('abnormalResult');
 
-      box.innerHTML = '<div class="dashboard-card">' + t('loadingAbnormalMsg') + '</div>';
+      box.innerHTML = loadingHtml(t('loadingAbnormalMsg'));
 
       google.script.run
         .withSuccessHandler(renderAbnormalSummary)
@@ -5275,7 +5417,7 @@
         return;
       }
 
-      document.getElementById('trackResult').innerHTML = t('loadingMsg');
+      document.getElementById('trackResult').innerHTML = loadingHtml();
 
       google.script.run
         .withSuccessHandler(renderToteHistory)
@@ -5366,9 +5508,18 @@
       document.getElementById('homeGreetSub').innerText =
         formatTodayLabel() + ' · ' + session.role + (session.storeId ? ' · ' + session.storeId : '');
 
+      const homeScreen = document.getElementById('screen-home');
+      homeScreen.classList.add('loading');
+      const homeBox = document.getElementById('homeActivity');
+      if (!homeBox.innerHTML.trim()) homeBox.innerHTML = loadingHtml();
+
       google.script.run
-        .withSuccessHandler(renderHomeSummary)
+        .withSuccessHandler(function(res) {
+          homeScreen.classList.remove('loading');
+          renderHomeSummary(res);
+        })
         .withFailureHandler(function(err) {
+          homeScreen.classList.remove('loading');
           if (handleSessionError(err)) return;
           document.getElementById('homeActivity').innerHTML =
             '<div class="empty-note">' + t('summaryLoadErrPrefix') + getErrorMessage(err) + '</div>';
@@ -5672,7 +5823,9 @@
           'Ô <b>sắp xếp</b> (biểu tượng mũi tên lên/xuống) để xếp theo mã hoặc tên cửa hàng.'
         ] },
         dash: { title: 'Tồn kho', items: [
-          '<b>Ở kho / Ở cửa hàng</b>: tổng số Tote và Rổ - bấm vào thẻ để xem chi tiết theo màu.',
+          'Có 2 tab: <b>Tồn cửa hàng</b> (cửa hàng đang giữ bao nhiêu) và <b>Tồn kho</b> (kho đang có bao nhiêu). ADMIN xem cả kho lạnh và kho khô, tài khoản kho chỉ thấy kho của mình.',
+          '<b>Tồn kho</b>: mỗi loại/màu hiện số <b>trong kho</b>, <b>đang giao</b> tới cửa hàng, <b>đang về</b> kho, <b>ở cửa hàng</b> và <b>chưa dán label</b> (mã tạo sẵn chưa kích hoạt); cuối cùng là tổng số mã.',
+          '<b>Ở kho / Ở cửa hàng</b> (tab Tồn cửa hàng): tổng số Tote và Rổ - bấm vào thẻ để xem chi tiết theo màu.',
           'Mỗi dòng là một cửa hàng đang giữ tote, kèm số <b>Tote</b> và <b>Rổ</b>; bấm vào để xem theo màu và danh sách mã.',
           'Ô <b>sắp xếp</b>: xếp theo số lượng nhiều → ít, ít → nhiều, tên hoặc mã cửa hàng.',
           'Gõ tên/mã cửa hàng để lọc nhanh; nút <b>Excel</b> để tải báo cáo.',
@@ -5741,7 +5894,9 @@
           'Use the <b>sort</b> box (up/down arrows icon) to order by store code or name.'
         ] },
         dash: { title: 'Stock', items: [
-          '<b>At warehouse / At stores</b>: total Totes and Baskets - tap a tile for the colour breakdown.',
+          'Two tabs: <b>Store stock</b> (what each store holds) and <b>Warehouse stock</b> (what the warehouse holds). ADMIN sees both cold and ambient, warehouse accounts only their own.',
+          '<b>Warehouse stock</b>: for each type/colour you see <b>in warehouse</b>, <b>to store</b>, <b>returning</b>, <b>at stores</b> and <b>not labelled yet</b> (pre-created codes not activated), then the total.',
+          '<b>At warehouse / At stores</b> (Store stock tab): total Totes and Baskets - tap a tile for the colour breakdown.',
           'Each row is a store holding totes, with <b>Tote</b> and <b>Basket</b> counts; tap it to see colours and codes.',
           '<b>Sort</b> box: quantity high → low, low → high, store name or store code.',
           'Type a store name/code to filter; the <b>Excel</b> button downloads the report.',
@@ -5798,6 +5953,132 @@
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') closeHelp();
     });
+
+
+    // =====================================================================
+    // NHÓM 34: TỒN KHO (tab thứ 2 của màn Tồn)
+    // Tab "Tồn cửa hàng" = tote/rổ đang nợ ở từng cửa hàng (như cũ). Tab "Tồn kho"
+    // = số lượng theo loại/màu: trong kho / đang giao / đang về / ở cửa hàng /
+    // chưa dán label. ADMIN xem cả 2 kho (theo thanh Hiển thị), tài khoản kho chỉ
+    // thấy kho của mình (backend ép theo tài khoản). Cửa hàng không có tab này.
+    // =====================================================================
+    let dashTab = 'stores';          // 'stores' | 'stock'
+    let stockData = null;
+
+    function canSeeStock() {
+      return !!session && (session.role === 'ADMIN' || session.role === 'WAREHOUSE');
+    }
+
+    function setDashTab(tab) {
+      dashTab = (tab === 'stock' && canSeeStock()) ? 'stock' : 'stores';
+      updateDashTabs();
+      refreshDashTab();
+    }
+
+    function updateDashTabs() {
+      if (!canSeeStock()) dashTab = 'stores';
+      document.getElementById('dashTabs').classList.toggle('hidden', !canSeeStock());
+      document.getElementById('dashStoreView').classList.toggle('hidden', dashTab !== 'stores');
+      document.getElementById('dashStockView').classList.toggle('hidden', dashTab !== 'stock');
+      [['dashTabStores', 'stores'], ['dashTabStock', 'stock']].forEach(function(pair) {
+        const b = document.getElementById(pair[0]);
+        b.classList.toggle('active', dashTab === pair[1]);
+        b.setAttribute('aria-selected', dashTab === pair[1] ? 'true' : 'false');
+      });
+    }
+
+    function refreshDashTab() {
+      if (dashTab === 'stock' && canSeeStock()) loadStock(); else loadDashboard();
+    }
+
+    function loadStock() {
+      document.getElementById('stockResult').innerHTML = loadingHtml();
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            document.getElementById('stockResult').innerHTML =
+              '<div class="empty-note">' + escHtml_(t('genericErrPrefix') + ((res && res.message) || t('couldNotLoadData'))) + '</div>';
+            return;
+          }
+          stockData = res;
+          renderStock();
+        })
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          document.getElementById('stockResult').innerHTML =
+            '<div class="empty-note">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
+        })
+        .getWarehouseStock({ token: session.token, zone: viewZoneParam() });
+    }
+
+    const STOCK_FIELDS = ['inWarehouse', 'toStore', 'toWarehouse', 'atStore', 'reserved'];
+
+    function stockTotal(row) {
+      return STOCK_FIELDS.reduce(function(a, f) { return a + (row[f] || 0); }, 0);
+    }
+
+    function renderStock() {
+      const box = document.getElementById('stockResult');
+      if (!stockData) { box.innerHTML = ''; return; }
+
+      const kinds = stockData.kinds || {};
+      const zones = dashZonesInView();
+      let html = '';
+
+      zones.forEach(function(z) {
+        const keys = sortedKinds(Object.keys(kinds).filter(function(k) { return zoneOfKind(k) === z; }));
+        const sum = { inWarehouse: 0, toStore: 0, toWarehouse: 0, atStore: 0, reserved: 0 };
+        keys.forEach(function(k) { STOCK_FIELDS.forEach(function(f) { sum[f] += kinds[k][f] || 0; }); });
+
+        const cell = function(label, n, cls) {
+          return '<div class="stk-cell' + (cls ? ' ' + cls : '') + '"><b>' + n + '</b><span>' + escHtml_(label) + '</span></div>';
+        };
+        const grid = function(row) {
+          return '<div class="stk-grid">' +
+            cell(t('stockToStore'), row.toStore || 0) +
+            cell(t('stockToWarehouse'), row.toWarehouse || 0) +
+            cell(t('stockAtStore'), row.atStore || 0) +
+            cell(t('stockReserved'), row.reserved || 0, 'dim') +
+          '</div>';
+        };
+
+        html += '<div class="panel stk-zone ' + zoneCls(z) + '">' +
+          '<div class="stk-head"><span class="zs-icon">' + ZONE_ICON[z] + '</span>' +
+            '<span class="stk-title"><b>' + escHtml_(zoneTypeLabel(z)) + '</b><small>' + escHtml_(zoneName(z)) + '</small></span>' +
+            '<span class="stk-big"><b>' + sum.inWarehouse + '</b><small>' + escHtml_(t('stockInWarehouse')) + '</small></span></div>' +
+          grid(sum) +
+          '<div class="stk-total">' + escHtml_(t('stockTotal')) + ' <b>' + stockTotal(sum) + '</b></div>' +
+          (keys.length ? '<div class="stk-kinds">' + keys.map(function(k) {
+            const row = kinds[k];
+            return '<div class="stk-kind">' +
+              '<div class="stk-krow">' + kindChipHtml(k) + '<span class="stk-kbig"><b>' + (row.inWarehouse || 0) + '</b><small>' + escHtml_(t('stockInWarehouse')) + '</small></span></div>' +
+              grid(row) +
+              '<div class="stk-total">' + escHtml_(t('stockTotal')) + ' <b>' + stockTotal(row) + '</b></div>' +
+            '</div>';
+          }).join('') + '</div>' : '<div class="empty-note">' + escHtml_(t('noTotesFound')) + '</div>') +
+        '</div>';
+      });
+
+      if (stockData.updatedAt) {
+        html += '<div class="empty-note" style="text-align:center">' + escHtml_(tf('stockUpdated', { time: stockData.updatedAt })) + '</div>';
+      }
+      box.innerHTML = html;
+    }
+
+    function exportStock() {
+      if (!stockData) return;
+      const kinds = stockData.kinds || {};
+      const rows = [];
+      dashZonesInView().forEach(function(z) {
+        sortedKinds(Object.keys(kinds).filter(function(k) { return zoneOfKind(k) === z; })).forEach(function(k) {
+          const r = kinds[k];
+          rows.push([zoneName(z), kindLabel(k), r.inWarehouse || 0, r.toStore || 0, r.toWarehouse || 0, r.atStore || 0, r.reserved || 0, stockTotal(r)]);
+        });
+      });
+      exportTable('ton-kho_' + todayStamp(), 'TonKho',
+        [t('colZone'), t('colKind'), t('stockInWarehouse'), t('stockToStore'), t('stockToWarehouse'), t('stockAtStore'), t('stockReserved'), t('stockTotal')], rows);
+    }
 
     // =====================================================================
     // NHÓM 30: LOẠI + MÀU CỦA RỔ / TOTE
@@ -5927,7 +6208,7 @@
       try { localStorage.setItem('TOTE_VIEW_ZONE', zone); } catch (e) {}
       renderZoneBar();
       if (currentScreen === 'home') loadHomeSummary();
-      else if (currentScreen === 'dash') loadDashboard();
+      else if (currentScreen === 'dash') refreshDashTab();
       else if (currentScreen === 'transit') loadInTransitSummary();
       else if (currentScreen === 'dailyOut') loadDailyOutSummary();
       else if (currentScreen === 'abnormal') loadAbnormalSummary();
