@@ -30,7 +30,7 @@
     'login', 'logout', 'getSession', 'getStores', 'addStore', 'scanBatch',
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
-    'changePassword', 'getWarehouseStock'
+    'changePassword', 'getWarehouseStock', 'getSessionDetail', 'getRecentSessions'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -38,7 +38,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getSessionDetail: 1, getRecentSessions: 1
   };
   var MAX_RETRY = 2;
 
@@ -482,6 +482,20 @@
   .help-btn svg{ width:18px; height:18px; }
   .help-btn:active{ transform:scale(.92); }
   .help-box{ max-width:440px; max-height:82vh; overflow-y:auto; }
+  .end-hint{ font-size:11.5px; color:var(--muted); line-height:16px; margin:-4px 0 12px; }
+  .sid{ display:block; font-size:10.5px; font-weight:700; opacity:.85; letter-spacing:.3px; margin-top:2px; }
+  #sumSessionId, #driverSumSessionId{ font-size:12px; word-break:break-all; text-align:right; }
+  .sess-row{
+    width:100%; text-align:left; display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:var(--card); border:1px solid var(--border); border-left:4px solid var(--cyan-deep);
+    border-radius:var(--radius-sm); padding:10px 12px; margin-top:8px; box-shadow:var(--shadow);
+  }
+  .sess-row .sr-main{ display:flex; flex-direction:column; min-width:0; }
+  .sess-row .sr-main b{ font-size:13px; color:var(--heading); word-break:break-all; }
+  .sess-row .sr-main small{ font-size:11px; color:var(--muted); font-weight:700; }
+  .sess-row .sr-count{ font-size:15px; font-weight:800; color:var(--heading); text-align:right; flex-shrink:0; }
+  .sess-row .sr-count small{ display:block; font-size:10.5px; font-weight:700; color:var(--red); }
+  .session-confirm-box{ max-height:88vh; overflow-y:auto; }
   .help-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   .help-head h3{ margin:0 !important; }
   .help-body{ margin:0; padding-left:18px; font-size:13.5px; line-height:20px; color:var(--ink); }
@@ -543,7 +557,7 @@
   .stk-big, .stk-kbig{ display:flex; flex-direction:column; align-items:flex-end; line-height:1.1; }
   .stk-big b{ font-size:30px; color:var(--heading); }
   .stk-kbig b{ font-size:22px; color:var(--heading); }
-  .stk-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px; }
+  .stk-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:6px; margin-top:10px; }
   .stk-cell{ background:var(--bg); border-radius:10px; padding:8px 4px; text-align:center; display:flex; flex-direction:column; gap:2px; }
   .stk-cell b{ font-size:16px; color:var(--heading); }
   .stk-cell span{ font-size:9.5px; font-weight:700; color:var(--muted); line-height:1.15; }
@@ -1037,6 +1051,22 @@
         </div>
       </div>
 
+      <!-- Mã quét dở lần trước (thoát app / mất mạng / hết pin khi chưa kết thúc phiên):
+           hỏi ghi tiếp lên hệ thống hay bỏ. Xem NHÓM 10. -->
+      <div id="recoverOverlay" class="session-overlay hidden">
+        <div class="session-confirm-box">
+          <h3 data-i18n="recoverTitle">Còn mã quét dở chưa ghi</h3>
+          <div id="recoverInfo" class="session-summary"></div>
+          <div data-i18n="recoverHint" class="end-hint">Các mã này đã quét nhưng chưa được ghi lên hệ thống.</div>
+          <div id="recoverDetails"></div>
+          <div id="recoverStatus" class="result pending hidden"></div>
+          <div class="session-confirm-actions">
+            <button class="btn btn-gray" id="recoverDiscardBtn" data-i18n="recoverDiscardBtn" onclick="discardRecover()">BỎ</button>
+            <button class="btn" id="recoverSaveBtn" data-i18n="recoverSaveBtn" onclick="saveRecover()">GHI LÊN HỆ THỐNG</button>
+          </div>
+        </div>
+      </div>
+
       <div id="zoneBar" class="zone-bar hidden">
         <span class="zb-label" data-i18n="viewZoneLabel">Hiển thị</span>
         <div class="zb-btns">
@@ -1074,13 +1104,6 @@
               <div class="top"><div class="icon" style="background:var(--red-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="#E1364A" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg></div></div>
               <div class="num" id="kpiAbnormalToday">--</div>
               <div class="lbl" data-i18n="kpiAbnormalToday">Bất thường hôm nay</div>
-            </div>
-            <!-- Chỉ ADMIN/WAREHOUSE thấy - số mã đã "đặt trước" trong Kho Ảo
-                 (sheet TOTE_RESERVE) nhưng chưa dán label thật + quét lần đầu. -->
-            <div class="kpi hidden" id="kpiReservedBox">
-              <div class="top"><div class="icon" style="background:var(--blue-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/></svg></div></div>
-              <div class="num" id="kpiReservedQty">--</div>
-              <div class="lbl" data-i18n="kpiReservedQty">Kho ảo còn lại (chưa dán label)</div>
             </div>
           </div>
 
@@ -1192,6 +1215,7 @@
               <span id="activeSessionLabel">
                 <span id="activeSessionOutLabel"><span data-i18n="scanningForLabel">Đang quét cho:</span> <b id="activeSessionStore">-</b></span>
                 <span id="activeSessionInLabel" class="hidden" data-i18n="inRecoveryLabel">Đang thu hồi về kho (IN)</span>
+                <small id="activeSessionId" class="sid"></small>
               </span>
               <span class="session-bar-actions">
                 <button class="btn-link btn-link-danger" data-i18n="cancelSessionBtn" onclick="askCancelCurrentSession()">HỦY PHIÊN</button>
@@ -1241,8 +1265,10 @@
           <div id="sessionConfirmOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="endSessionTitle">Kết thúc phiên quét?</h3>
+              <div data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
               <div class="session-summary">
                 <div id="sumStoreRow"><span data-i18n="storeLabel">Store</span><b id="sumStore">-</b></div>
+                <div><span data-i18n="sessionIdLabel">Mã phiên</span><b id="sumSessionId">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="sumTotal">0</b></div>
                 <div><span data-i18n="counterOk">OK</span><b id="sumOk">0</b></div>
                 <div><span data-i18n="counterFail">Lỗi</span><b id="sumFail">0</b></div>
@@ -1252,21 +1278,17 @@
                    mặc định, chỉ để kiểm tra lại nếu người dùng muốn, không
                    bắt buộc phải xem mới kết thúc được phiên. -->
               <div id="sessionScanLogDetails"></div>
+              <div id="sessionCommitStatus" class="result pending hidden"></div>
 
               <div class="session-confirm-actions">
-                <button class="btn btn-gray" data-i18n="continueScanBtn" onclick="cancelEndScanSession()">TIẾP TỤC QUÉT</button>
-                <button class="btn" data-i18n="confirmEndBtn" onclick="confirmEndScanSession()">XÁC NHẬN KẾT THÚC</button>
+                <button class="btn btn-gray" id="sessionContinueBtn" data-i18n="continueScanBtn" onclick="cancelEndScanSession()">TIẾP TỤC QUÉT</button>
+                <button class="btn" id="sessionConfirmBtn" data-i18n="confirmEndSaveBtn" onclick="confirmEndScanSession()">XÁC NHẬN VÀ GHI</button>
               </div>
             </div>
           </div>
 
-          <!-- =============================================================
-               POPUP "HỦY PHIÊN" CHO OUT: vì mỗi mã đã ghi ngay lên server lúc
-               quét (không đợi đóng phiên), hủy phiên KHÔNG xoá được lịch sử -
-               thay vào đó hệ thống tự động gọi nghiệp vụ CANCEL_OUT hoàn tác
-               toàn bộ tote đã OUT trong phiên này để trả về kho, giữ nguyên
-               audit trail.
-               ============================================================= -->
+          <!-- POPUP "HỦY PHIÊN" CHO OUT: mã quét chỉ được giữ tạm trên máy tới lúc kết thúc
+               phiên, nên hủy phiên chỉ BỎ các mã đó - không ghi, không hoàn tác gì. -->
           <div id="cancelSessionOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="cancelOutSessionTitle">Hủy phiên quét?</h3>
@@ -1285,9 +1307,7 @@
             </div>
           </div>
 
-          <!-- Popup "Hủy phiên" cho IN: thu hồi về kho vốn là trạng thái an
-               toàn/trung tính nên KHÔNG tự động xuất lại - chỉ xoá bộ đếm và
-               lịch sử hiển thị của phiên này trên máy. -->
+          <!-- Popup "Hủy phiên" cho IN: chỉ bỏ các mã đã quét (chưa ghi) của phiên này. -->
           <div id="cancelInSessionOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="cancelInSessionTitle">Hủy phiên nhập?</h3>
@@ -1360,7 +1380,7 @@
 
           <div id="driverScanArea" class="hidden">
             <div id="driverActiveSessionBar" class="active-session-bar">
-              <span><span data-i18n="workingAtLabel">Đang thao tác tại:</span> <b id="driverActiveStore">-</b></span>
+              <span><span data-i18n="workingAtLabel">Đang thao tác tại:</span> <b id="driverActiveStore">-</b><small id="driverActiveSessionId" class="sid"></small></span>
               <span class="session-bar-actions">
                 <button class="btn-link btn-link-danger" data-i18n="cancelSessionBtn" onclick="askCancelDriverSession()">HỦY PHIÊN</button>
                 <button class="btn-link" data-i18n="endSessionBtn" onclick="askEndDriverSession()">KẾT THÚC PHIÊN</button>
@@ -1424,18 +1444,21 @@
           <div id="driverSessionConfirmOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="driverEndSessionTitle">Kết thúc phiên?</h3>
+              <div data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
               <div class="session-summary">
                 <div><span data-i18n="storeLabel">Store</span><b id="driverSumStore">-</b></div>
+                <div><span data-i18n="sessionIdLabel">Mã phiên</span><b id="driverSumSessionId">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="driverSumTotal">0</b></div>
                 <div><span data-i18n="counterOk">OK</span><b id="driverSumOk">0</b></div>
                 <div><span data-i18n="counterFail">Lỗi</span><b id="driverSumFail">0</b></div>
               </div>
 
               <div id="driverScanLogDetails"></div>
+              <div id="driverCommitStatus" class="result pending hidden"></div>
 
               <div class="session-confirm-actions">
-                <button class="btn btn-gray" data-i18n="continueScanBtn" onclick="cancelEndDriverSession()">TIẾP TỤC QUÉT</button>
-                <button class="btn" data-i18n="confirmEndBtn" onclick="confirmEndDriverSession()">XÁC NHẬN KẾT THÚC</button>
+                <button class="btn btn-gray" id="driverSessionContinueBtn" data-i18n="continueScanBtn" onclick="cancelEndDriverSession()">TIẾP TỤC QUÉT</button>
+                <button class="btn" id="driverSessionConfirmBtn" data-i18n="confirmEndSaveBtn" onclick="confirmEndDriverSession()">XÁC NHẬN VÀ GHI</button>
               </div>
             </div>
           </div>
@@ -1648,6 +1671,18 @@
         </div>
         -->
 
+        <div id="screen-sessions" class="screen">
+          <label data-i18n="sessionLookupLabel">Tra Cứu Phiên</label>
+          <input id="sessionIdInput" class="upper" data-i18n-placeholder="sessionIdPlaceholder" placeholder="NHẬP MÃ PHIÊN, VD: OUT-1011-1437-K7Q2" autocomplete="off" onkeydown="handleSessionKey(event)">
+          <button class="btn" data-i18n="trackBtn" onclick="loadSessionDetail()">TRA CỨU</button>
+          <div id="sessionDetail"></div>
+          <div class="export-row" style="justify-content:space-between;align-items:center">
+            <h3 data-i18n="recentSessionsTitle" style="margin:0">Phiên gần đây</h3>
+            <button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadRecentSessions)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+          </div>
+          <div id="recentSessions"></div>
+        </div>
+
         <div id="screen-track" class="screen">
           <label data-i18n="trackLabel">Tra Lịch Sử Tote</label>
           <input id="trackToteInput" data-i18n-placeholder="trackPlaceholder" placeholder="SCAN / NHẬP TOTE ID" onkeydown="handleTrackKey(event)">
@@ -1758,6 +1793,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="6"/><path d="M15 15l6 6"/></svg>
         <span data-i18n="navTrack">Track</span>
       </div>
+      <div id="tabSessions" class="rail-item" onclick="showScreen('sessions')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+        <span data-i18n="navSessions">Phiên</span>
+      </div>
       <div id="tabSettings" class="rail-item" onclick="showScreen('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         <span data-i18n="navSettings">Cài Đặt</span>
@@ -1800,8 +1839,8 @@
     // số liệu của mode sắp tới, để mỗi phiên giữ đúng số liệu của riêng nó dù
     // người dùng nhảy qua lại giữa 2 màn nhiều lần (xem NHÓM 11b).
     const sessionSnapshot = {
-      OUT: { total: 0, ok: 0, fail: 0, recentHtml: '', scanLog: [] },
-      IN: { total: 0, ok: 0, fail: 0, recentHtml: '', scanLog: [] }
+      OUT: { total: 0, ok: 0, fail: 0, recentHtml: '', scanLog: [], queue: [], codes: {} },
+      IN: { total: 0, ok: 0, fail: 0, recentHtml: '', scanLog: [], queue: [], codes: {} }
     };
     let cancellingSession = false; // đang gửi yêu cầu hoàn tác IN, khoá nút Xác nhận hủy tạm thời
 
@@ -1881,7 +1920,7 @@
 
         homeSub: 'Tổng quan hoạt động hôm nay',
         kpiStoreQty: 'Tote tại Store', kpiOutToday: 'OUT hôm nay', kpiInToday: 'IN hôm nay',
-        kpiAbnormalToday: 'Bất thường hôm nay', kpiReservedQty: 'Kho ảo còn lại (chưa dán label)',
+        kpiAbnormalToday: 'Bất thường hôm nay',
         quickOutTitle: 'XUẤT KHO — OUT', quickOutSub: 'Chọn store & bắt đầu scan',
         quickInTitle: 'NHẬP KHO — IN', quickInSub: 'Thu hồi tote về kho',
         installHintPrompt: 'Bấm CÀI để thêm app vào màn hình chính.',
@@ -1917,8 +1956,21 @@
         wrongZoneMsg: 'Mã {code} thuộc {codeZone}, phiên này là {sessionZone}',
         serverBusyRetryMsg: 'Máy chủ đang bận - các mã đang CHỜ sẽ tự gửi lại, không cần quét lại',
         dashTabStores: 'Tồn cửa hàng', dashTabStock: 'Tồn kho', stockInWarehouse: 'Trong kho', stockToStore: 'Đang giao',
-        stockToWarehouse: 'Đang về kho', stockAtStore: 'Ở cửa hàng', stockReserved: 'Chưa dán label', stockTotal: 'Tổng số mã',
+        stockToWarehouse: 'Đang về kho',
         stockUpdated: 'Cập nhật lúc {time}', colZone: 'Kho',
+        endSessionHint: 'Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới. Hủy phiên thì không ghi gì.', confirmEndSaveBtn: 'XÁC NHẬN VÀ GHI',
+        longSessionWarn: 'Đã quét {n} mã mà CHƯA ghi lên hệ thống - nên bấm KẾT THÚC PHIÊN để ghi bớt, tránh mất dữ liệu nếu máy hỏng.',
+        retrySaveBtn: 'GHI LẠI ({n})', doneCloseBtn: 'ĐÓNG', viewPendingCodesMsg: 'Xem {n} mã sẽ ghi',
+        commitProgress: 'Đang ghi lên hệ thống: {done}/{total} mã...', commitBusyHint: 'Máy chủ đang bận, tự thử lại.', commitRetryHint: 'Mạng chập chờn, đang thử lại.',
+        commitStopped: 'CHƯA GHI HẾT: còn {n} mã chưa ghi lên hệ thống. {reason} Bấm GHI LẠI.', commitDoneMsg: 'ĐÃ GHI XONG: {ok} OK, {fail} lỗi/bất thường',
+        commitExpiredMsg: 'Phiên đăng nhập hết hạn. Đăng nhập lại - các mã chưa ghi vẫn được giữ trên máy.',
+        alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi phiên lên hệ thống, vui lòng chờ...',
+        recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Lần trước bạn thoát hoặc mất mạng khi đang quét nên các mã này chưa được ghi lên hệ thống. Bấm GHI LÊN HỆ THỐNG để ghi, hoặc BỎ nếu quét nhầm.',
+        recoverSaveBtn: 'GHI LÊN HỆ THỐNG', recoverDiscardBtn: 'BỎ', recoverTypeLabel: 'Loại phiên', recoverCountLabel: 'Số mã chưa ghi', recoverNextBtn: 'TIẾP TỤC',
+        navSessions: 'Phiên', sessionIdLabel: 'Mã phiên', sessionLookupLabel: 'Tra Cứu Phiên',
+        sessionIdPlaceholder: 'NHẬP MÃ PHIÊN, VD: OUT-1011-1437-K7Q2', recentSessionsTitle: 'Phiên gần đây',
+        noRecentSessions: 'Chưa có phiên nào được ghi.', sessionByLabel: 'Người quét', sessionTimeLabel: 'Thời gian ghi',
+        sessionCodesLabel: 'Số mã', sessionAbnormalLabel: 'Bất thường',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
         loggingIn: 'ĐANG ĐĂNG NHẬP...',
         helpBtnTitle: 'Hướng dẫn sử dụng', helpTitlePrefix: 'Hướng dẫn', closeBtn: 'Đóng', sortLabel: 'Sắp xếp',
@@ -1944,17 +1996,17 @@
         scanToteLabel: 'Scan Tote', scanTotePlaceholder: 'SCAN TOTE...',
         confirmBtn: 'XÁC NHẬN', manualInputBtn: 'NHẬP TAY',
         readySummary: 'SẴN SÀNG SCAN',
-        counterTotal: 'TỔNG', counterOk: 'OK', counterFail: 'LỖI', counterQueue: 'CHỜ',
+        counterTotal: 'TỔNG', counterOk: 'OK', counterFail: 'LỖI', counterQueue: 'CHƯA GHI',
 
         endSessionTitle: 'Kết thúc phiên quét?', storeLabel: 'Store', totalScannedLabel: 'Tổng đã quét',
         continueScanBtn: 'TIẾP TỤC QUÉT', confirmEndBtn: 'XÁC NHẬN KẾT THÚC',
 
-        cancelOutSessionTitle: 'Hủy phiên quét?', cancelOutScannedLabel: 'Tote đã xuất trong phiên',
-        cancelOutHint: 'Hệ thống sẽ tự động quét IN hoàn tác các tote trên, trả về kho. Lịch sử vẫn được lưu đầy đủ (không xoá dữ liệu đã quét).',
+        cancelOutSessionTitle: 'Hủy phiên quét?', cancelOutScannedLabel: 'Mã đã quét trong phiên (chưa ghi)',
+        cancelOutHint: 'Các mã đã quét trong phiên này CHƯA được ghi lên hệ thống nên sẽ bị bỏ hoàn toàn, không ảnh hưởng dữ liệu. Sau đó bạn bắt đầu phiên mới để quét lại.',
         confirmCancelBtn: 'XÁC NHẬN HỦY',
 
-        cancelInSessionTitle: 'Hủy phiên nhập?', cancelInScannedLabel: 'Tote đã nhập trong phiên',
-        cancelInHint: 'Các tote đã quét IN vẫn ở trong kho (không tự động xuất lại). Hủy phiên chỉ xoá bộ đếm/lịch sử hiển thị của phiên này trên máy quét.',
+        cancelInSessionTitle: 'Hủy phiên nhập?', cancelInScannedLabel: 'Mã đã quét trong phiên (chưa ghi)',
+        cancelInHint: 'Các mã đã quét trong phiên này CHƯA được ghi lên hệ thống nên sẽ bị bỏ hoàn toàn, không ảnh hưởng dữ liệu. Sau đó bạn bắt đầu phiên mới để quét lại.',
 
         driverModeReceive: 'NHẬN RỔ TẠI CH', driverModeReturn: 'XUẤT RỔ TẠI CH (LẤY VỎ)',
         driverReceiveBtn: 'NHẬN RỔ', driverReturnBtn: 'XUẤT RỔ (LẤY VỎ)',
@@ -1964,8 +2016,8 @@
         cameraOffBtn: 'TẮT CAMERA', cameraOnBtn: 'BẬT CAMERA',
 
         driverEndSessionTitle: 'Kết thúc phiên?',
-        driverCancelSessionTitle: 'Hủy phiên?', driverCancelScannedLabel: 'Tote đã quét trong phiên',
-        driverCancelHint: 'Hệ thống sẽ tự động hoàn tác các tote đã quét thành công trong phiên này (trả về đúng trạng thái trước khi quét, tồn kho cửa hàng cũng được cập nhật lại). Lịch sử vẫn được lưu đầy đủ (không xoá dữ liệu đã quét).',
+        driverCancelSessionTitle: 'Hủy phiên?', driverCancelScannedLabel: 'Mã đã quét trong phiên (chưa ghi)',
+        driverCancelHint: 'Các mã đã quét trong phiên này CHƯA được ghi lên hệ thống nên sẽ bị bỏ hoàn toàn, không ảnh hưởng dữ liệu. Sau đó bạn bắt đầu phiên mới để quét lại.',
 
         storeIdLabel: 'Store ID', storeNameLabel: 'Store Name', addStoreBtn: 'THÊM STORE',
 
@@ -2063,7 +2115,7 @@
 
         notToteIdMsg: 'Không phải mã rổ/tote - không ghi dữ liệu',
         doubleScanSkipPrefix: 'DOUBLE SCAN BỎ QUA: ', doubleScanSkipNote: 'Double scan - không ghi',
-        receivedPendingNote: 'Đã nhận scan - chờ ghi', driverEndedMsg: 'ĐÃ KẾT THÚC PHIÊN',
+        receivedPendingNote: 'Đã quét - chưa ghi (ghi khi kết thúc phiên)', driverEndedMsg: 'ĐÃ KẾT THÚC PHIÊN',
         missingLibMsg: 'Thiếu thư viện quét mã - kiểm tra kết nối mạng rồi tải lại trang',
         scannerInitErrPrefix: 'Không khởi tạo được bộ quét mã: ',
         loadingMsg: 'ĐANG TẢI...', genericErrPrefix: 'LỖI: ',
@@ -2086,7 +2138,7 @@
 
         homeSub: "Today's activity overview",
         kpiStoreQty: 'Totes at stores', kpiOutToday: 'OUT today', kpiInToday: 'IN today',
-        kpiAbnormalToday: 'Issues today', kpiReservedQty: 'Virtual stock remaining (unlabeled)',
+        kpiAbnormalToday: 'Issues today',
         quickOutTitle: 'WAREHOUSE OUT', quickOutSub: 'Pick a store & start scanning',
         quickInTitle: 'WAREHOUSE IN', quickInSub: 'Recover totes back to warehouse',
         installHintPrompt: 'Tap INSTALL to add the app to your home screen.',
@@ -2122,8 +2174,21 @@
         wrongZoneMsg: 'Code {code} belongs to {codeZone}, this session is {sessionZone}',
         serverBusyRetryMsg: 'Server busy - WAITING codes will be resent automatically, no need to rescan',
         dashTabStores: 'Store stock', dashTabStock: 'Warehouse stock', stockInWarehouse: 'In warehouse', stockToStore: 'To store',
-        stockToWarehouse: 'Returning', stockAtStore: 'At stores', stockReserved: 'Not labelled yet', stockTotal: 'Total codes',
+        stockToWarehouse: 'Returning',
         stockUpdated: 'Updated at {time}', colZone: 'Warehouse',
+        endSessionHint: 'Codes are only SAVED TO THE SYSTEM when you confirm below. Cancelling the session saves nothing.', confirmEndSaveBtn: 'CONFIRM AND SAVE',
+        longSessionWarn: '{n} codes scanned but NOT saved to the system yet - tap END SESSION to save some, to avoid losing data if the device fails.',
+        retrySaveBtn: 'SAVE AGAIN ({n})', doneCloseBtn: 'CLOSE', viewPendingCodesMsg: 'View {n} codes to be saved',
+        commitProgress: 'Saving to the system: {done}/{total} codes...', commitBusyHint: 'Server busy, retrying.', commitRetryHint: 'Network unstable, retrying.',
+        commitStopped: 'NOT FULLY SAVED: {n} codes are still not saved to the system. {reason} Tap SAVE AGAIN.', commitDoneMsg: 'SAVED: {ok} OK, {fail} errors/abnormal',
+        commitExpiredMsg: 'Login expired. Log in again - unsaved codes are kept on this device.',
+        alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving the session to the system, please wait...',
+        recoverTitle: 'Unsaved scans found', recoverHint: 'Last time you left or lost the connection while scanning, so these codes were not saved to the system. Tap SAVE TO SYSTEM to save them, or DISCARD if they were a mistake.',
+        recoverSaveBtn: 'SAVE TO SYSTEM', recoverDiscardBtn: 'DISCARD', recoverTypeLabel: 'Session type', recoverCountLabel: 'Unsaved codes', recoverNextBtn: 'CONTINUE',
+        navSessions: 'Sessions', sessionIdLabel: 'Session ID', sessionLookupLabel: 'Session Lookup',
+        sessionIdPlaceholder: 'ENTER SESSION ID, E.G. OUT-1011-1437-K7Q2', recentSessionsTitle: 'Recent sessions',
+        noRecentSessions: 'No saved sessions yet.', sessionByLabel: 'Scanned by', sessionTimeLabel: 'Saved at',
+        sessionCodesLabel: 'Codes', sessionAbnormalLabel: 'Abnormal',
         pressBackAgainToExit: 'Press Back again to exit the app',
         loggingIn: 'LOGGING IN...',
         helpBtnTitle: 'User guide', helpTitlePrefix: 'Guide', closeBtn: 'Close', sortLabel: 'Sort',
@@ -2149,17 +2214,17 @@
         scanToteLabel: 'Scan Tote', scanTotePlaceholder: 'SCAN TOTE...',
         confirmBtn: 'CONFIRM', manualInputBtn: 'MANUAL ENTRY',
         readySummary: 'READY TO SCAN',
-        counterTotal: 'TOTAL', counterOk: 'OK', counterFail: 'FAIL', counterQueue: 'QUEUE',
+        counterTotal: 'TOTAL', counterOk: 'OK', counterFail: 'FAIL', counterQueue: 'UNSAVED',
 
         endSessionTitle: 'End scan session?', storeLabel: 'Store', totalScannedLabel: 'Total scanned',
         continueScanBtn: 'KEEP SCANNING', confirmEndBtn: 'CONFIRM END',
 
-        cancelOutSessionTitle: 'Cancel scan session?', cancelOutScannedLabel: 'Totes shipped this session',
-        cancelOutHint: 'The system will auto-scan IN to undo these totes, returning them to the warehouse. Full history is kept (no data is deleted).',
+        cancelOutSessionTitle: 'Cancel scan session?', cancelOutScannedLabel: 'Codes scanned this session (not saved)',
+        cancelOutHint: 'The codes scanned in this session have NOT been saved to the system, so they will simply be discarded - no data is affected. Then start a new session to scan again.',
         confirmCancelBtn: 'CONFIRM CANCEL',
 
-        cancelInSessionTitle: 'Cancel IN session?', cancelInScannedLabel: 'Totes received this session',
-        cancelInHint: 'Totes already scanned IN remain in the warehouse (not auto-reversed). Cancelling only clears this session\'s counter/log on this device.',
+        cancelInSessionTitle: 'Cancel IN session?', cancelInScannedLabel: 'Codes scanned this session (not saved)',
+        cancelInHint: 'The codes scanned in this session have NOT been saved to the system, so they will simply be discarded - no data is affected. Then start a new session to scan again.',
 
         driverModeReceive: 'RECEIVE AT STORE', driverModeReturn: 'RETURN AT STORE (EMPTY TOTES)',
         driverReceiveBtn: 'RECEIVE', driverReturnBtn: 'RETURN (EMPTY TOTES)',
@@ -2169,8 +2234,8 @@
         cameraOffBtn: 'TURN OFF CAMERA', cameraOnBtn: 'TURN ON CAMERA',
 
         driverEndSessionTitle: 'End session?',
-        driverCancelSessionTitle: 'Cancel session?', driverCancelScannedLabel: 'Totes scanned this session',
-        driverCancelHint: 'The system will automatically undo the totes successfully scanned this session (restoring their prior state, with store stock adjusted accordingly). Full history is kept (no data is deleted).',
+        driverCancelSessionTitle: 'Cancel session?', driverCancelScannedLabel: 'Codes scanned this session (not saved)',
+        driverCancelHint: 'The codes scanned in this session have NOT been saved to the system, so they will simply be discarded - no data is affected. Then start a new session to scan again.',
 
         storeIdLabel: 'Store ID', storeNameLabel: 'Store Name', addStoreBtn: 'ADD STORE',
 
@@ -2268,7 +2333,7 @@
 
         notToteIdMsg: 'Not a basket/tote code - not recorded',
         doubleScanSkipPrefix: 'DOUBLE SCAN SKIPPED: ', doubleScanSkipNote: 'Double scan - not recorded',
-        receivedPendingNote: 'Scan received - pending', driverEndedMsg: 'SESSION ENDED',
+        receivedPendingNote: 'Scanned - not saved yet (saved when the session ends)', driverEndedMsg: 'SESSION ENDED',
         missingLibMsg: 'Missing barcode scanner library - check your connection and reload the page',
         scannerInitErrPrefix: 'Could not initialize the scanner: ',
         loadingMsg: 'LOADING...', genericErrPrefix: 'ERROR: ',
@@ -2619,8 +2684,6 @@
           localStorage.setItem('TOTE_SESSION', JSON.stringify(session));
           enterApp();
 
-          // Nếu phiên hết hạn đúng lúc đang ghi batch, batch đã được giữ lại.
-          if (pendingQueue.length > 0) scheduleFlush();
         })
         .withFailureHandler(function(err) {
           stopLoginBusy();
@@ -2638,6 +2701,10 @@
     function doLogout() {
       const token = session ? session.token : '';
       google.script.run.logout(token);
+      pendingQueue = []; driverPendingQueue = [];
+      sessionSnapshot.OUT.queue = []; sessionSnapshot.IN.queue = [];
+      sessionCodes = {}; driverSessionCodes = {};
+      recoverChecked = false;
       clearLocalSession();
       showLogin();
     }
@@ -2675,6 +2742,7 @@
       history.replaceState({ app: 'base' }, '');
 
       showScreen(defaultScreen());
+      maybeRecover();
       focusScanLoop();
     }
 
@@ -2702,7 +2770,6 @@
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // document.getElementById('tabInv').classList.toggle('hidden', role !== 'STORE');
       document.getElementById('homeQuickRow').classList.toggle('hidden', !canScan);
-      document.getElementById('kpiReservedBox').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE'));
 
       if (role === 'STORE') {
         document.getElementById('dashSearch').classList.add('hidden');
@@ -2783,6 +2850,7 @@
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') document.getElementById('tabInv').classList.add('active');
       if (name === 'track') document.getElementById('tabTrack').classList.add('active');
+      if (name === 'sessions') document.getElementById('tabSessions').classList.add('active');
       if (name === 'settings') document.getElementById('tabSettings').classList.add('active');
 
       // Rời khỏi màn Tài xế thì phải tắt camera ngay - không để camera bật
@@ -2799,6 +2867,7 @@
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') { focusInventoryScan(); loadInventoryHistory(); }
       if (name === 'track') setTimeout(() => document.getElementById('trackToteInput').focus(), 50);
+      if (name === 'sessions') loadRecentSessions();
       if (name === 'settings') renderSettingsUI();
     }
 
@@ -2814,16 +2883,12 @@
         return;
       }
 
-      // Gửi nốt mã còn trong hàng đợi của mode CŨ trước khi đổi, để không
-      // bị gửi nhầm lên server với action của mode MỚI (flushNow() chốt
-      // action/store ngay lúc gọi, nên phải gọi TRƯỚC khi đổi biến mode).
-      if (pendingQueue.length > 0) flushNow();
-
       // Cất số liệu (tổng/OK/lỗi/danh sách gần đây) của mode đang rời đi,
       // rồi lấy lại số liệu riêng của mode sắp chuyển tới - đảm bảo 2 phiên
       // OUT/IN không bao giờ lẫn số liệu của nhau dù đổi qua lại nhiều lần.
       sessionSnapshot[mode] = {
         total, ok, fail, scanLog,
+        queue: pendingQueue, codes: sessionCodes,   // mã đã quét nhưng CHƯA ghi của chế độ này
         recentHtml: document.getElementById('recentList').innerHTML
       };
 
@@ -2834,6 +2899,10 @@
       ok = restored.ok;
       fail = restored.fail;
       scanLog = restored.scanLog;
+      pendingQueue = restored.queue || [];
+      sessionCodes = restored.codes || {};
+      restored.queue = [];      // bản lưu đã trả về biến chính, tránh đếm trùng
+      restored.codes = {};
       document.getElementById('recentList').innerHTML = restored.recentHtml;
       updateCounter();
 
@@ -2992,8 +3061,8 @@
       // Đang hoàn tác (Hủy phiên OUT) thì chặn quét mới - máy quét vật lý
       // vẫn có thể bắn phím vào trang dù popup đang che màn hình, nên phải
       // chặn ở đây chứ không chỉ dựa vào overlay che UI.
-      if (cancellingSession) {
-        showResult(t('cancellingWaitMsg'), false);
+      if (cancellingSession || committing) {
+        showResult(committing ? t('committingWaitMsg') : t('cancellingWaitMsg'), false);
         beep(false);
         return;
       }
@@ -3046,7 +3115,16 @@
         return;
       }
 
+      // Mã đã quét trong phiên này rồi (chưa ghi) -> không nhận lần 2
+      if (sessionCodes[toteId]) {
+        showResult(t('alreadyInSessionMsg') + toteId, false);
+        addRecent(toteId, t('alreadyInSessionMsg'), false);
+        beep(false);
+        return;
+      }
+
       recentScanMap[scanKey] = now;
+      sessionCodes[toteId] = true;
       total++;
 
       pendingQueue.push({
@@ -3059,116 +3137,404 @@
       beep(true);
       updateCounter();
 
-      if (pendingQueue.length >= batchSize) flushNow();
-      else scheduleFlush();
+      // CHỈ giữ tạm (lưu trên máy). Ghi lên hệ thống khi bấm Kết thúc phiên (NHÓM 10).
+      persistPdaQueue();
+
+      if (pendingQueue.length % LONG_SESSION_WARN === 0) {
+        showPendingMsg('lastResult', tf('longSessionWarn', { n: pendingQueue.length }));
+      }
     }
 
     // =====================================================================
-    // NHÓM 10: GỬI DỮ LIỆU LÊN SERVER THEO LÔ (BATCH)
-    // Thay vì gửi lên server ngay từng mã một (chậm, tốn mạng), app gom mã
-    // quét được vào 1 hàng đợi (pendingQueue) rồi gửi 1 lần khi đủ 10 mã
-    // hoặc sau 1.5 giây không quét thêm gì mới - gọi hàm scanBatch() bên
-    // Code.gs.
+    // NHÓM 10: GHI LÊN SERVER KHI KẾT THÚC PHIÊN (đổi cách làm: KHÔNG ghi từng mã)
+    // Quét tới đâu chỉ GIỮ TẠM trên máy (hàng đợi pendingQueue / driverPendingQueue,
+    // đồng thời lưu vào localStorage để lỡ thoát app/mất điện vẫn còn). Chỉ khi bấm
+    // "KẾT THÚC PHIÊN" rồi "XÁC NHẬN & GHI" mới gửi toàn bộ lên máy chủ (scanBatch,
+    // chia lô nhỏ). "HỦY PHIÊN" = bỏ hàng đợi, KHÔNG ghi gì -> quét nhầm thì hủy và
+    // quét lại, không cần hoàn tác trên máy chủ nữa.
     // =====================================================================
-    function scheduleFlush() {
-      if (flushTimer) clearTimeout(flushTimer);
-      flushTimer = setTimeout(flushNow, flushDelayMs);
+    const COMMIT_CHUNK = 30;            // mỗi lần gửi tối đa 30 mã (giữ khóa ghi ngắn)
+    const LONG_SESSION_WARN = 150;      // cứ mỗi 150 mã chưa ghi thì nhắc nên kết thúc phiên để ghi bớt
+    let committing = false;             // đang ghi phiên lên máy chủ (khóa quét)
+    const endStage = { pda: 'confirm', driver: 'confirm' };   // confirm | sending | stopped | done
+    const commitPrior = { pda: [], driver: [] };              // kết quả các lô đã ghi khi phải ghi lại giữa chừng
+    const sessionIds = { OUT: '', IN: '' };   // mã phiên hiện tại của từng chế độ PDA (xem NHÓM 36)
+    let driverSessionId = '';           // mã phiên Giao Nhận hiện tại
+    let sessionCodes = {};              // mã đã quét trong phiên PDA hiện tại (chặn quét trùng trong phiên)
+    let driverSessionCodes = {};        // như trên cho phiên Giao Nhận
+
+    // ---------- Lưu tạm trên máy ----------
+    function queueStorageKey() {
+      return 'TOTE_QUEUE_' + (session ? String(session.loginId || '').toUpperCase() : '');
     }
 
-    function flushNow() {
-      if (sending || pendingQueue.length === 0) return;
+    function readSavedQueues() {
+      try { return JSON.parse(localStorage.getItem(queueStorageKey()) || '{}') || {}; } catch (e) { return {}; }
+    }
 
-      sending = true;
+    // slot: 'OUT' | 'IN' | 'DRIVER'. ctx = null hoặc không còn mã -> xóa
+    function persistQueue(slot, ctx) {
+      try {
+        const all = readSavedQueues();
+        if (ctx && ctx.items && ctx.items.length) all[slot] = ctx; else delete all[slot];
+        if (Object.keys(all).length) localStorage.setItem(queueStorageKey(), JSON.stringify(all));
+        else localStorage.removeItem(queueStorageKey());
+      } catch (e) {}
+    }
 
-      // Chốt lại mode/store NGAY LÚC GỬI, không đọc biến global mode/selectedStoreId
-      // trong success handler nữa - tránh ghi nhầm phiên nếu người dùng đổi
-      // mode trong lúc đợi phản hồi (batch trước đó phải luôn được tính đúng
-      // cho phiên đã tạo ra nó).
-      const flushMode = mode;
-      const batch = pendingQueue.splice(0, batchSize);
-      updateCounter();
+    function persistPdaQueue() {
+      persistQueue(mode, { action: mode, store: mode === 'OUT' ? selectedStoreId : '', label: sessionStoreLabel, sessionId: sessionIds[mode], items: pendingQueue, at: Date.now() });
+    }
 
-      google.script.run
-        .withSuccessHandler(function(res) {
-          sending = false;
+    function persistDriverQueue() {
+      persistQueue('DRIVER', { action: driverMode, store: driverStoreId, label: driverStoreLabel, sessionId: driverSessionId, items: driverPendingQueue, at: Date.now() });
+    }
 
-          // Server chưa giành được lượt ghi -> lô này CHẮC CHẮN chưa ghi gì:
-          // đưa lại vào hàng đợi và tự gửi lại, không tính là lỗi.
-          if (res && res.busy) {
-            pendingQueue = batch.concat(pendingQueue);
-            updateCounter();
-            showPendingMsg('lastResult', t('serverBusyRetryMsg'));
-            setTimeout(flushNow, 1500);
-            return;
-          }
+    function hasUnsavedScans() {
+      return pendingQueue.length > 0 || driverPendingQueue.length > 0 ||
+        sessionSnapshot.OUT.queue.length > 0 || sessionSnapshot.IN.queue.length > 0;
+    }
 
-          if (!res.success) {
-            fail += batch.length;
-            showResult(res.message, false);
-            batch.forEach(x => {
-              addRecent(x.toteId, res.message, false);
-              scanLog.push({ toteId: x.toteId, message: res.message, success: false });
+    // ---------- Bộ máy ghi: gửi từng lô, tự thử lại khi bận/chập chờn ----------
+    // st = { slot, action, store, label, zone, remaining: [...], results: [...], total }
+    // hooks = { onProgress(st, why), onDone(st), onStop(st, reason, message) }
+    function runCommit(st, hooks) {
+      committing = true;
+      let attempt = 0;
+
+      function step() {
+        if (!st.remaining.length) {
+          committing = false;
+          persistQueue(st.slot, null);
+          hooks.onDone(st);
+          return;
+        }
+
+        const batch = st.remaining.slice(0, COMMIT_CHUNK);
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            // Máy chủ bận (chưa giành được lượt ghi) -> chắc chắn chưa ghi gì: thử lại
+            if (res && res.busy) {
+              hooks.onProgress(st, 'busy');
+              setTimeout(step, 1500);
+              return;
+            }
+
+            // Lỗi cả lô từ phía máy chủ: giữ nguyên hàng đợi để người dùng bấm GHI LẠI
+            if (!res || !res.success) {
+              committing = false;
+              hooks.onStop(st, 'server', (res && res.message) || t('couldNotLoadData'));
+              return;
+            }
+
+            attempt = 0;
+            (res.results || []).forEach(function(r) {
+              st.results.push({ toteId: r.toteId, success: !!r.success, message: r.message });
             });
-            beep(false);
-          } else {
-            res.results.forEach(r => {
-              if (r.success) {
-                ok++;
-                addRecent(r.toteId, r.message, true);
-
-                // Ghi nhớ tote đã ghi thành công trong phiên hiện tại, để
-                // "Hủy phiên" biết cần hoàn tác (OUT) hay chỉ xoá bộ đếm (IN).
-                if (flushMode === 'OUT') sessionOutTotesMap[r.toteId] = true;
-                else if (flushMode === 'IN') sessionInTotesMap[r.toteId] = true;
-              } else {
-                fail++;
-                addRecent(r.toteId, r.message, false);
-              }
-
-              scanLog.push({ toteId: r.toteId, message: r.message, success: r.success });
-              showResult(r.message, r.success);
-            });
-          }
-
-          updateCounter();
-
-          if (pendingQueue.length > 0) flushNow();
-          if (!manualInputMode && !isTypingField()) focusScan();
-        })
-        .withFailureHandler(function(err) {
-          sending = false;
-
-          // Hết phiên không được tính batch là NG và không được làm mất mã đã scan.
-          if (isSessionExpiredError(err)) {
-            pendingQueue = batch.concat(pendingQueue);
-            updateCounter();
-            forceRelogin('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục ghi các mã đang chờ.');
-            return;
-          }
-
-          fail += batch.length;
-          const msg = 'LỖI GHI: ' + getErrorMessage(err);
-
-          showResult(msg, false);
-          batch.forEach(x => {
-            addRecent(x.toteId, msg, false);
-            scanLog.push({ toteId: x.toteId, message: msg, success: false });
+            st.remaining = st.remaining.slice(batch.length);
+            persistQueue(st.slot, st.remaining.length
+              ? { action: st.action, store: st.store, label: st.label, sessionId: st.sessionId, items: st.remaining, at: Date.now() }
+              : null);
+            hooks.onProgress(st, 'ok');
+            step();
+          })
+          .withFailureHandler(function(err) {
+            if (isSessionExpiredError(err)) {
+              committing = false;
+              hooks.onStop(st, 'expired', '');
+              return;
+            }
+            attempt++;
+            if (attempt <= 3) {
+              hooks.onProgress(st, 'retry');
+              setTimeout(step, 1500 * attempt);
+              return;
+            }
+            committing = false;
+            hooks.onStop(st, 'network', getErrorMessage(err));
+          })
+          .scanBatch({
+            token: session.token,
+            action: st.action,
+            store: st.store,
+            zone: st.zone,
+            sessionId: st.sessionId || '',
+            items: batch
           });
+      }
 
-          updateCounter();
-          beep(false);
-
-          if (pendingQueue.length > 0) scheduleFlush();
-          if (!manualInputMode && !isTypingField()) focusScan();
-        })
-        .scanBatch({
-          token: session.token,
-          action: mode,
-          store: selectedStoreId,
-          zone: sessionZoneFor(mode),
-          items: batch
-        });
+      step();
     }
+
+    function queueDetailsHtml(items) {
+      if (!items || !items.length) return '';
+      return '<details><summary>' + escHtml_(tf('viewPendingCodesMsg', { n: items.length })) + '</summary>' +
+        '<div style="margin-top:8px">' + items.map(function(x) { return '<span class="chip">' + escHtml_(x.toteId) + '</span>'; }).join('') + '</div></details>';
+    }
+
+    // ---------- Popup "Kết thúc phiên" (dùng chung cho PDA kho và màn Giao Nhận) ----------
+    const END_UI = {
+      pda:    { overlay: 'sessionConfirmOverlay',       cont: 'sessionContinueBtn',       confirm: 'sessionConfirmBtn',       status: 'sessionCommitStatus',
+                sumTotal: 'sumTotal',       sumOk: 'sumOk',       sumFail: 'sumFail',       details: 'sessionScanLogDetails' },
+      driver: { overlay: 'driverSessionConfirmOverlay', cont: 'driverSessionContinueBtn', confirm: 'driverSessionConfirmBtn', status: 'driverCommitStatus',
+                sumTotal: 'driverSumTotal', sumOk: 'driverSumOk', sumFail: 'driverSumFail', details: 'driverScanLogDetails' }
+    };
+
+    function setEndStage(kind, stage, text, statusClass) {
+      endStage[kind] = stage;
+      const u = END_UI[kind];
+      const cont = document.getElementById(u.cont);
+      const conf = document.getElementById(u.confirm);
+      const box = document.getElementById(u.status);
+      const left = (kind === 'pda' ? pendingQueue : driverPendingQueue).length;
+
+      cont.classList.toggle('hidden', stage === 'done');
+      cont.disabled = stage === 'sending';
+      conf.disabled = stage === 'sending';
+      conf.innerText = stage === 'done' ? t('doneCloseBtn')
+        : (stage === 'stopped' ? tf('retrySaveBtn', { n: left }) : t('confirmEndSaveBtn'));
+
+      if (text) {
+        box.className = 'result ' + (statusClass || 'pending');
+        box.innerText = text;
+      } else {
+        box.className = 'result pending hidden';
+        box.innerText = '';
+      }
+    }
+
+    function askEnd(kind) {
+      if (committing) return;
+      const isPda = kind === 'pda';
+      const items = isPda ? pendingQueue : driverPendingQueue;
+      const u = END_UI[kind];
+
+      commitPrior[kind] = [];
+      if (isPda) document.getElementById('sumStoreRow').classList.toggle('hidden', mode !== 'OUT');
+      document.getElementById(isPda ? 'sumStore' : 'driverSumStore').innerText = isPda ? sessionStoreLabel : driverStoreLabel;
+      document.getElementById(isPda ? 'sumSessionId' : 'driverSumSessionId').innerText = (isPda ? sessionIds[mode] : driverSessionId) || '-';
+      document.getElementById(u.sumTotal).innerText = items.length;
+      document.getElementById(u.sumOk).innerText = '-';
+      document.getElementById(u.sumFail).innerText = '-';
+      document.getElementById(u.details).innerHTML = queueDetailsHtml(items);
+      setEndStage(kind, 'confirm', '');
+      document.getElementById(u.overlay).classList.remove('hidden');
+    }
+
+    function finishEnd(kind) {
+      document.getElementById(END_UI[kind].overlay).classList.add('hidden');
+      endStage[kind] = 'confirm';
+      if (kind === 'pda') {
+        if (mode === 'OUT') doResetOutSession();
+        else { doResetInSession(); showResult(t('endedInSessionMsg'), true); }
+      } else {
+        doResetDriverSession();
+        showDriverMsg(t('driverEndedMsg'), true);
+      }
+    }
+
+    function cancelEnd(kind) {
+      if (committing) return;
+      if (endStage[kind] === 'done') { finishEnd(kind); return; }
+      document.getElementById(END_UI[kind].overlay).classList.add('hidden');
+      if (kind === 'pda') focusScan();
+    }
+
+    function confirmEnd(kind) {
+      if (committing) return;
+      if (endStage[kind] === 'done') { finishEnd(kind); return; }
+
+      const isPda = kind === 'pda';
+      const items = isPda ? pendingQueue : driverPendingQueue;
+      if (!items.length) { finishEnd(kind); return; }   // chưa quét gì -> chỉ đóng phiên
+
+      const u = END_UI[kind];
+      const st = {
+        slot: isPda ? mode : 'DRIVER',
+        action: isPda ? mode : driverMode,
+        store: isPda ? (mode === 'OUT' ? selectedStoreId : '') : driverStoreId,
+        label: isPda ? sessionStoreLabel : driverStoreLabel,
+        sessionId: isPda ? sessionIds[mode] : driverSessionId,
+        zone: sessionZoneFor(isPda ? mode : 'DRIVER'),
+        remaining: items.slice(),
+        results: commitPrior[kind].slice(),
+        total: items.length + commitPrior[kind].length
+      };
+
+      const setQueue = function(list) {
+        if (isPda) { pendingQueue = list; updateCounter(); }
+        else { driverPendingQueue = list; updateDriverCounter(); }
+      };
+
+      setEndStage(kind, 'sending', tf('commitProgress', { done: st.results.length, total: st.total }));
+
+      runCommit(st, {
+        onProgress: function(s, why) {
+          setQueue(s.remaining);
+          let txt = tf('commitProgress', { done: s.results.length, total: s.total });
+          if (why === 'busy') txt += ' ' + t('commitBusyHint');
+          if (why === 'retry') txt += ' ' + t('commitRetryHint');
+          setEndStage(kind, 'sending', txt);
+        },
+        onDone: function(s) {
+          commitPrior[kind] = [];
+          const okN = s.results.filter(function(r) { return r.success; }).length;
+          const failN = s.results.length - okN;
+
+          if (isPda) {
+            pendingQueue = [];
+            sessionCodes = {};
+            ok += okN; fail += failN;
+            scanLog = scanLog.concat(s.results);
+            s.results.slice(-20).forEach(function(r) { addRecent(r.toteId, r.message, r.success); });
+            updateCounter();
+          } else {
+            driverPendingQueue = [];
+            driverSessionCodes = {};
+            driverOk += okN; driverFail += failN;
+            driverScanLog = driverScanLog.concat(s.results);
+            s.results.slice(-20).forEach(function(r) { addDriverRecent(r.toteId, r.message, r.success); });
+            updateDriverCounter();
+          }
+
+          document.getElementById(u.sumOk).innerText = okN;
+          document.getElementById(u.sumFail).innerText = failN;
+          document.getElementById(u.details).innerHTML = renderSessionScanLogDetails(s.results);
+          setEndStage(kind, 'done', tf('commitDoneMsg', { ok: okN, fail: failN }), failN ? 'fail' : 'ok');
+        },
+        onStop: function(s, reason, message) {
+          commitPrior[kind] = s.results.slice();
+          setQueue(s.remaining);
+
+          if (reason === 'expired') {
+            setEndStage(kind, 'stopped', tf('commitStopped', { n: s.remaining.length, reason: t('commitExpiredMsg') }), 'fail');
+            document.getElementById(u.overlay).classList.add('hidden');
+            forceRelogin(t('commitExpiredMsg'));
+            return;
+          }
+
+          setEndStage(kind, 'stopped', tf('commitStopped', { n: s.remaining.length, reason: message || '' }), 'fail');
+        }
+      });
+    }
+
+    // Tên hàm gắn trên nút bấm (HTML) giữ nguyên
+    function askEndScanSession()       { askEnd('pda'); }
+    function cancelEndScanSession()    { cancelEnd('pda'); }
+    function confirmEndScanSession()   { confirmEnd('pda'); }
+    function askEndDriverSession()     { askEnd('driver'); }
+    function cancelEndDriverSession()  { cancelEnd('driver'); }
+    function confirmEndDriverSession() { confirmEnd('driver'); }
+
+    // ---------- Khôi phục mã quét dở (thoát app/mất điện/mất mạng giữa phiên) ----------
+    let recoverSlots = [];
+    let recoverStage = 'confirm';       // confirm | sending | stopped | done
+    let recoverPrior = [];
+    let recoverChecked = false;
+
+    function maybeRecover() {
+      if (recoverChecked) return;
+      recoverChecked = true;
+      if (hasUnsavedScans()) return;     // đang có mã trong bộ nhớ của phiên hiện tại -> không đụng
+      const all = readSavedQueues();
+      recoverSlots = Object.keys(all).filter(function(k) { return all[k] && all[k].items && all[k].items.length; });
+      if (recoverSlots.length) showRecover();
+    }
+
+    function recoverTypeText(c) {
+      if (c.action === 'OUT') return t('modeOut');
+      if (c.action === 'IN') return t('modeIn');
+      return c.action === 'STORE_RECEIVE' ? t('driverModeReceive') : t('driverModeReturn');
+    }
+
+    function showRecover() {
+      const slot = recoverSlots[0];
+      const c = readSavedQueues()[slot];
+      if (!c) { nextRecover(); return; }
+
+      recoverStage = 'confirm';
+      recoverPrior = [];
+      document.getElementById('recoverInfo').innerHTML =
+        '<div><span>' + escHtml_(t('recoverTypeLabel')) + '</span><b>' + escHtml_(recoverTypeText(c)) + '</b></div>' +
+        (c.label ? '<div><span>' + escHtml_(t('storeLabel')) + '</span><b>' + escHtml_(c.label) + '</b></div>' : '') +
+        '<div><span>' + escHtml_(t('recoverCountLabel')) + '</span><b>' + c.items.length + '</b></div>';
+      document.getElementById('recoverDetails').innerHTML = queueDetailsHtml(c.items);
+      setRecoverUI('confirm', '');
+      document.getElementById('recoverOverlay').classList.remove('hidden');
+    }
+
+    function setRecoverUI(stage, text, statusClass) {
+      recoverStage = stage;
+      const save = document.getElementById('recoverSaveBtn');
+      const drop = document.getElementById('recoverDiscardBtn');
+      const box = document.getElementById('recoverStatus');
+      save.disabled = stage === 'sending';
+      drop.disabled = stage === 'sending';
+      drop.classList.toggle('hidden', stage === 'done');
+      save.innerText = stage === 'done' ? t('recoverNextBtn') : (stage === 'stopped' ? t('retrySaveBtn').replace(' ({n})', '') : t('recoverSaveBtn'));
+      if (text) { box.className = 'result ' + (statusClass || 'pending'); box.innerText = text; }
+      else { box.className = 'result pending hidden'; box.innerText = ''; }
+    }
+
+    function nextRecover() {
+      recoverSlots.shift();
+      if (recoverSlots.length) showRecover();
+      else document.getElementById('recoverOverlay').classList.add('hidden');
+    }
+
+    function discardRecover() {
+      if (committing) return;
+      persistQueue(recoverSlots[0], null);
+      nextRecover();
+    }
+
+    function saveRecover() {
+      if (committing) return;
+      if (recoverStage === 'done') { nextRecover(); return; }
+
+      const slot = recoverSlots[0];
+      const c = readSavedQueues()[slot];
+      if (!c) { nextRecover(); return; }
+
+      const st = {
+        slot: slot, action: c.action, store: c.store || '', label: c.label || '', sessionId: c.sessionId || '', zone: sessionZoneFor(c.action),
+        remaining: c.items.slice(), results: recoverPrior.slice(), total: c.items.length + recoverPrior.length
+      };
+
+      setRecoverUI('sending', tf('commitProgress', { done: st.results.length, total: st.total }));
+
+      runCommit(st, {
+        onProgress: function(s, why) {
+          let txt = tf('commitProgress', { done: s.results.length, total: s.total });
+          if (why === 'busy') txt += ' ' + t('commitBusyHint');
+          if (why === 'retry') txt += ' ' + t('commitRetryHint');
+          setRecoverUI('sending', txt);
+        },
+        onDone: function(s) {
+          recoverPrior = [];
+          const okN = s.results.filter(function(r) { return r.success; }).length;
+          const failN = s.results.length - okN;
+          document.getElementById('recoverDetails').innerHTML = renderSessionScanLogDetails(s.results);
+          setRecoverUI('done', tf('commitDoneMsg', { ok: okN, fail: failN }), failN ? 'fail' : 'ok');
+        },
+        onStop: function(s, reason, message) {
+          recoverPrior = s.results.slice();
+          if (reason === 'expired') {
+            document.getElementById('recoverOverlay').classList.add('hidden');
+            recoverChecked = false;
+            forceRelogin(t('commitExpiredMsg'));
+            return;
+          }
+          setRecoverUI('stopped', tf('commitStopped', { n: s.remaining.length, reason: message || '' }), 'fail');
+        }
+      });
+    }
+
+    // Đóng tab/thoát app khi còn mã chưa ghi: nhắc người dùng (mã vẫn được lưu tạm trên máy)
+    window.addEventListener('beforeunload', function(e) {
+      if (hasUnsavedScans()) { e.preventDefault(); e.returnValue = ''; }
+    });
 
     // =====================================================================
     // NHÓM 11: QUẢN LÝ DANH SÁCH CỬA HÀNG
@@ -3470,13 +3836,11 @@
     // thúc phiên" -> xem lại tổng kết -> xác nhận.
     // Chế độ IN KHÔNG cần phiên (không cần chọn store) nên khu vực quét
     // luôn hiện sẵn cho IN.
-    // QUAN TRỌNG: mỗi mã quét vẫn được gửi lên server NGAY LẬP TỨC như cũ
-    // (xem scheduleFlush/flushNow ở NHÓM 10) - "phiên" ở đây CHỈ là một lớp
-    // giao diện giúp nhân viên biết rõ đang quét cho store nào và xem lại
-    // tổng kết trước khi đóng phiên. Nó KHÔNG làm thay đổi cách dữ liệu
-    // được lưu, nên không sợ mất dữ liệu nếu PDA tắt máy/mất mạng giữa
-    // chừng (khác với kiểu "giữ hết tới cuối mới lưu" - đã trao đổi và
-    // KHÔNG chọn phương án đó vì rủi ro mất dữ liệu).
+    // QUAN TRỌNG (đã ĐỔI so với trước): mã quét KHÔNG còn ghi lên server ngay. Chỉ
+    // giữ tạm trên máy (kèm bản lưu localStorage để thoát app/mất điện vẫn còn),
+    // và chỉ GHI khi bấm "Kết thúc phiên" -> "Xác nhận và ghi" (xem NHÓM 10).
+    // Hủy phiên = bỏ các mã đó, không ghi gì. Lý do đổi: quét nhầm thì hủy rồi
+    // quét lại, không phải hoàn tác từng dòng đã ghi.
     // =====================================================================
     function renderPdaSessionUI() {
       const showOutSetup = (mode === 'OUT' && !sessionActive);
@@ -3496,6 +3860,7 @@
       if (showActiveBar && mode === 'OUT') {
         document.getElementById('activeSessionStore').innerText = sessionStoreLabel;
       }
+      document.getElementById('activeSessionId').innerText = showActiveBar && sessionIds[mode] ? t('sessionIdLabel') + ': ' + sessionIds[mode] : '';
     }
 
     // Bật/tắt nút "Bắt đầu phiên quét" tuỳ theo đã chọn store hay chưa.
@@ -3510,6 +3875,10 @@
       sessionActive = true;
       sessionStoreLabel = document.getElementById('selectedStore').innerText.replace('ĐÃ CHỌN: ', '');
       sessionOutTotesMap = {};
+      pendingQueue = [];
+      sessionCodes = {};
+      persistQueue('OUT', null);
+      sessionIds.OUT = makeSessionId('OUT');
 
       // Bắt đầu phiên mới = reset bộ đếm + danh sách gần đây + chống quét
       // trùng, để số liệu hiển thị đúng là số liệu CỦA PHIÊN NÀY, không bị
@@ -3535,6 +3904,10 @@
     function startInSession() {
       inSessionActive = true;
       sessionInTotesMap = {};
+      pendingQueue = [];
+      sessionCodes = {};
+      persistQueue('IN', null);
+      sessionIds.IN = makeSessionId('IN');
 
       total = 0;
       ok = 0;
@@ -3577,48 +3950,16 @@
       return okBlock + failBlock;
     }
 
-    // Bấm "KẾT THÚC PHIÊN": gửi nốt dữ liệu còn trong hàng đợi (nếu có) rồi
-    // hiện màn tổng kết để nhân viên xem lại TRƯỚC KHI xác nhận thật sự.
-    // Dùng chung cho cả OUT và IN - hàng Store trong bảng tổng kết chỉ hiện
-    // khi đang ở chế độ OUT (IN không gắn với 1 store cụ thể).
-    function askEndScanSession() {
-      if (pendingQueue.length > 0) flushNow();
-
-      document.getElementById('sumStoreRow').classList.toggle('hidden', mode !== 'OUT');
-      document.getElementById('sumStore').innerText = sessionStoreLabel;
-      document.getElementById('sumTotal').innerText = total;
-      document.getElementById('sumOk').innerText = ok;
-      document.getElementById('sumFail').innerText = fail;
-      document.getElementById('sessionScanLogDetails').innerHTML = renderSessionScanLogDetails(scanLog);
-
-      document.getElementById('sessionConfirmOverlay').classList.remove('hidden');
-    }
-
-    // Bấm "TIẾP TỤC QUÉT" trong popup xác nhận: chỉ đóng popup lại, KHÔNG
-    // kết thúc phiên - mọi thứ giữ nguyên như trước khi bấm "Kết thúc phiên".
-    function cancelEndScanSession() {
-      document.getElementById('sessionConfirmOverlay').classList.add('hidden');
-      focusScan();
-    }
-
-    // Bấm "XÁC NHẬN KẾT THÚC": đóng hẳn phiên hiện tại, quay lại màn "Bắt
-    // đầu phiên" (OUT: chọn store lại; IN: bấm Bắt đầu phiên nhập lại) để
-    // phiên tiếp theo luôn bắt đầu từ số liệu sạch.
-    function confirmEndScanSession() {
-      document.getElementById('sessionConfirmOverlay').classList.add('hidden');
-
-      if (mode === 'OUT') {
-        doResetOutSession();
-      } else {
-        doResetInSession();
-        showResult(t('endedInSessionMsg'), true);
-      }
-    }
+    // Kết thúc phiên + ghi lên máy chủ: xem NHÓM 10 (askEnd / confirmEnd).
 
     // Đưa màn OUT về trạng thái "chưa có phiên" - dùng chung cho cả kết thúc
     // phiên bình thường VÀ hủy phiên (sau khi đã hoàn tác xong, nếu có).
     function doResetOutSession() {
       sessionActive = false;
+      pendingQueue = [];
+      sessionCodes = {};
+      persistQueue('OUT', null);
+      sessionIds.OUT = '';
       sessionStoreLabel = '';
       selectedStoreId = '';
       sessionOutTotesMap = {};
@@ -3634,24 +3975,21 @@
     // phiên vừa đóng vẫn ở trong kho như bình thường.
     function doResetInSession() {
       inSessionActive = false;
+      pendingQueue = [];
+      sessionCodes = {};
+      persistQueue('IN', null);
+      sessionIds.IN = '';
       sessionInTotesMap = {};
       renderPdaSessionUI();
       focusScan();
     }
 
     // =====================================================================
-    // NHÓM 11c (MỚI): "HỦY PHIÊN"
-    // OUT: vì mỗi mã đã ghi thẳng lên server ngay lúc quét (xem NHÓM 10),
-    // hủy phiên KHÔNG xoá được các dòng đã ghi - thay vào đó tự động gọi
-    // CANCEL_OUT hoàn tác toàn bộ tote đã OUT trong phiên để trả về kho, giữ
-    // nguyên lịch sử (đúng triết lý "thực tế luôn đúng, không xoá dữ liệu").
-    // IN (kho nhận): thu hồi về kho vốn là trạng thái an toàn/trung tính,
-    // không có "nơi cũ" hợp lý nào để lùi về - hủy phiên IN chỉ xoá bộ đếm
-    // hiển thị trên máy, không hoàn tác gì trên server.
-    // NHẬN/XUẤT tại cửa hàng (NHÓM 22 bên dưới): giống OUT, mỗi mã cũng ghi
-    // thẳng lên server ngay lúc quét VÀ có ảnh hưởng tới tồn kho cửa hàng, nên
-    // hủy phiên cũng tự động gọi CANCEL_STORE_RECEIVE/CANCEL_STORE_RETURN để
-    // hoàn tác đúng các tote vừa quét, không để tồn kho bị lệch.
+    // NHÓM 11c: "HỦY PHIÊN"
+    // Vì mã quét chỉ được GIỮ TẠM trên máy cho tới lúc kết thúc phiên (xem
+    // NHÓM 10), hủy phiên đơn giản là BỎ các mã đã quét: không gọi máy chủ, không
+    // ghi gì, không cần hoàn tác. Quét nhầm -> hủy phiên -> bắt đầu phiên mới.
+    // (Các nghiệp vụ CANCEL_* ở backend vẫn còn nhưng app không dùng nữa.)
     // =====================================================================
     function askCancelCurrentSession() {
       if (mode === 'OUT') askCancelScanSession();
@@ -3659,27 +3997,18 @@
     }
 
     function askCancelScanSession() {
-      const outCount = Object.keys(sessionOutTotesMap).length;
+      if (committing) return;
+      const n = pendingQueue.length;
 
-      // Chưa quét được tote nào (và không còn gì trong hàng đợi) thì hủy
-      // ngay, không cần hỏi lại - không có gì để hoàn tác cả.
-      if (outCount === 0 && pendingQueue.length === 0 && !sending) {
+      // Chưa quét mã nào thì hủy luôn, không cần hỏi lại.
+      if (n === 0) {
         doResetOutSession();
         showResult(t('noToteCancelledMsg'), true);
         return;
       }
 
       document.getElementById('cancelSessionStoreLabel').innerText = sessionStoreLabel;
-      document.getElementById('cancelSessionCount').innerText = outCount;
-
-      const statusBox = document.getElementById('cancelSessionStatus');
-      statusBox.classList.add('hidden');
-      statusBox.innerText = '';
-
-      const btn = document.getElementById('cancelSessionConfirmBtn');
-      btn.disabled = false;
-      btn.innerText = t('confirmCancelBtnLabel');
-
+      document.getElementById('cancelSessionCount').innerText = n;
       document.getElementById('cancelSessionOverlay').classList.remove('hidden');
     }
 
@@ -3689,94 +4018,22 @@
     }
 
     function confirmCancelScanSession() {
-      if (cancellingSession) return;
-
-      const statusBox = document.getElementById('cancelSessionStatus');
-
-      // Còn mã trong hàng đợi/đang gửi thì đợi gửi xong trước, để không bỏ
-      // sót tote nào khi tính danh sách cần hoàn tác.
-      if (pendingQueue.length > 0 || sending) {
-        statusBox.classList.remove('hidden');
-        statusBox.className = 'result pending';
-        statusBox.innerText = t('sendingRemainingMsg');
-        if (pendingQueue.length > 0 && !sending) flushNow();
-        setTimeout(confirmCancelScanSession, 400);
-        return;
-      }
-
-      const toteIds = Object.keys(sessionOutTotesMap);
-
-      if (toteIds.length === 0) {
-        document.getElementById('cancelSessionOverlay').classList.add('hidden');
-        doResetOutSession();
-        showResult(t('cancelledSessionMsg'), true);
-        return;
-      }
-
-      cancellingSession = true;
-
-      const btn = document.getElementById('cancelSessionConfirmBtn');
-      btn.disabled = true;
-
-      statusBox.classList.remove('hidden');
-      statusBox.className = 'result pending';
-      statusBox.innerText = tf('undoingOutMsg', { n: toteIds.length });
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          cancellingSession = false;
-          btn.disabled = false;
-
-          if (!res.success) {
-            statusBox.className = 'result fail';
-            statusBox.innerText = t('undoErrPrefix') + res.message;
-            return;
-          }
-
-          res.results.forEach(r => {
-            if (r.success) delete sessionOutTotesMap[r.toteId];
-          });
-
-          const remain = Object.keys(sessionOutTotesMap).length;
-
-          if (remain === 0) {
-            document.getElementById('cancelSessionOverlay').classList.add('hidden');
-            doResetOutSession();
-            showResult(t('cancelledUndoneMsg'), true);
-          } else {
-            statusBox.className = 'result fail';
-            statusBox.innerText = tf('remainUndoMsg', { n: remain });
-            btn.innerText = tf('retryBtnLabel', { n: remain });
-          }
-        })
-        .withFailureHandler(function(err) {
-          cancellingSession = false;
-          btn.disabled = false;
-
-          if (handleSessionError(err)) return;
-
-          statusBox.className = 'result fail';
-          statusBox.innerText = t('undoErrPrefix') + getErrorMessage(err);
-        })
-        .scanBatch({
-          token: session.token,
-          action: 'CANCEL_OUT',
-          store: '',
-          zone: sessionZoneFor('OUT'),
-          items: toteIds.map(id => ({ toteId: id, clientScanId: 'CANCEL_' + Date.now() + '_' + id }))
-        });
+      document.getElementById('cancelSessionOverlay').classList.add('hidden');
+      doResetOutSession();
+      showResult(t('cancelledSessionMsg'), true);
     }
 
     function askCancelInSession() {
-      const inCount = Object.keys(sessionInTotesMap).length;
+      if (committing) return;
+      const n = pendingQueue.length;
 
-      if (inCount === 0 && pendingQueue.length === 0 && !sending) {
+      if (n === 0) {
         doResetInSession();
         showResult(t('cancelledInSessionMsg'), true);
         return;
       }
 
-      document.getElementById('cancelInSessionCount').innerText = inCount;
+      document.getElementById('cancelInSessionCount').innerText = n;
       document.getElementById('cancelInSessionOverlay').classList.remove('hidden');
     }
 
@@ -3788,7 +4045,7 @@
     function confirmCancelInSession() {
       document.getElementById('cancelInSessionOverlay').classList.add('hidden');
       doResetInSession();
-      showResult(t('cancelledInSessionDoneMsg'), true);
+      showResult(t('cancelledSessionMsg'), true);
     }
 
     // =====================================================================
@@ -3831,6 +4088,7 @@
 
       if (driverSessionActive) {
         document.getElementById('driverActiveStore').innerText = driverStoreLabel;
+        document.getElementById('driverActiveSessionId').innerText = driverSessionId ? t('sessionIdLabel') + ': ' + driverSessionId : '';
       }
     }
 
@@ -3918,6 +4176,10 @@
       driverScanLog = [];
       driverRecentScanMap = {};
       driverSessionTotesMap = {};
+      driverPendingQueue = [];
+      driverSessionCodes = {};
+      persistQueue('DRIVER', null);
+      driverSessionId = makeSessionId(driverMode === 'STORE_RECEIVE' ? 'NHAN' : 'TRA');
       document.getElementById('driverRecentList').innerHTML = '';
       updateDriverCounter();
 
@@ -3940,6 +4202,10 @@
 
     function doResetDriverSession() {
       driverSessionActive = false;
+      driverPendingQueue = [];
+      driverSessionCodes = {};
+      persistQueue('DRIVER', null);
+      driverSessionId = '';
       driverSessionTotesMap = {};
       driverScanPaused = false;
       document.getElementById('driverScanConfirmBtn').classList.add('hidden');
@@ -3977,52 +4243,19 @@
       }
     }
 
-    // ---------------- Kết thúc phiên (bình thường) ----------------
-    function askEndDriverSession() {
-      if (driverPendingQueue.length > 0) driverFlushNow();
-
-      document.getElementById('driverSumStore').innerText = driverStoreLabel;
-      document.getElementById('driverSumTotal').innerText = driverTotal;
-      document.getElementById('driverSumOk').innerText = driverOk;
-      document.getElementById('driverSumFail').innerText = driverFail;
-      document.getElementById('driverScanLogDetails').innerHTML = renderSessionScanLogDetails(driverScanLog);
-
-      document.getElementById('driverSessionConfirmOverlay').classList.remove('hidden');
-    }
-
-    function cancelEndDriverSession() {
-      document.getElementById('driverSessionConfirmOverlay').classList.add('hidden');
-    }
-
-    function confirmEndDriverSession() {
-      document.getElementById('driverSessionConfirmOverlay').classList.add('hidden');
-      doResetDriverSession();
-      showDriverMsg(t('driverEndedMsg'), true);
-    }
-
-    // ---------------- Hủy phiên (tự động hoàn tác các tote đã quét thành
-    // công trong phiên - giống hệt tinh thần "Hủy phiên OUT" bên kho, vì mỗi
-    // mã cũng đã ghi thẳng lên server ngay lúc quét và ảnh hưởng tồn kho cửa
-    // hàng, không thể chỉ xoá bộ đếm hiển thị) ----------------
+    // ---------------- Hủy phiên (Giao Nhận): chỉ bỏ các mã đã quét, KHÔNG ghi gì ----------------
+    // (Kết thúc phiên + ghi lên máy chủ: xem NHÓM 10 - askEnd/confirmEnd 'driver')
     function askCancelDriverSession() {
-      const doneCount = Object.keys(driverSessionTotesMap).length;
+      if (committing) return;
+      const n = driverPendingQueue.length;
 
-      if (doneCount === 0 && driverPendingQueue.length === 0 && !driverSending) {
+      if (n === 0) {
         doResetDriverSession();
         showDriverMsg(t('cancelledSessionMsg'), true);
         return;
       }
 
-      document.getElementById('driverCancelCount').innerText = doneCount;
-
-      const statusBox = document.getElementById('driverCancelSessionStatus');
-      statusBox.classList.add('hidden');
-      statusBox.innerText = '';
-
-      const btn = document.getElementById('driverCancelSessionConfirmBtn');
-      btn.disabled = false;
-      btn.innerText = t('confirmCancelBtnLabel');
-
+      document.getElementById('driverCancelCount').innerText = n;
       document.getElementById('driverCancelSessionOverlay').classList.remove('hidden');
     }
 
@@ -4031,89 +4264,14 @@
     }
 
     function confirmCancelDriverSession() {
-      if (cancellingDriverSession) return;
-
-      const statusBox = document.getElementById('driverCancelSessionStatus');
-
-      // Còn mã trong hàng đợi/đang gửi thì đợi gửi xong trước, để không bỏ
-      // sót tote nào khi tính danh sách cần hoàn tác.
-      if (driverPendingQueue.length > 0 || driverSending) {
-        statusBox.classList.remove('hidden');
-        statusBox.className = 'result pending';
-        statusBox.innerText = t('sendingRemainingMsg');
-        if (driverPendingQueue.length > 0 && !driverSending) driverFlushNow();
-        setTimeout(confirmCancelDriverSession, 400);
-        return;
-      }
-
-      const toteIds = Object.keys(driverSessionTotesMap);
-
-      if (toteIds.length === 0) {
-        document.getElementById('driverCancelSessionOverlay').classList.add('hidden');
-        doResetDriverSession();
-        showDriverMsg(t('cancelledSessionMsg'), true);
-        return;
-      }
-
-      cancellingDriverSession = true;
-
-      const btn = document.getElementById('driverCancelSessionConfirmBtn');
-      btn.disabled = true;
-
-      statusBox.classList.remove('hidden');
-      statusBox.className = 'result pending';
-      statusBox.innerText = tf('undoingDriverMsg', { n: toteIds.length });
-
-      const cancelAction = driverMode === 'STORE_RECEIVE' ? 'CANCEL_STORE_RECEIVE' : 'CANCEL_STORE_RETURN';
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          cancellingDriverSession = false;
-          btn.disabled = false;
-
-          if (!res.success) {
-            statusBox.className = 'result fail';
-            statusBox.innerText = t('undoErrPrefix') + res.message;
-            return;
-          }
-
-          res.results.forEach(r => {
-            if (r.success) delete driverSessionTotesMap[r.toteId];
-          });
-
-          const remain = Object.keys(driverSessionTotesMap).length;
-
-          if (remain === 0) {
-            document.getElementById('driverCancelSessionOverlay').classList.add('hidden');
-            doResetDriverSession();
-            showDriverMsg(t('cancelledUndoneMsg'), true);
-          } else {
-            statusBox.className = 'result fail';
-            statusBox.innerText = tf('remainUndoMsg', { n: remain });
-            btn.innerText = tf('retryBtnLabel', { n: remain });
-          }
-        })
-        .withFailureHandler(function(err) {
-          cancellingDriverSession = false;
-          btn.disabled = false;
-
-          if (handleSessionError(err)) return;
-
-          statusBox.className = 'result fail';
-          statusBox.innerText = t('undoErrPrefix') + getErrorMessage(err);
-        })
-        .scanBatch({
-          token: session.token,
-          action: cancelAction,
-          store: driverStoreId,
-          zone: sessionZoneFor('DRIVER'),
-          items: toteIds.map(id => ({ toteId: id, clientScanId: 'CANCEL_' + Date.now() + '_' + id }))
-        });
+      document.getElementById('driverCancelSessionOverlay').classList.add('hidden');
+      doResetDriverSession();
+      showDriverMsg(t('cancelledSessionMsg'), true);
     }
 
     // ---------------- Nhận mã đã giải mã từ camera ----------------
     function driverReceiveScanCode(toteId, fromCamera) {
-      if (!toteId) return;
+      if (!toteId || committing) return;
 
       // Chặn lặp NGAY TỪ ĐẦU, áp dụng cho MỌI mã (kể cả mã KHÔNG hợp lệ) -
       // camera quét SỐNG nên callback bắn liên tục (nhiều lần/giây) trong
@@ -4149,6 +4307,15 @@
         return;
       }
 
+      // Mã đã quét trong phiên này rồi (chưa ghi) -> không nhận lần 2
+      if (driverSessionCodes[toteId]) {
+        showDriverMsg(t('alreadyInSessionMsg') + toteId, false);
+        addDriverRecent(toteId, t('alreadyInSessionMsg'), false);
+        beep(false);
+        return;
+      }
+
+      driverSessionCodes[toteId] = true;
       driverTotal++;
 
       driverPendingQueue.push({
@@ -4162,8 +4329,12 @@
       if (navigator.vibrate) navigator.vibrate(120);
       updateDriverCounter();
 
-      if (driverPendingQueue.length >= batchSize) driverFlushNow();
-      else driverScheduleFlush();
+      // CHỈ giữ tạm (lưu trên máy). Ghi lên hệ thống khi bấm Kết thúc phiên (NHÓM 10).
+      persistDriverQueue();
+
+      if (driverPendingQueue.length % LONG_SESSION_WARN === 0) {
+        showPendingMsg('driverCameraMsg', tf('longSessionWarn', { n: driverPendingQueue.length }));
+      }
 
       // Quét được 1 mã bằng camera thì TẠM DỪNG giải mã ngay - chờ người
       // dùng bấm "Xác nhận - quét tiếp" mới mở lại, tạo khoảng ngắt rõ ràng
@@ -4181,92 +4352,6 @@
       driverScanPaused = false;
       document.getElementById('driverScanConfirmBtn').classList.add('hidden');
       showDriverMsg(t('readyScanFrameMsg'), true);
-    }
-
-    function driverScheduleFlush() {
-      if (driverFlushTimer) clearTimeout(driverFlushTimer);
-      driverFlushTimer = setTimeout(driverFlushNow, flushDelayMs);
-    }
-
-    function driverFlushNow() {
-      if (driverSending || driverPendingQueue.length === 0) return;
-
-      driverSending = true;
-
-      const flushMode = driverMode;
-      const flushStore = driverStoreId;
-      const batch = driverPendingQueue.splice(0, batchSize);
-      updateDriverCounter();
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          driverSending = false;
-
-          // Server chưa giành được lượt ghi -> lô này CHẮC CHẮN chưa ghi gì:
-          // đưa lại vào hàng đợi và tự gửi lại, không tính là lỗi.
-          if (res && res.busy) {
-            driverPendingQueue = batch.concat(driverPendingQueue);
-            updateDriverCounter();
-            showPendingMsg('driverCameraMsg', t('serverBusyRetryMsg'));
-            setTimeout(driverFlushNow, 1500);
-            return;
-          }
-
-          if (!res.success) {
-            driverFail += batch.length;
-            showDriverMsg(res.message, false);
-            batch.forEach(x => {
-              addDriverRecent(x.toteId, res.message, false);
-              driverScanLog.push({ toteId: x.toteId, message: res.message, success: false });
-            });
-            beep(false);
-          } else {
-            res.results.forEach(r => {
-              if (r.success) {
-                driverOk++;
-                driverSessionTotesMap[r.toteId] = true;
-                addDriverRecent(r.toteId, r.message, true);
-              } else {
-                driverFail++;
-                addDriverRecent(r.toteId, r.message, false);
-              }
-              driverScanLog.push({ toteId: r.toteId, message: r.message, success: r.success });
-              showDriverMsg(r.message, r.success);
-            });
-          }
-
-          updateDriverCounter();
-          if (driverPendingQueue.length > 0) driverFlushNow();
-        })
-        .withFailureHandler(function(err) {
-          driverSending = false;
-
-          if (isSessionExpiredError(err)) {
-            driverPendingQueue = batch.concat(driverPendingQueue);
-            updateDriverCounter();
-            forceRelogin('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục ghi các mã đang chờ.');
-            return;
-          }
-
-          driverFail += batch.length;
-          const msg = 'LỖI GHI: ' + getErrorMessage(err);
-          showDriverMsg(msg, false);
-          batch.forEach(x => {
-            addDriverRecent(x.toteId, msg, false);
-            driverScanLog.push({ toteId: x.toteId, message: msg, success: false });
-          });
-
-          updateDriverCounter();
-          beep(false);
-          if (driverPendingQueue.length > 0) driverScheduleFlush();
-        })
-        .scanBatch({
-          token: session.token,
-          action: flushMode,
-          store: flushStore,
-          zone: sessionZoneFor('DRIVER'),
-          items: batch
-        });
     }
 
     // Dòng trạng thái màu vàng "đang chờ" (không phải lỗi)
@@ -5552,7 +5637,6 @@
       document.getElementById('kpiOutToday').innerText = res.outToday;
       document.getElementById('kpiInToday').innerText = res.inToday;
       document.getElementById('kpiAbnormalToday').innerText = res.abnormalToday;
-      document.getElementById('kpiReservedQty').innerText = res.reservedQty || 0;
 
       lastHomeSummary = res;
       renderTrendChart();
@@ -5801,19 +5885,19 @@
           'ADMIN: thanh <b>Hiển thị</b> phía trên để xem riêng kho lạnh, kho khô hoặc tất cả.'
         ] },
         pda: { title: 'Quét xuất / nhập kho', items: [
-          '<b>OUT (xuất kho)</b>: chọn cửa hàng → <b>Bắt đầu phiên quét</b> → quét lần lượt từng mã → <b>Kết thúc phiên</b>, xem lại tổng kết rồi xác nhận.',
+          '<b>OUT (xuất kho)</b>: chọn cửa hàng → <b>Bắt đầu phiên quét</b> → quét lần lượt từng mã → <b>Kết thúc phiên</b> → xem lại rồi bấm <b>XÁC NHẬN VÀ GHI</b>. Các mã <b>chỉ được ghi lên hệ thống ở bước này</b>.',
           '<b>IN (nhập kho)</b>: không cần chọn cửa hàng - bắt đầu phiên rồi quét các tote cửa hàng trả về.',
-          'Số <b>CHỜ</b> là mã đã quét nhưng chưa gửi lên máy chủ. App tự gửi (kể cả khi mạng chậm hay máy chủ bận) - <b>không cần quét lại</b>.',
+          'Số <b>CHƯA GHI</b> là các mã đã quét nhưng <b>chưa ghi lên hệ thống</b>. Chúng được lưu tạm trên máy: thoát app hoặc mất mạng vẫn còn, mở lại app sẽ hỏi bạn ghi tiếp hay bỏ. Nên kết thúc phiên sau mỗi khoảng 100 đến 200 mã để số liệu kịp cập nhật.',
           'Tài khoản kho lạnh chỉ quét mã <b>BAS</b> (rổ), kho khô chỉ quét mã <b>TOT</b> (tote); quét nhầm loại sẽ bị báo ngay.',
           'Mã bị đánh dấu <b>bất thường</b> (VD nhập kho một tote chưa từng xuất) vẫn được ghi lại và sẽ hiện ở mục <b>Lỗi</b> để kiểm tra.',
-          'Chọn nhầm cửa hàng? Bấm <b>Hủy phiên</b> để hoàn tác các tote đã quét trong phiên đó.'
+          'Quét nhầm? Bấm <b>Hủy phiên</b>: toàn bộ mã đã quét trong phiên bị bỏ, <b>không ghi gì</b> lên hệ thống, rồi bạn quét lại từ đầu.'
         ] },
         driver: { title: 'Giao nhận tại cửa hàng', items: [
           'Chọn loại phiên: <b>NHẬN RỔ</b> (cửa hàng nhận hàng kho giao tới) hoặc <b>XUẤT RỔ</b> (cửa hàng trả vỏ cho tài xế mang về kho).',
           'Tài xế: chọn đúng cửa hàng đang đứng trước khi bắt đầu. Tài khoản cửa hàng thì tự động là cửa hàng của mình.',
-          'Bấm bắt đầu phiên rồi đưa mã vào khung camera để quét; quét xong bấm kết thúc phiên và xác nhận.',
+          'Bấm bắt đầu phiên rồi đưa mã vào khung camera để quét; quét xong bấm kết thúc phiên rồi <b>XÁC NHẬN VÀ GHI</b> - lúc đó mã mới được ghi lên hệ thống.',
           'Cửa hàng quét được cả <b>BAS</b> (rổ, kho lạnh) và <b>TOT</b> (tote, kho khô).',
-          'Số <b>CHỜ</b> sẽ tự gửi lại khi có mạng - <b>không cần quét lại</b>.'
+          'Quét nhầm? Bấm <b>Hủy phiên</b> để bỏ các mã đã quét, không ghi gì lên hệ thống. Mã chưa ghi được lưu tạm trên máy.'
         ] },
         store: { title: 'Danh sách cửa hàng', items: [
           'Hai ô số trên cùng: tổng số cửa hàng và số cửa hàng đã có vị trí (chỉ đường được).',
@@ -5824,7 +5908,7 @@
         ] },
         dash: { title: 'Tồn kho', items: [
           'Có 2 tab: <b>Tồn cửa hàng</b> (cửa hàng đang giữ bao nhiêu) và <b>Tồn kho</b> (kho đang có bao nhiêu). ADMIN xem cả kho lạnh và kho khô, tài khoản kho chỉ thấy kho của mình.',
-          '<b>Tồn kho</b>: mỗi loại/màu hiện số <b>trong kho</b>, <b>đang giao</b> tới cửa hàng, <b>đang về</b> kho, <b>ở cửa hàng</b> và <b>chưa dán label</b> (mã tạo sẵn chưa kích hoạt); cuối cùng là tổng số mã.',
+          '<b>Tồn kho</b>: mỗi loại/màu hiện số <b>trong kho</b> (số lớn), kèm số <b>đang giao</b> tới cửa hàng và <b>đang về</b> kho.',
           '<b>Ở kho / Ở cửa hàng</b> (tab Tồn cửa hàng): tổng số Tote và Rổ - bấm vào thẻ để xem chi tiết theo màu.',
           'Mỗi dòng là một cửa hàng đang giữ tote, kèm số <b>Tote</b> và <b>Rổ</b>; bấm vào để xem theo màu và danh sách mã.',
           'Ô <b>sắp xếp</b>: xếp theo số lượng nhiều → ít, ít → nhiều, tên hoặc mã cửa hàng.',
@@ -5852,6 +5936,13 @@
           'Chọn ngày, loại nghiệp vụ, hoặc tìm theo cửa hàng / mã / người quét.',
           'Phần trên tổng hợp theo cửa hàng (dùng ô <b>sắp xếp</b> để xếp theo số lượng, tên hoặc mã), phần dưới là chi tiết từng lượt quét.'
         ] },
+        sessions: { title: 'Tra cứu phiên', items: [
+          'Mỗi phiên quét có một <b>mã phiên</b> (VD <b>OUT-1011-1437-K7Q2</b>), hiện trên thanh phiên và trong hộp Kết thúc phiên.',
+          'Nhập mã phiên rồi bấm <b>TRA CỨU</b> để xem phiên đó đã ghi những mã nào, <b>OK</b> hay <b>bất thường</b>, ai quét và lúc nào.',
+          'Bên dưới là <b>phiên gần đây</b>: bấm vào một phiên để xem chi tiết.',
+          'ADMIN xem được mọi phiên; tài khoản khác chỉ xem phiên do <b>chính mình</b> quét.',
+          'Phiên bị <b>hủy</b> hoặc chưa ghi thì không có dữ liệu để tra.'
+        ] },
         track: { title: 'Tra lịch sử', items: [
           'Quét hoặc gõ mã tote rồi bấm <b>TRA CỨU</b>.',
           'Kết quả hiện trạng thái hiện tại và toàn bộ lịch sử: ai quét, lúc nào, ở cửa hàng nào, kết quả OK hay bất thường.'
@@ -5872,19 +5963,19 @@
           'ADMIN: the <b>View</b> bar at the top switches between cold, ambient or all warehouses.'
         ] },
         pda: { title: 'Outbound / inbound scanning', items: [
-          '<b>OUT</b>: pick a store → <b>Start scan session</b> → scan each code → <b>End session</b>, review the summary and confirm.',
+          '<b>OUT</b>: pick a store → <b>Start scan session</b> → scan each code → <b>End session</b> → review and tap <b>CONFIRM AND SAVE</b>. Codes are <b>only saved to the system at this step</b>.',
           '<b>IN</b>: no store needed - start a session and scan the totes returned by stores.',
-          '<b>WAITING</b> codes are scanned but not yet sent. The app resends them automatically (even on slow network or a busy server) - <b>no need to rescan</b>.',
+          '<b>UNSAVED</b> counts codes that are scanned but <b>not saved to the system yet</b>. They are kept on this device: if you quit or lose the network they stay, and the app asks whether to save or discard them next time. End the session every 100-200 codes so the numbers stay up to date.',
           'Cold-warehouse accounts scan <b>BAS</b> (basket) codes only, ambient accounts <b>TOT</b> (tote) codes only; a wrong type is flagged immediately.',
           '<b>Abnormal</b> scans (e.g. receiving a tote that was never shipped) are still recorded and listed under <b>Errors</b> for review.',
-          'Picked the wrong store? Use <b>Cancel session</b> to undo the totes scanned in that session.'
+          'Scanned something wrong? Tap <b>Cancel session</b>: every code scanned in the session is dropped, <b>nothing is saved</b>, and you can scan again from scratch.'
         ] },
         driver: { title: 'Store delivery', items: [
           'Pick the session type: <b>RECEIVE</b> (store receives goods from the warehouse) or <b>RETURN</b> (store hands empty totes to the driver).',
           'Drivers: select the store you are at before starting. Store accounts are set to their own store automatically.',
-          'Start the session and hold each code inside the camera frame; when done, end the session and confirm.',
+          'Start the session and hold each code inside the camera frame; when done, end the session and tap <b>CONFIRM AND SAVE</b> - only then are the codes saved to the system.',
           'Stores can scan both <b>BAS</b> (basket, cold) and <b>TOT</b> (tote, ambient) codes.',
-          '<b>WAITING</b> codes are resent automatically when the network is back - <b>no need to rescan</b>.'
+          'Scanned something wrong? Tap <b>Cancel session</b> to drop the scanned codes without saving anything. Unsaved codes are kept on this device.'
         ] },
         store: { title: 'Store list', items: [
           'Top tiles: total stores and stores with a location (directions available).',
@@ -5895,7 +5986,7 @@
         ] },
         dash: { title: 'Stock', items: [
           'Two tabs: <b>Store stock</b> (what each store holds) and <b>Warehouse stock</b> (what the warehouse holds). ADMIN sees both cold and ambient, warehouse accounts only their own.',
-          '<b>Warehouse stock</b>: for each type/colour you see <b>in warehouse</b>, <b>to store</b>, <b>returning</b>, <b>at stores</b> and <b>not labelled yet</b> (pre-created codes not activated), then the total.',
+          '<b>Warehouse stock</b>: for each type/colour you see the number <b>in warehouse</b> (big number), plus <b>to store</b> and <b>returning</b>.',
           '<b>At warehouse / At stores</b> (Store stock tab): total Totes and Baskets - tap a tile for the colour breakdown.',
           'Each row is a store holding totes, with <b>Tote</b> and <b>Basket</b> counts; tap it to see colours and codes.',
           '<b>Sort</b> box: quantity high → low, low → high, store name or store code.',
@@ -5922,6 +6013,13 @@
           'Abnormal scans are not blocked, only flagged - e.g. receiving a tote that was never shipped.',
           'Filter by date, action type, or search by store / code / user.',
           'The top part summarises by store (use the <b>sort</b> box for quantity, name or code); below are the individual scans.'
+        ] },
+        sessions: { title: 'Session lookup', items: [
+          'Every scan session has a <b>session ID</b> (e.g. <b>OUT-1011-1437-K7Q2</b>), shown on the session bar and in the End session box.',
+          'Enter a session ID and tap <b>SEARCH</b> to see which codes the session saved, <b>OK</b> or <b>abnormal</b>, who scanned and when.',
+          'Below are your <b>recent sessions</b>: tap one to open its details.',
+          'ADMIN can see every session; other accounts only see sessions <b>they scanned themselves</b>.',
+          'A <b>cancelled</b> or unsaved session has no data to look up.'
         ] },
         track: { title: 'Tote history', items: [
           'Scan or type a tote code and tap <b>SEARCH</b>.',
@@ -6012,11 +6110,7 @@
         .getWarehouseStock({ token: session.token, zone: viewZoneParam() });
     }
 
-    const STOCK_FIELDS = ['inWarehouse', 'toStore', 'toWarehouse', 'atStore', 'reserved'];
-
-    function stockTotal(row) {
-      return STOCK_FIELDS.reduce(function(a, f) { return a + (row[f] || 0); }, 0);
-    }
+    const STOCK_FIELDS = ['inWarehouse', 'toStore', 'toWarehouse'];
 
     function renderStock() {
       const box = document.getElementById('stockResult');
@@ -6028,7 +6122,7 @@
 
       zones.forEach(function(z) {
         const keys = sortedKinds(Object.keys(kinds).filter(function(k) { return zoneOfKind(k) === z; }));
-        const sum = { inWarehouse: 0, toStore: 0, toWarehouse: 0, atStore: 0, reserved: 0 };
+        const sum = { inWarehouse: 0, toStore: 0, toWarehouse: 0 };
         keys.forEach(function(k) { STOCK_FIELDS.forEach(function(f) { sum[f] += kinds[k][f] || 0; }); });
 
         const cell = function(label, n, cls) {
@@ -6038,8 +6132,6 @@
           return '<div class="stk-grid">' +
             cell(t('stockToStore'), row.toStore || 0) +
             cell(t('stockToWarehouse'), row.toWarehouse || 0) +
-            cell(t('stockAtStore'), row.atStore || 0) +
-            cell(t('stockReserved'), row.reserved || 0, 'dim') +
           '</div>';
         };
 
@@ -6048,13 +6140,11 @@
             '<span class="stk-title"><b>' + escHtml_(zoneTypeLabel(z)) + '</b><small>' + escHtml_(zoneName(z)) + '</small></span>' +
             '<span class="stk-big"><b>' + sum.inWarehouse + '</b><small>' + escHtml_(t('stockInWarehouse')) + '</small></span></div>' +
           grid(sum) +
-          '<div class="stk-total">' + escHtml_(t('stockTotal')) + ' <b>' + stockTotal(sum) + '</b></div>' +
           (keys.length ? '<div class="stk-kinds">' + keys.map(function(k) {
             const row = kinds[k];
             return '<div class="stk-kind">' +
               '<div class="stk-krow">' + kindChipHtml(k) + '<span class="stk-kbig"><b>' + (row.inWarehouse || 0) + '</b><small>' + escHtml_(t('stockInWarehouse')) + '</small></span></div>' +
               grid(row) +
-              '<div class="stk-total">' + escHtml_(t('stockTotal')) + ' <b>' + stockTotal(row) + '</b></div>' +
             '</div>';
           }).join('') + '</div>' : '<div class="empty-note">' + escHtml_(t('noTotesFound')) + '</div>') +
         '</div>';
@@ -6073,11 +6163,111 @@
       dashZonesInView().forEach(function(z) {
         sortedKinds(Object.keys(kinds).filter(function(k) { return zoneOfKind(k) === z; })).forEach(function(k) {
           const r = kinds[k];
-          rows.push([zoneName(z), kindLabel(k), r.inWarehouse || 0, r.toStore || 0, r.toWarehouse || 0, r.atStore || 0, r.reserved || 0, stockTotal(r)]);
+          rows.push([zoneName(z), kindLabel(k), r.inWarehouse || 0, r.toStore || 0, r.toWarehouse || 0]);
         });
       });
       exportTable('ton-kho_' + todayStamp(), 'TonKho',
-        [t('colZone'), t('colKind'), t('stockInWarehouse'), t('stockToStore'), t('stockToWarehouse'), t('stockAtStore'), t('stockReserved'), t('stockTotal')], rows);
+        [t('colZone'), t('colKind'), t('stockInWarehouse'), t('stockToStore'), t('stockToWarehouse')], rows);
+    }
+
+    // =====================================================================
+    // NHÓM 36: MÃ PHIÊN + TRA CỨU PHIÊN
+    // Mỗi phiên quét (OUT / IN / Nhận / Trả) có 1 mã phiên sinh lúc bấm "Bắt đầu
+    // phiên", VD OUT-1011-1437-K7Q2 (loại - tháng+ngày - giờ+phút - 4 ký tự ngẫu nhiên).
+    // Mã được gửi kèm khi ghi, backend lưu vào cột I của TOTE_LOG. Mục "Phiên" cho
+    // tra lại 1 phiên đã ghi những mã nào (ADMIN xem mọi phiên, người khác chỉ xem
+    // phiên của mình).
+    // =====================================================================
+    function makeSessionId(code) {
+      const d = new Date();
+      const p = function(n) { return String(n).padStart(2, '0'); };
+      const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X');
+      return code + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + rand;
+    }
+
+    function sessionActionText(list) {
+      return (list || []).map(function(a) { return actionLabel(a); }).join(', ') || '-';
+    }
+
+    function loadRecentSessions() {
+      const box = document.getElementById('recentSessions');
+      box.innerHTML = loadingHtml();
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            box.innerHTML = '<div class="empty-note">' + escHtml_(t('genericErrPrefix') + ((res && res.message) || t('couldNotLoadData'))) + '</div>';
+            return;
+          }
+
+          const list = res.sessions || [];
+          if (!list.length) {
+            box.innerHTML = '<div class="empty-note">' + escHtml_(t('noRecentSessions')) + '</div>';
+            return;
+          }
+
+          box.innerHTML = list.map(function(x) {
+            const sub = [actionLabel(x.action), x.store ? (x.store + (x.storeName ? ' - ' + x.storeName : '')) : '', x.user, x.lastTime]
+              .filter(function(v) { return v; }).join(' · ');
+            return '<button type="button" class="sess-row" data-sid="' + escHtml_(x.sessionId) + '" onclick="openSession(this.dataset.sid)">' +
+              '<span class="sr-main"><b>' + escHtml_(x.sessionId) + '</b><small>' + escHtml_(sub) + '</small></span>' +
+              '<span class="sr-count">' + x.total + (x.abnormalQty ? '<small>' + x.abnormalQty + ' ' + escHtml_(t('sessionAbnormalLabel')) + '</small>' : '') + '</span>' +
+            '</button>';
+          }).join('');
+        })
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          box.innerHTML = '<div class="empty-note">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
+        })
+        .getRecentSessions({ token: session.token });
+    }
+
+    function openSession(id) {
+      document.getElementById('sessionIdInput').value = id;
+      loadSessionDetail();
+      document.getElementById('sessionDetail').scrollIntoView({ block: 'start' });
+    }
+
+    function handleSessionKey(e) {
+      if (e.key === 'Enter') loadSessionDetail();
+    }
+
+    function loadSessionDetail() {
+      const id = (document.getElementById('sessionIdInput').value || '').trim().toUpperCase();
+      const box = document.getElementById('sessionDetail');
+      if (!id) return;
+
+      box.innerHTML = loadingHtml();
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('couldNotLoadData')) + '</div>';
+            return;
+          }
+
+          const stores = (res.stores || []).map(function(s) { return s.id + (s.name ? ' - ' + s.name : ''); }).join(', ');
+          const line = function(label, value) { return '<div>' + escHtml_(label) + ' <b>' + escHtml_(value) + '</b></div>'; };
+
+          box.innerHTML =
+            '<div class="summary-box">' +
+              '<div class="summary-title" style="word-break:break-all">' + escHtml_(res.sessionId) + '</div>' +
+              line(t('recoverTypeLabel') + ':', sessionActionText(res.actions)) +
+              (stores ? line(t('storeLabel') + ':', stores) : '') +
+              line(t('sessionByLabel') + ':', (res.users || []).join(', ') || '-') +
+              line(t('sessionTimeLabel') + ':', res.firstTime + (res.lastTime && res.lastTime !== res.firstTime ? '  →  ' + res.lastTime : '')) +
+              '<div>' + escHtml_(t('sessionCodesLabel')) + ' <b>' + res.total + '</b> &nbsp;|&nbsp; ' + escHtml_(t('counterOk')) + ' <b>' + res.okQty + '</b> &nbsp;|&nbsp; ' +
+                escHtml_(t('sessionAbnormalLabel')) + ' <b' + (res.abnormalQty ? ' style="color:#E1364A"' : '') + '>' + res.abnormalQty + '</b></div>' +
+            '</div>' +
+            renderSessionScanLogDetails((res.rows || []).map(function(x) {
+              return { toteId: x.toteId, message: x.note || x.result, success: x.result === 'OK' };
+            }));
+        })
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
+        })
+        .getSessionDetail({ token: session.token, sessionId: id });
     }
 
     // =====================================================================
@@ -6829,10 +7019,6 @@
       const key = STATUS_KEYS[status];
       return key ? t(key) : (status || '-');
     }
-
-    window.addEventListener('beforeunload', function() {
-      if (pendingQueue.length > 0) flushNow();
-    });
 
     init();
   </script>
