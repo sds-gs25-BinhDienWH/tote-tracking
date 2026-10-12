@@ -1256,7 +1256,7 @@
           <div id="sessionConfirmOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="endSessionTitle">Kết thúc phiên quét?</h3>
-              <div id="sessionEndHint" data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
+              <div id="sessionEndHint" data-i18n="endSessionHint" class="end-hint">Bấm xác nhận để ghi.</div>
               <div class="session-summary">
                 <div id="sumStoreRow"><span data-i18n="storeLabel">Store</span><b id="sumStore">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="sumTotal">0</b></div>
@@ -1434,7 +1434,7 @@
           <div id="driverSessionConfirmOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="driverEndSessionTitle">Kết thúc phiên?</h3>
-              <div data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
+              <div data-i18n="endSessionHint" class="end-hint">Bấm xác nhận để ghi.</div>
               <div class="session-summary">
                 <div><span data-i18n="storeLabel">Store</span><b id="driverSumStore">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="driverSumTotal">0</b></div>
@@ -1931,19 +1931,19 @@
         dashTabStores: 'Tồn cửa hàng', dashTabStock: 'Tồn kho', stockInWarehouse: 'Trong kho', stockToStore: 'Đang giao',
         stockToWarehouse: 'Đang về kho',
         stockUpdated: 'Cập nhật lúc {time}', colZone: 'Kho',
-        endSessionHint: 'Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới. Hủy phiên thì không ghi gì.', confirmEndSaveBtn: 'XÁC NHẬN VÀ GHI',
-        longSessionWarn: 'Đã quét {n} mã mà CHƯA ghi lên hệ thống - nên bấm KẾT THÚC PHIÊN để ghi bớt, tránh mất dữ liệu nếu máy hỏng.',
-        retrySaveBtn: 'GHI LẠI ({n})', doneCloseBtn: 'ĐÓNG', viewPendingCodesMsg: 'Xem {n} mã sẽ ghi',
-        commitProgress: 'Đang ghi lên hệ thống: {done}/{total} mã...', commitBusyHint: 'Máy chủ đang bận, tự thử lại.', commitRetryHint: 'Mạng chập chờn, đang thử lại.',
-        commitStopped: 'CHƯA GHI HẾT: còn {n} mã chưa ghi lên hệ thống. {reason} Bấm GHI LẠI.', commitDoneMsg: 'ĐÃ GHI XONG: {ok} OK, {fail} lỗi/bất thường',
-        commitExpiredMsg: 'Phiên đăng nhập hết hạn. Đăng nhập lại - các mã chưa ghi vẫn được giữ trên máy.',
-        alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi phiên lên hệ thống, vui lòng chờ...',
-        recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Lần trước bạn thoát hoặc mất mạng khi đang quét nên các mã này chưa được ghi lên hệ thống. Bấm GHI LÊN HỆ THỐNG để ghi, hoặc BỎ nếu quét nhầm.',
+        endSessionHint: 'Bấm xác nhận để ghi.', confirmEndSaveBtn: 'XÁC NHẬN VÀ GHI',
+        longSessionWarn: 'Đã quét {n} mã chưa ghi. Nên kết thúc phiên để ghi.',
+        retrySaveBtn: 'GHI LẠI ({n})', doneCloseBtn: 'ĐÓNG', viewPendingCodesMsg: 'Xem {n} mã',
+        commitProgress: 'Đang ghi: {done}/{total}', commitBusyHint: 'Máy chủ bận, đang thử lại.', commitRetryHint: 'Mạng yếu, đang thử lại.',
+        commitStopped: 'Còn {n} mã chưa ghi. {reason} Bấm GHI LẠI.', commitDoneMsg: 'ĐÃ GHI XONG: {ok} OK, {fail} lỗi/bất thường',
+        commitExpiredMsg: 'Hết phiên đăng nhập. Đăng nhập lại, mã chưa ghi vẫn còn.',
+        alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi, vui lòng chờ...',
+        recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Còn mã chưa ghi từ lần trước. Bấm GHI LÊN HỆ THỐNG hoặc BỎ.',
         recoverSaveBtn: 'GHI LÊN HỆ THỐNG', recoverDiscardBtn: 'BỎ', recoverTypeLabel: 'Loại phiên', recoverCountLabel: 'Số mã chưa ghi', recoverNextBtn: 'TIẾP TỤC',
-        endSessionHintNow: 'Các mã đã được ghi lên hệ thống ngay khi quét. Kết thúc phiên chỉ đóng phiên.', immediateWaitMsg: 'Đang ghi nốt {n} mã, vui lòng chờ...',
-        receivedPendingNoteNow: 'Đã nhận scan - chờ ghi', waitFlushBeforeSwitch: 'Đang ghi nốt các mã IN, đợi xong rồi hãy đổi chế độ.',
-        cancelInScannedLabelNow: 'Tote đã quét trong phiên',
-        cancelInHintNow: 'Các tote đã quét IN đã được ghi lên hệ thống và vẫn ở trong kho (không hoàn tác). Hủy phiên chỉ đóng phiên và xóa bộ đếm trên máy quét; mã nào chưa kịp ghi sẽ bị bỏ.',
+        endSessionHintNow: 'Các mã đã được ghi.', immediateWaitMsg: 'Đang ghi {n} mã...',
+        receivedPendingNoteNow: 'Đã quét', waitFlushBeforeSwitch: 'Đang ghi nốt các mã IN, đợi xong rồi hãy đổi chế độ.',
+        cancelInScannedLabelNow: 'Mã đã quét',
+        cancelInHintNow: 'Hủy phiên chỉ đóng phiên, mã đã ghi vẫn giữ nguyên.',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
         loggingIn: 'ĐANG ĐĂNG NHẬP...',
         helpBtnTitle: 'Hướng dẫn sử dụng', helpTitlePrefix: 'Hướng dẫn', closeBtn: 'Đóng', sortLabel: 'Sắp xếp',
@@ -1966,22 +1966,22 @@
         startInSessionBtn: 'BẮT ĐẦU PHIÊN NHẬP',
         scanningForLabel: 'Đang quét cho:', inRecoveryLabel: 'Đang thu hồi về kho (IN)',
         cancelSessionBtn: 'HỦY PHIÊN', endSessionBtn: 'KẾT THÚC PHIÊN',
-        endPickHint: 'Quét nhầm? Bấm vào mã đó để chọn rồi bấm XÓA - mã bị bỏ khỏi phiên, không ghi.', removeCodesBtnN: 'XÓA {n} MÃ ĐÃ CHỌN',
+        endPickHint: 'Bấm vào mã nhầm để chọn.', removeCodesBtnN: 'XÓA {n} MÃ',
         removedFromSession: 'Đã xóa {n} mã khỏi phiên',
         scanToteLabel: 'Scan Tote', scanTotePlaceholder: 'SCAN TOTE...',
         confirmBtn: 'XÁC NHẬN', manualInputBtn: 'NHẬP TAY',
         readySummary: 'SẴN SÀNG SCAN',
-        counterTotal: 'TỔNG', counterOk: 'OK', counterFail: 'LỖI', counterQueue: 'CHƯA GHI',
+        counterTotal: 'TỔNG', counterOk: 'OK', counterFail: 'LỖI', counterQueue: 'CHỜ',
 
         endSessionTitle: 'Kết thúc phiên quét?', storeLabel: 'Store', totalScannedLabel: 'Tổng đã quét',
         continueScanBtn: 'TIẾP TỤC QUÉT', confirmEndBtn: 'XÁC NHẬN KẾT THÚC',
 
-        cancelOutSessionTitle: 'Hủy phiên quét?', cancelOutScannedLabel: 'Mã đã quét trong phiên (chưa ghi)',
-        cancelOutHint: 'Các mã đã quét trong phiên này CHƯA được ghi lên hệ thống nên sẽ bị bỏ hoàn toàn, không ảnh hưởng dữ liệu. Sau đó bạn bắt đầu phiên mới để quét lại.',
+        cancelOutSessionTitle: 'Hủy phiên quét?', cancelOutScannedLabel: 'Mã đã quét',
+        cancelOutHint: 'Các mã đã quét sẽ bị bỏ, không ghi.',
         confirmCancelBtn: 'XÁC NHẬN HỦY',
 
-        cancelInSessionTitle: 'Hủy phiên nhập?', cancelInScannedLabel: 'Mã đã quét trong phiên (chưa ghi)',
-        cancelInHint: 'Các mã đã quét trong phiên này CHƯA được ghi lên hệ thống nên sẽ bị bỏ hoàn toàn, không ảnh hưởng dữ liệu. Sau đó bạn bắt đầu phiên mới để quét lại.',
+        cancelInSessionTitle: 'Hủy phiên nhập?', cancelInScannedLabel: 'Mã đã quét',
+        cancelInHint: 'Các mã đã quét sẽ bị bỏ, không ghi.',
 
         driverModeReceive: 'NHẬN RỔ TẠI CH', driverModeReturn: 'XUẤT RỔ TẠI CH (LẤY VỎ)',
         driverReceiveBtn: 'NHẬN RỔ', driverReturnBtn: 'XUẤT RỔ (LẤY VỎ)',
@@ -1991,8 +1991,8 @@
         cameraOffBtn: 'TẮT CAMERA', cameraOnBtn: 'BẬT CAMERA',
 
         driverEndSessionTitle: 'Kết thúc phiên?',
-        driverCancelSessionTitle: 'Hủy phiên?', driverCancelScannedLabel: 'Mã đã quét trong phiên (chưa ghi)',
-        driverCancelHint: 'Các mã đã quét trong phiên này CHƯA được ghi lên hệ thống nên sẽ bị bỏ hoàn toàn, không ảnh hưởng dữ liệu. Sau đó bạn bắt đầu phiên mới để quét lại.',
+        driverCancelSessionTitle: 'Hủy phiên?', driverCancelScannedLabel: 'Mã đã quét',
+        driverCancelHint: 'Các mã đã quét sẽ bị bỏ, không ghi.',
 
         storeIdLabel: 'Store ID', storeNameLabel: 'Store Name', addStoreBtn: 'THÊM STORE',
 
@@ -2090,7 +2090,7 @@
 
         notToteIdMsg: 'Không phải mã rổ/tote - không ghi dữ liệu',
         doubleScanSkipPrefix: 'DOUBLE SCAN BỎ QUA: ', doubleScanSkipNote: 'Double scan - không ghi',
-        receivedPendingNote: 'Đã quét - chưa ghi (ghi khi kết thúc phiên)', driverEndedMsg: 'ĐÃ KẾT THÚC PHIÊN',
+        receivedPendingNote: 'Đã quét', driverEndedMsg: 'ĐÃ KẾT THÚC PHIÊN',
         missingLibMsg: 'Thiếu thư viện quét mã - kiểm tra kết nối mạng rồi tải lại trang',
         scannerInitErrPrefix: 'Không khởi tạo được bộ quét mã: ',
         loadingMsg: 'ĐANG TẢI...', genericErrPrefix: 'LỖI: ',
@@ -2151,19 +2151,19 @@
         dashTabStores: 'Store stock', dashTabStock: 'Warehouse stock', stockInWarehouse: 'In warehouse', stockToStore: 'To store',
         stockToWarehouse: 'Returning',
         stockUpdated: 'Updated at {time}', colZone: 'Warehouse',
-        endSessionHint: 'Codes are only SAVED TO THE SYSTEM when you confirm below. Cancelling the session saves nothing.', confirmEndSaveBtn: 'CONFIRM AND SAVE',
-        longSessionWarn: '{n} codes scanned but NOT saved to the system yet - tap END SESSION to save some, to avoid losing data if the device fails.',
-        retrySaveBtn: 'SAVE AGAIN ({n})', doneCloseBtn: 'CLOSE', viewPendingCodesMsg: 'View {n} codes to be saved',
-        commitProgress: 'Saving to the system: {done}/{total} codes...', commitBusyHint: 'Server busy, retrying.', commitRetryHint: 'Network unstable, retrying.',
-        commitStopped: 'NOT FULLY SAVED: {n} codes are still not saved to the system. {reason} Tap SAVE AGAIN.', commitDoneMsg: 'SAVED: {ok} OK, {fail} errors/abnormal',
-        commitExpiredMsg: 'Login expired. Log in again - unsaved codes are kept on this device.',
-        alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving the session to the system, please wait...',
-        recoverTitle: 'Unsaved scans found', recoverHint: 'Last time you left or lost the connection while scanning, so these codes were not saved to the system. Tap SAVE TO SYSTEM to save them, or DISCARD if they were a mistake.',
+        endSessionHint: 'Confirm to save.', confirmEndSaveBtn: 'CONFIRM AND SAVE',
+        longSessionWarn: '{n} codes scanned, not saved. End the session to save.',
+        retrySaveBtn: 'SAVE AGAIN ({n})', doneCloseBtn: 'CLOSE', viewPendingCodesMsg: 'View {n} codes',
+        commitProgress: 'Saving: {done}/{total}', commitBusyHint: 'Server busy, retrying.', commitRetryHint: 'Weak network, retrying.',
+        commitStopped: '{n} codes not saved. {reason} Tap RETRY.', commitDoneMsg: 'SAVED: {ok} OK, {fail} errors/abnormal',
+        commitExpiredMsg: 'Login expired. Log in again, unsaved codes are kept.',
+        alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving, please wait...',
+        recoverTitle: 'Unsaved scans found', recoverHint: 'Unsaved codes from last time. Tap SAVE or DISCARD.',
         recoverSaveBtn: 'SAVE TO SYSTEM', recoverDiscardBtn: 'DISCARD', recoverTypeLabel: 'Session type', recoverCountLabel: 'Unsaved codes', recoverNextBtn: 'CONTINUE',
-        endSessionHintNow: 'Codes are saved to the system as soon as they are scanned. Ending the session only closes it.', immediateWaitMsg: 'Saving the last {n} codes, please wait...',
-        receivedPendingNoteNow: 'Scan received - pending', waitFlushBeforeSwitch: 'Still saving IN codes - wait until done before switching mode.',
-        cancelInScannedLabelNow: 'Totes scanned this session',
-        cancelInHintNow: 'Totes already scanned IN are saved to the system and stay in the warehouse (not reversed). Cancelling only closes the session and clears the counter on this device; codes not saved yet are dropped.',
+        endSessionHintNow: 'Codes are already saved.', immediateWaitMsg: 'Saving {n} codes...',
+        receivedPendingNoteNow: 'Scanned', waitFlushBeforeSwitch: 'Still saving IN codes - wait until done before switching mode.',
+        cancelInScannedLabelNow: 'Scanned codes',
+        cancelInHintNow: 'Cancelling only closes the session; saved codes stay.',
         pressBackAgainToExit: 'Press Back again to exit the app',
         loggingIn: 'LOGGING IN...',
         helpBtnTitle: 'User guide', helpTitlePrefix: 'Guide', closeBtn: 'Close', sortLabel: 'Sort',
@@ -2186,22 +2186,22 @@
         startInSessionBtn: 'START IN SESSION',
         scanningForLabel: 'Scanning for:', inRecoveryLabel: 'Returning to warehouse (IN)',
         cancelSessionBtn: 'CANCEL SESSION', endSessionBtn: 'END SESSION',
-        endPickHint: 'Scanned by mistake? Tap the code to select it, then press REMOVE - it is dropped and never saved.', removeCodesBtnN: 'REMOVE {n} SELECTED',
+        endPickHint: 'Tap a wrong code to select it.', removeCodesBtnN: 'REMOVE {n}',
         removedFromSession: 'Removed {n} code(s) from the session',
         scanToteLabel: 'Scan Tote', scanTotePlaceholder: 'SCAN TOTE...',
         confirmBtn: 'CONFIRM', manualInputBtn: 'MANUAL ENTRY',
         readySummary: 'READY TO SCAN',
-        counterTotal: 'TOTAL', counterOk: 'OK', counterFail: 'FAIL', counterQueue: 'UNSAVED',
+        counterTotal: 'TOTAL', counterOk: 'OK', counterFail: 'FAIL', counterQueue: 'PENDING',
 
         endSessionTitle: 'End scan session?', storeLabel: 'Store', totalScannedLabel: 'Total scanned',
         continueScanBtn: 'KEEP SCANNING', confirmEndBtn: 'CONFIRM END',
 
-        cancelOutSessionTitle: 'Cancel scan session?', cancelOutScannedLabel: 'Codes scanned this session (not saved)',
-        cancelOutHint: 'The codes scanned in this session have NOT been saved to the system, so they will simply be discarded - no data is affected. Then start a new session to scan again.',
+        cancelOutSessionTitle: 'Cancel scan session?', cancelOutScannedLabel: 'Scanned codes',
+        cancelOutHint: 'Scanned codes are dropped, not saved.',
         confirmCancelBtn: 'CONFIRM CANCEL',
 
-        cancelInSessionTitle: 'Cancel IN session?', cancelInScannedLabel: 'Codes scanned this session (not saved)',
-        cancelInHint: 'The codes scanned in this session have NOT been saved to the system, so they will simply be discarded - no data is affected. Then start a new session to scan again.',
+        cancelInSessionTitle: 'Cancel IN session?', cancelInScannedLabel: 'Scanned codes',
+        cancelInHint: 'Scanned codes are dropped, not saved.',
 
         driverModeReceive: 'RECEIVE AT STORE', driverModeReturn: 'RETURN AT STORE (EMPTY TOTES)',
         driverReceiveBtn: 'RECEIVE', driverReturnBtn: 'RETURN (EMPTY TOTES)',
@@ -2211,8 +2211,8 @@
         cameraOffBtn: 'TURN OFF CAMERA', cameraOnBtn: 'TURN ON CAMERA',
 
         driverEndSessionTitle: 'End session?',
-        driverCancelSessionTitle: 'Cancel session?', driverCancelScannedLabel: 'Codes scanned this session (not saved)',
-        driverCancelHint: 'The codes scanned in this session have NOT been saved to the system, so they will simply be discarded - no data is affected. Then start a new session to scan again.',
+        driverCancelSessionTitle: 'Cancel session?', driverCancelScannedLabel: 'Scanned codes',
+        driverCancelHint: 'Scanned codes are dropped, not saved.',
 
         storeIdLabel: 'Store ID', storeNameLabel: 'Store Name', addStoreBtn: 'ADD STORE',
 
@@ -2310,7 +2310,7 @@
 
         notToteIdMsg: 'Not a basket/tote code - not recorded',
         doubleScanSkipPrefix: 'DOUBLE SCAN SKIPPED: ', doubleScanSkipNote: 'Double scan - not recorded',
-        receivedPendingNote: 'Scanned - not saved yet (saved when the session ends)', driverEndedMsg: 'SESSION ENDED',
+        receivedPendingNote: 'Scanned', driverEndedMsg: 'SESSION ENDED',
         missingLibMsg: 'Missing barcode scanner library - check your connection and reload the page',
         scannerInitErrPrefix: 'Could not initialize the scanner: ',
         loadingMsg: 'LOADING...', genericErrPrefix: 'ERROR: ',
@@ -6095,7 +6095,7 @@
         pda: { title: 'Quét xuất / nhập kho', items: [
           '<b>OUT (xuất kho)</b>: chọn cửa hàng → <b>Bắt đầu phiên quét</b> → quét lần lượt từng mã → <b>Kết thúc phiên</b> → xem lại rồi bấm <b>XÁC NHẬN VÀ GHI</b>. Các mã <b>chỉ được ghi lên hệ thống ở bước này</b>.',
           '<b>IN (nhập kho)</b>: không cần chọn cửa hàng - bắt đầu phiên rồi quét các tote cửa hàng trả về. Mã IN <b>được ghi lên hệ thống ngay khi quét</b>; Hủy phiên IN không hoàn tác phần đã ghi.',
-          'Số <b>CHƯA GHI</b> là các mã đã quét nhưng <b>chưa ghi lên hệ thống</b> (OUT: tới khi kết thúc phiên; IN: chỉ vài giây). Chúng được lưu tạm trên máy: thoát app hoặc mất mạng vẫn còn, mở lại app sẽ hỏi bạn ghi tiếp hay bỏ. Nên kết thúc phiên sau mỗi khoảng 100 đến 200 mã để số liệu kịp cập nhật.',
+          'Số <b>CHỜ</b> là các mã đã quét nhưng <b>chưa ghi lên hệ thống</b> (OUT: tới khi kết thúc phiên; IN: chỉ vài giây). Chúng được lưu tạm trên máy: thoát app hoặc mất mạng vẫn còn, mở lại app sẽ hỏi bạn ghi tiếp hay bỏ. Nên kết thúc phiên sau mỗi khoảng 100 đến 200 mã để số liệu kịp cập nhật.',
           'Tài khoản kho lạnh chỉ quét mã <b>BAS</b> (rổ), kho khô chỉ quét mã <b>TOT</b> (tote); quét nhầm loại sẽ bị báo ngay.',
           'Mã bị đánh dấu <b>bất thường</b> (VD nhập kho một tote chưa từng xuất) vẫn được ghi lại và sẽ hiện ở mục <b>Lỗi</b> để kiểm tra.',
           'Quét nhầm vài mã (OUT)? Bấm <b>Kết thúc phiên</b>, trong danh sách mã bấm chọn các mã nhầm rồi <b>Xóa</b> - các mã còn lại giữ nguyên, rồi <b>Xác nhận và ghi</b>. Quét sai quá nhiều thì bấm <b>Hủy phiên</b>: bỏ toàn bộ mã, <b>không ghi gì</b> lên hệ thống.'
@@ -6166,7 +6166,7 @@
         pda: { title: 'Outbound / inbound scanning', items: [
           '<b>OUT</b>: pick a store → <b>Start scan session</b> → scan each code → <b>End session</b> → review and tap <b>CONFIRM AND SAVE</b>. Codes are <b>only saved to the system at this step</b>.',
           '<b>IN</b>: no store needed - start a session and scan the totes returned by stores. IN codes are <b>saved to the system as soon as they are scanned</b>; cancelling an IN session does not undo what was saved.',
-          '<b>UNSAVED</b> counts codes that are scanned but <b>not saved to the system yet</b> (OUT: until the session ends; IN: only a few seconds). They are kept on this device: if you quit or lose the network they stay, and the app asks whether to save or discard them next time. End the session every 100-200 codes so the numbers stay up to date.',
+          '<b>PENDING</b> counts codes that are scanned but <b>not saved to the system yet</b> (OUT: until the session ends; IN: only a few seconds). They are kept on this device: if you quit or lose the network they stay, and the app asks whether to save or discard them next time. End the session every 100-200 codes so the numbers stay up to date.',
           'Cold-warehouse accounts scan <b>BAS</b> (basket) codes only, ambient accounts <b>TOT</b> (tote) codes only; a wrong type is flagged immediately.',
           '<b>Abnormal</b> scans (e.g. receiving a tote that was never shipped) are still recorded and listed under <b>Errors</b> for review.',
           'Scanned a few wrong codes (OUT)? Tap <b>End session</b>, select the wrong codes in the list and <b>Remove</b> them - the rest stay, then <b>Confirm and save</b>. Too many mistakes? Tap <b>Cancel session</b>: every code is dropped and <b>nothing is saved</b>.'
