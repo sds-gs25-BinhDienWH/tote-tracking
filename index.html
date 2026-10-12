@@ -881,6 +881,10 @@
   .dashboard-title{ font-size:14px; font-weight:800; line-height:19px; flex:1; color:var(--heading); }
   .qty{ min-width:44px; padding:5px 9px; font-size:18px; font-weight:800; color:#fff; background:var(--red); text-align:center; border-radius:var(--radius-sm); }
 
+  .chip-pick{ cursor:pointer; user-select:none; }
+  .chip-pick.picked{ background:var(--red); color:#fff; border-color:var(--red); text-decoration:line-through; }
+  .pick-hint{ font-size:11.5px; color:var(--muted); margin-bottom:6px; }
+  details .btn-danger{ margin-top:10px; }
   .chip{ display:inline-block; border:1px solid var(--border); border-radius:999px; padding:5px 10px; margin:3px; font-size:11.5px; font-weight:800; background:var(--bg); color:var(--heading); }
 
   /* ---------------- Bảng xếp hạng "nợ tote nhiều nhất" (tab Tồn) ---------------- */
@@ -1962,6 +1966,8 @@
         startInSessionBtn: 'BẮT ĐẦU PHIÊN NHẬP',
         scanningForLabel: 'Đang quét cho:', inRecoveryLabel: 'Đang thu hồi về kho (IN)',
         cancelSessionBtn: 'HỦY PHIÊN', endSessionBtn: 'KẾT THÚC PHIÊN',
+        endPickHint: 'Quét nhầm? Bấm vào mã đó để chọn rồi bấm XÓA - mã bị bỏ khỏi phiên, không ghi.', removeCodesBtnN: 'XÓA {n} MÃ ĐÃ CHỌN',
+        removedFromSession: 'Đã xóa {n} mã khỏi phiên',
         scanToteLabel: 'Scan Tote', scanTotePlaceholder: 'SCAN TOTE...',
         confirmBtn: 'XÁC NHẬN', manualInputBtn: 'NHẬP TAY',
         readySummary: 'SẴN SÀNG SCAN',
@@ -2180,6 +2186,8 @@
         startInSessionBtn: 'START IN SESSION',
         scanningForLabel: 'Scanning for:', inRecoveryLabel: 'Returning to warehouse (IN)',
         cancelSessionBtn: 'CANCEL SESSION', endSessionBtn: 'END SESSION',
+        endPickHint: 'Scanned by mistake? Tap the code to select it, then press REMOVE - it is dropped and never saved.', removeCodesBtnN: 'REMOVE {n} SELECTED',
+        removedFromSession: 'Removed {n} code(s) from the session',
         scanToteLabel: 'Scan Tote', scanTotePlaceholder: 'SCAN TOTE...',
         confirmBtn: 'CONFIRM', manualInputBtn: 'MANUAL ENTRY',
         readySummary: 'READY TO SCAN',
@@ -3399,10 +3407,60 @@
       step();
     }
 
-    function queueDetailsHtml(items) {
+    function queueDetailsHtml(items, removable) {
       if (!items || !items.length) return '';
-      return '<details><summary>' + escHtml_(tf('viewPendingCodesMsg', { n: items.length })) + '</summary>' +
-        '<div style="margin-top:8px">' + items.map(function(x) { return '<span class="chip">' + escHtml_(x.toteId) + '</span>'; }).join('') + '</div></details>';
+      const chips = items.map(function(x) {
+        return removable
+          ? '<span class="chip chip-pick" data-code="' + escHtml_(x.toteId) + '" onclick="toggleEndPick(this)">' + escHtml_(x.toteId) + '</span>'
+          : '<span class="chip">' + escHtml_(x.toteId) + '</span>';
+      }).join('');
+      const hint = removable ? '<div class="pick-hint">' + escHtml_(t('endPickHint')) + '</div>' : '';
+      const btn = removable ? '<button class="btn btn-danger hidden" id="endRemoveBtn" onclick="confirmEndRemove()"></button>' : '';
+      return '<details' + (removable ? ' open' : '') + '><summary>' + escHtml_(tf('viewPendingCodesMsg', { n: items.length })) + '</summary>' +
+        '<div style="margin-top:8px">' + hint + chips + '</div>' + btn + '</details>';
+    }
+
+    // Xóa mã quét nhầm ngay trong popup "Kết thúc phiên" (chỉ OUT - mã chưa ghi, chỉ gỡ khỏi máy).
+    // IN ghi ngay khi quét nên muốn xóa phải hoàn tác trên máy chủ -> làm sau, khi nhập kho xong.
+    const REMOVE_CODES = { OUT: true, IN: false };
+    let endPick = {};
+
+    function canRemoveCodes() {
+      return mode === 'OUT' && sessionActive && REMOVE_CODES.OUT && DEFER_WRITE.OUT && endStage.pda === 'confirm';
+    }
+
+    function toggleEndPick(el) {
+      if (!canRemoveCodes() || committing) return;
+      const c = el.getAttribute('data-code');
+      if (endPick[c]) { delete endPick[c]; el.classList.remove('picked'); } else { endPick[c] = true; el.classList.add('picked'); }
+      const n = Object.keys(endPick).length;
+      const b = document.getElementById('endRemoveBtn');
+      if (!b) return;
+      b.classList.toggle('hidden', n === 0);
+      b.innerText = tf('removeCodesBtnN', { n });
+    }
+
+    function confirmEndRemove() {
+      if (!canRemoveCodes() || committing) return;
+      const codes = Object.keys(endPick);
+      if (!codes.length) return;
+      const set = {};
+      codes.forEach(function(c) { set[c] = true; });
+      const before = pendingQueue.length;
+      pendingQueue = pendingQueue.filter(function(x) { return !set[x.toteId]; });
+      const removed = before - pendingQueue.length;
+      codes.forEach(function(c) {
+        delete sessionCodes[c];
+        delete recentScanMap[mode + '|' + selectedStoreId + '|' + c];
+      });
+      total = Math.max(0, total - removed);
+      endPick = {};
+      persistPdaQueue();
+      updateCounter();
+      document.getElementById('sumTotal').innerText = pendingQueue.length;
+      document.getElementById('sessionScanLogDetails').innerHTML = queueDetailsHtml(pendingQueue, true);
+      addRecent('', tf('removedFromSession', { n: removed }), false);
+      showResult(tf('removedFromSession', { n: removed }), true);
     }
 
     // ---------- Popup "Kết thúc phiên" (dùng chung cho PDA kho và màn Giao Nhận) ----------
@@ -3450,7 +3508,8 @@
       document.getElementById(u.sumTotal).innerText = items.length;
       document.getElementById(u.sumOk).innerText = '-';
       document.getElementById(u.sumFail).innerText = '-';
-      document.getElementById(u.details).innerHTML = queueDetailsHtml(items);
+      endPick = {};
+      document.getElementById(u.details).innerHTML = queueDetailsHtml(items, isPda && mode === 'OUT' && REMOVE_CODES.OUT && DEFER_WRITE.OUT);
       setEndStage(kind, 'confirm', '');
       document.getElementById(u.overlay).classList.remove('hidden');
     }
@@ -6039,7 +6098,7 @@
           'Số <b>CHƯA GHI</b> là các mã đã quét nhưng <b>chưa ghi lên hệ thống</b> (OUT: tới khi kết thúc phiên; IN: chỉ vài giây). Chúng được lưu tạm trên máy: thoát app hoặc mất mạng vẫn còn, mở lại app sẽ hỏi bạn ghi tiếp hay bỏ. Nên kết thúc phiên sau mỗi khoảng 100 đến 200 mã để số liệu kịp cập nhật.',
           'Tài khoản kho lạnh chỉ quét mã <b>BAS</b> (rổ), kho khô chỉ quét mã <b>TOT</b> (tote); quét nhầm loại sẽ bị báo ngay.',
           'Mã bị đánh dấu <b>bất thường</b> (VD nhập kho một tote chưa từng xuất) vẫn được ghi lại và sẽ hiện ở mục <b>Lỗi</b> để kiểm tra.',
-          'Quét nhầm? Bấm <b>Hủy phiên</b>: toàn bộ mã đã quét trong phiên bị bỏ, <b>không ghi gì</b> lên hệ thống, rồi bạn quét lại từ đầu.'
+          'Quét nhầm vài mã (OUT)? Bấm <b>Kết thúc phiên</b>, trong danh sách mã bấm chọn các mã nhầm rồi <b>Xóa</b> - các mã còn lại giữ nguyên, rồi <b>Xác nhận và ghi</b>. Quét sai quá nhiều thì bấm <b>Hủy phiên</b>: bỏ toàn bộ mã, <b>không ghi gì</b> lên hệ thống.'
         ] },
         driver: { title: 'Giao nhận tại cửa hàng', items: [
           'Chọn loại phiên: <b>NHẬN RỔ</b> (cửa hàng nhận hàng kho giao tới) hoặc <b>XUẤT RỔ</b> (cửa hàng trả vỏ cho tài xế mang về kho).',
@@ -6110,7 +6169,7 @@
           '<b>UNSAVED</b> counts codes that are scanned but <b>not saved to the system yet</b> (OUT: until the session ends; IN: only a few seconds). They are kept on this device: if you quit or lose the network they stay, and the app asks whether to save or discard them next time. End the session every 100-200 codes so the numbers stay up to date.',
           'Cold-warehouse accounts scan <b>BAS</b> (basket) codes only, ambient accounts <b>TOT</b> (tote) codes only; a wrong type is flagged immediately.',
           '<b>Abnormal</b> scans (e.g. receiving a tote that was never shipped) are still recorded and listed under <b>Errors</b> for review.',
-          'Scanned something wrong? Tap <b>Cancel session</b>: every code scanned in the session is dropped, <b>nothing is saved</b>, and you can scan again from scratch.'
+          'Scanned a few wrong codes (OUT)? Tap <b>End session</b>, select the wrong codes in the list and <b>Remove</b> them - the rest stay, then <b>Confirm and save</b>. Too many mistakes? Tap <b>Cancel session</b>: every code is dropped and <b>nothing is saved</b>.'
         ] },
         driver: { title: 'Store delivery', items: [
           'Pick the session type: <b>RECEIVE</b> (store receives goods from the warehouse) or <b>RETURN</b> (store hands empty totes to the driver).',
