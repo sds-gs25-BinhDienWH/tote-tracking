@@ -3052,6 +3052,13 @@
 
       if (!toteId) return;
 
+      // Máy quét đôi khi làm mất Enter -> nhiều mã dính liền: tách ra xử lý từng mã
+      const glued = splitGluedCodes(toteId);
+      if (glued) {
+        glued.forEach(receiveScanCode);
+        return;
+      }
+
       if (!isItemCode(toteId)) {
         showResult(t('invalidCodePrefix') + toteId, false);
         addRecent(toteId, t('notToteIdMsg'), false);
@@ -4082,7 +4089,7 @@
       pendingQueue = [];
       sessionCodes = {};
       persistQueue('OUT', null);
-      sessionIds.OUT = makeSessionId('OUT');
+      sessionIds.OUT = makeSessionId('OUT', selectedStoreId);
 
       // Bắt đầu phiên mới = reset bộ đếm + danh sách gần đây + chống quét
       // trùng, để số liệu hiển thị đúng là số liệu CỦA PHIÊN NÀY, không bị
@@ -6367,17 +6374,19 @@
     // =====================================================================
     // NHÓM 36: MÃ PHIÊN (chỉ để ADMIN tra trong database, KHÔNG hiện trên app)
     // Mỗi phiên quét (OUT / IN / Nhận / Trả) tự sinh 1 mã lúc bấm "Bắt đầu phiên",
-    // VD COLDWH-OUT-1011-1437-K7Q2 (người quét - loại - tháng+ngày - giờ+phút - 4 ký tự
+    // VD COLDWH-OUT-VN0437-1011-1437-K7Q2 (người quét - loại - cửa hàng (chỉ OUT kho) - tháng+ngày - giờ+phút - 4 ký tự
     // ngẫu nhiên). Mã được gửi kèm khi ghi và backend lưu vào cột I (SESSION_ID) của
     // TOTE_LOG. Người dùng không phải làm gì, muốn xem lại 1 phiên thì lọc cột I trong sheet.
     // =====================================================================
-    function makeSessionId(code) {
+    function makeSessionId(code, storeId) {
       const d = new Date();
       const p = function(n) { return String(n).padStart(2, '0'); };
       const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, 'X');
       // Tên đăng nhập đứng đầu để biết ngay phiên của ai (bỏ ký tự lạ, tối đa 12 ký tự)
-      const who = String((session && session.loginId) || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'USER';
-      return who + '-' + code + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + rand;
+      const who = String((session && session.loginId) || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) || 'USER';
+      // OUT (kho): thêm mã cửa hàng để nhìn mã phiên là biết làm cho cửa hàng nào (IN thì không có)
+      const st = String(storeId || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+      return who + '-' + code + (st ? '-' + st : '') + '-' + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + rand;
     }
 
     // =====================================================================
@@ -6391,7 +6400,18 @@
 
     function isItemCode(code) {
       const c = String(code || '');
-      return c.indexOf('TOT') === 0 || c.indexOf('BAS') === 0;
+      if (c.indexOf('TOT') !== 0 && c.indexOf('BAS') !== 0) return false;
+      // Chuỗi dính nhiều mã (thiếu Enter giữa các lần quét) hoặc quá dài -> không hợp lệ
+      return c.length <= 20 && /\d$/.test(c) && !/.(TOT|BAS)/.test(c);
+    }
+
+    // Tách chuỗi nhiều mã dính liền (VD "BAS_BR_5919BAS_BR_5916") thành từng mã.
+    // Chỉ tách khi MỌI phần đều là mã hợp lệ; ngược lại trả về null.
+    function splitGluedCodes(code) {
+      const c = String(code || '');
+      if (!/.(TOT|BAS)/.test(c)) return null;
+      const parts = c.split(/(?=TOT|BAS)/);
+      return parts.length > 1 && parts.every(isItemCode) ? parts : null;
     }
 
     function itemKind(code) {
