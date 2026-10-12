@@ -1252,7 +1252,7 @@
           <div id="sessionConfirmOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="endSessionTitle">Kết thúc phiên quét?</h3>
-              <div data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
+              <div id="sessionEndHint" data-i18n="endSessionHint" class="end-hint">Các mã chỉ được GHI LÊN HỆ THỐNG khi bạn bấm xác nhận bên dưới.</div>
               <div class="session-summary">
                 <div id="sumStoreRow"><span data-i18n="storeLabel">Store</span><b id="sumStore">-</b></div>
                 <div><span data-i18n="totalScannedLabel">Tổng đã quét</span><b id="sumTotal">0</b></div>
@@ -1298,9 +1298,9 @@
             <div class="session-confirm-box">
               <h3 data-i18n="cancelInSessionTitle">Hủy phiên nhập?</h3>
               <div class="session-summary">
-                <div><span data-i18n="cancelInScannedLabel">Tote đã nhập trong phiên</span><b id="cancelInSessionCount">0</b></div>
+                <div><span id="cancelInLabelEl" data-i18n="cancelInScannedLabel">Tote đã nhập trong phiên</span><b id="cancelInSessionCount">0</b></div>
               </div>
-              <div data-i18n="cancelInHint" style="font-size:11.5px;color:var(--muted);line-height:16px;margin-bottom:14px;">
+              <div id="cancelInHintEl" data-i18n="cancelInHint" style="font-size:11.5px;color:var(--muted);line-height:16px;margin-bottom:14px;">
                 Các tote đã quét IN vẫn ở trong kho (không tự động xuất lại). Hủy phiên chỉ xoá bộ đếm/lịch sử hiển thị của phiên này trên máy quét.
               </div>
               <div class="session-confirm-actions">
@@ -1936,6 +1936,10 @@
         alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi phiên lên hệ thống, vui lòng chờ...',
         recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Lần trước bạn thoát hoặc mất mạng khi đang quét nên các mã này chưa được ghi lên hệ thống. Bấm GHI LÊN HỆ THỐNG để ghi, hoặc BỎ nếu quét nhầm.',
         recoverSaveBtn: 'GHI LÊN HỆ THỐNG', recoverDiscardBtn: 'BỎ', recoverTypeLabel: 'Loại phiên', recoverCountLabel: 'Số mã chưa ghi', recoverNextBtn: 'TIẾP TỤC',
+        endSessionHintNow: 'Các mã đã được ghi lên hệ thống ngay khi quét. Kết thúc phiên chỉ đóng phiên.', immediateWaitMsg: 'Đang ghi nốt {n} mã, vui lòng chờ...',
+        receivedPendingNoteNow: 'Đã nhận scan - chờ ghi', waitFlushBeforeSwitch: 'Đang ghi nốt các mã IN, đợi xong rồi hãy đổi chế độ.',
+        cancelInScannedLabelNow: 'Tote đã quét trong phiên',
+        cancelInHintNow: 'Các tote đã quét IN đã được ghi lên hệ thống và vẫn ở trong kho (không hoàn tác). Hủy phiên chỉ đóng phiên và xóa bộ đếm trên máy quét; mã nào chưa kịp ghi sẽ bị bỏ.',
         pressBackAgainToExit: 'Nhấn Back thêm lần nữa để thoát app',
         loggingIn: 'ĐANG ĐĂNG NHẬP...',
         helpBtnTitle: 'Hướng dẫn sử dụng', helpTitlePrefix: 'Hướng dẫn', closeBtn: 'Đóng', sortLabel: 'Sắp xếp',
@@ -2150,6 +2154,10 @@
         alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving the session to the system, please wait...',
         recoverTitle: 'Unsaved scans found', recoverHint: 'Last time you left or lost the connection while scanning, so these codes were not saved to the system. Tap SAVE TO SYSTEM to save them, or DISCARD if they were a mistake.',
         recoverSaveBtn: 'SAVE TO SYSTEM', recoverDiscardBtn: 'DISCARD', recoverTypeLabel: 'Session type', recoverCountLabel: 'Unsaved codes', recoverNextBtn: 'CONTINUE',
+        endSessionHintNow: 'Codes are saved to the system as soon as they are scanned. Ending the session only closes it.', immediateWaitMsg: 'Saving the last {n} codes, please wait...',
+        receivedPendingNoteNow: 'Scan received - pending', waitFlushBeforeSwitch: 'Still saving IN codes - wait until done before switching mode.',
+        cancelInScannedLabelNow: 'Totes scanned this session',
+        cancelInHintNow: 'Totes already scanned IN are saved to the system and stay in the warehouse (not reversed). Cancelling only closes the session and clears the counter on this device; codes not saved yet are dropped.',
         pressBackAgainToExit: 'Press Back again to exit the app',
         loggingIn: 'LOGGING IN...',
         helpBtnTitle: 'User guide', helpTitlePrefix: 'Guide', closeBtn: 'Close', sortLabel: 'Sort',
@@ -2662,6 +2670,7 @@
     function doLogout() {
       const token = session ? session.token : '';
       google.script.run.logout(token);
+      clearTimeout(autoTimer); sending = false; inflightCount = 0;
       pendingQueue = []; driverPendingQueue = [];
       sessionSnapshot.OUT.queue = []; sessionSnapshot.IN.queue = [];
       sessionCodes = {}; driverSessionCodes = {};
@@ -2704,6 +2713,7 @@
 
       showScreen(defaultScreen());
       maybeRecover();
+      if (pendingQueue.length > 0 && !DEFER_WRITE[mode]) scheduleAutoFlush();   // đăng nhập lại: ghi tiếp mã IN còn dở
       focusScanLoop();
     }
 
@@ -2839,6 +2849,12 @@
       if (mode === value) {
         renderPdaSessionUI();
         focusScan();
+        return;
+      }
+
+      // Chế độ GHI NGAY còn mã đang ghi dở: đợi ghi xong mới được đổi (tránh lẫn số liệu 2 chế độ)
+      if (!DEFER_WRITE[mode] && (pendingQueue.length > 0 || inflightCount > 0)) {
+        showResult(t('waitFlushBeforeSwitch'), false);
         return;
       }
 
@@ -3091,16 +3107,21 @@
         clientScanId: 'S' + now + '_' + Math.floor(Math.random() * 100000)
       });
 
-      addRecent(toteId, t('receivedPendingNote'), true);
+      addRecent(toteId, t(DEFER_WRITE[mode] ? 'receivedPendingNote' : 'receivedPendingNoteNow'), true);
       showResult(t('receivedPrefix') + toteId, true);
       beep(true);
       updateCounter();
 
-      // CHỈ giữ tạm (lưu trên máy). Ghi lên hệ thống khi bấm Kết thúc phiên (NHÓM 10).
+      // Luôn lưu tạm trên máy. CHỜ-ghi (OUT): ghi khi bấm Kết thúc phiên (NHÓM 10).
+      // GHI NGAY (IN): gửi theo lô nhỏ sau ít giây.
       persistPdaQueue();
 
-      if (pendingQueue.length % LONG_SESSION_WARN === 0) {
-        showPendingMsg('lastResult', tf('longSessionWarn', { n: pendingQueue.length }));
+      if (DEFER_WRITE[mode]) {
+        if (pendingQueue.length % LONG_SESSION_WARN === 0) {
+          showPendingMsg('lastResult', tf('longSessionWarn', { n: pendingQueue.length }));
+        }
+      } else {
+        scheduleAutoFlush();
       }
     }
 
@@ -3121,6 +3142,158 @@
     let driverSessionId = '';           // mã phiên Giao Nhận hiện tại
     let sessionCodes = {};              // mã đã quét trong phiên PDA hiện tại (chặn quét trùng trong phiên)
     let driverSessionCodes = {};        // như trên cho phiên Giao Nhận
+
+    // ---------- Chọn cách ghi theo từng chế độ ----------
+    // true  = CHỜ: quét chỉ giữ tạm, bấm Kết thúc phiên -> Xác nhận và ghi mới ghi (hủy phiên = không ghi gì).
+    // false = GHI NGAY: quét tới đâu ghi tới đó (gom lô nhỏ), hủy phiên KHÔNG hoàn tác phần đã ghi.
+    // Hiện chỉ OUT chờ-ghi. IN ghi ngay vì giai đoạn đầu nhập hàng nghìn rổ một lúc, lỡ sai thì không
+    // thể mất cả phiên. Muốn bật chờ-ghi cho IN / Giao Nhận chỉ cần đổi giá trị dưới đây.
+    const DEFER_WRITE = { OUT: true, IN: false, DRIVER: true };
+
+    // ---------- Chế độ GHI NGAY (IN): quét tới đâu ghi tới đó ----------
+    const AUTO_BATCH = 10;               // đủ 10 mã thì gửi ngay
+    const AUTO_DELAY_MS = 1500;          // hoặc sau 1,5 giây không quét thêm
+    let inflightCount = 0;               // số mã đang gửi dở
+    let autoTimer = null;
+    let autoErrors = 0;
+
+    function scheduleAutoFlush() {
+      clearTimeout(autoTimer);
+      if (pendingQueue.length >= AUTO_BATCH) { autoFlush(); return; }
+      autoTimer = setTimeout(autoFlush, AUTO_DELAY_MS);
+    }
+
+    function autoFlush() {
+      if (!session || sending || !pendingQueue.length || DEFER_WRITE[mode]) return;
+
+      sending = true;
+      const slot = mode;
+      const sid = sessionIds[slot];
+      const batch = pendingQueue.splice(0, AUTO_BATCH);
+      inflightCount = batch.length;
+      updateCounter();
+      // Bản lưu tạm giữ cả lô đang gửi: lỡ tắt máy giữa chừng vẫn còn (gửi lại không bị ghi trùng)
+      persistQueue(slot, { action: slot, store: '', label: '', sessionId: sid, items: batch.concat(pendingQueue), at: Date.now() });
+
+      const giveBack = function() { pendingQueue = batch.concat(pendingQueue); };
+      const finish = function() { sending = false; inflightCount = 0; };
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          finish();
+
+          // Máy chủ bận -> chắc chắn chưa ghi: đưa lại hàng đợi, thử lại
+          if (res && res.busy) {
+            giveBack();
+            updateCounter();
+            showPendingMsg('lastResult', t('serverBusyRetryMsg'));
+            autoTimer = setTimeout(autoFlush, AUTO_DELAY_MS);
+            return;
+          }
+
+          if (!res || !res.success) {
+            autoErrors++;
+            const msg = (res && res.message) || t('couldNotLoadData');
+            if (autoErrors < 3) {
+              giveBack();
+              updateCounter();
+              showPendingMsg('lastResult', msg);
+              autoTimer = setTimeout(autoFlush, 3000);
+              return;
+            }
+            // 3 lần liền máy chủ báo lỗi: tính lô này là lỗi để khỏi kẹt hàng đợi
+            autoErrors = 0;
+            fail += batch.length;
+            batch.forEach(function(x) {
+              addRecent(x.toteId, msg, false);
+              scanLog.push({ toteId: x.toteId, message: msg, success: false });
+            });
+            showResult(msg, false);
+            beep(false);
+          } else {
+            autoErrors = 0;
+            (res.results || []).forEach(function(r) {
+              if (r.success) ok++; else fail++;
+              addRecent(r.toteId, r.message, r.success);
+              scanLog.push({ toteId: r.toteId, message: r.message, success: r.success });
+              showResult(r.message, r.success);
+            });
+          }
+
+          updateCounter();
+          persistPdaQueue();                 // chỉ còn phần chưa gửi
+          if (pendingQueue.length) autoFlush();
+          if (!manualInputMode && !isTypingField()) focusScan();
+        })
+        .withFailureHandler(function(err) {
+          finish();
+          giveBack();
+          updateCounter();
+          if (isSessionExpiredError(err)) { forceRelogin(t('commitExpiredMsg')); return; }
+          showPendingMsg('lastResult', t('commitRetryHint'));
+          autoTimer = setTimeout(autoFlush, 4000);
+        })
+        .scanBatch({
+          token: session.token,
+          action: slot,
+          store: '',
+          zone: sessionZoneFor(slot),
+          sessionId: sid,
+          items: batch
+        });
+    }
+
+    // Popup "Kết thúc phiên" của chế độ GHI NGAY: chỉ đóng phiên, chờ ghi nốt phần còn lại
+    let immediatePoll = null;
+    let immediateLogLen = -1;
+
+    function setI18nText(id, key) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.setAttribute('data-i18n', key);
+      el.textContent = t(key);
+    }
+
+    function refreshImmediateEnd() {
+      const u = END_UI.pda;
+      const left = pendingQueue.length + inflightCount;
+      document.getElementById(u.sumTotal).innerText = total;
+      document.getElementById(u.sumOk).innerText = ok;
+      document.getElementById(u.sumFail).innerText = fail;
+      if (immediateLogLen !== scanLog.length) {
+        immediateLogLen = scanLog.length;
+        document.getElementById(u.details).innerHTML = renderSessionScanLogDetails(scanLog);
+      }
+
+      const conf = document.getElementById(u.confirm);
+      const box = document.getElementById(u.status);
+      conf.disabled = left > 0;
+      conf.innerText = t('confirmEndBtn');
+      if (left > 0) {
+        box.className = 'result pending';
+        box.innerText = tf('immediateWaitMsg', { n: left });
+      } else {
+        box.className = 'result pending hidden';
+        box.innerText = '';
+      }
+    }
+
+    function askEndImmediate() {
+      const u = END_UI.pda;
+      document.getElementById('sumStoreRow').classList.toggle('hidden', mode !== 'OUT');
+      document.getElementById('sumStore').innerText = sessionStoreLabel;
+      setI18nText('sessionEndHint', 'endSessionHintNow');
+      const cont = document.getElementById(u.cont);
+      cont.classList.remove('hidden');
+      cont.disabled = false;
+
+      endStage.pda = 'immediate';
+      immediateLogLen = -1;
+      refreshImmediateEnd();
+      clearInterval(immediatePoll);
+      immediatePoll = setInterval(refreshImmediateEnd, 500);
+      document.getElementById(u.overlay).classList.remove('hidden');
+    }
 
     // ---------- Lưu tạm trên máy ----------
     function queueStorageKey() {
@@ -3265,6 +3438,8 @@
 
     function askEnd(kind) {
       if (committing) return;
+      if (kind === 'pda' && !DEFER_WRITE[mode]) { askEndImmediate(); return; }
+      if (kind === 'pda') setI18nText('sessionEndHint', 'endSessionHint');
       const isPda = kind === 'pda';
       const items = isPda ? pendingQueue : driverPendingQueue;
       const u = END_UI[kind];
@@ -3294,6 +3469,13 @@
 
     function cancelEnd(kind) {
       if (committing) return;
+      if (endStage[kind] === 'immediate') {
+        clearInterval(immediatePoll);
+        endStage[kind] = 'confirm';
+        document.getElementById(END_UI[kind].overlay).classList.add('hidden');
+        focusScan();
+        return;
+      }
       if (endStage[kind] === 'done') { finishEnd(kind); return; }
       document.getElementById(END_UI[kind].overlay).classList.add('hidden');
       if (kind === 'pda') focusScan();
@@ -3301,6 +3483,12 @@
 
     function confirmEnd(kind) {
       if (committing) return;
+      if (endStage[kind] === 'immediate') {
+        if (pendingQueue.length + inflightCount > 0) return;   // còn mã đang ghi: chờ xong
+        clearInterval(immediatePoll);
+        finishEnd(kind);
+        return;
+      }
       if (endStage[kind] === 'done') { finishEnd(kind); return; }
 
       const isPda = kind === 'pda';
@@ -3982,7 +4170,11 @@
 
     function askCancelInSession() {
       if (committing) return;
-      const n = pendingQueue.length;
+      const deferred = DEFER_WRITE.IN;
+      // CHỜ-ghi: số mã đang giữ. GHI NGAY: số mã đã quét trong phiên (đã ghi, không hoàn tác)
+      const n = deferred ? pendingQueue.length : total;
+      setI18nText('cancelInHintEl', deferred ? 'cancelInHint' : 'cancelInHintNow');
+      setI18nText('cancelInLabelEl', deferred ? 'cancelInScannedLabel' : 'cancelInScannedLabelNow');
 
       if (n === 0) {
         doResetInSession();
@@ -4001,8 +4193,9 @@
 
     function confirmCancelInSession() {
       document.getElementById('cancelInSessionOverlay').classList.add('hidden');
+      clearTimeout(autoTimer);
       doResetInSession();
-      showResult(t('cancelledSessionMsg'), true);
+      showResult(t(DEFER_WRITE.IN ? 'cancelledSessionMsg' : 'cancelledInSessionDoneMsg'), true);
     }
 
     // =====================================================================
@@ -5842,8 +6035,8 @@
         ] },
         pda: { title: 'Quét xuất / nhập kho', items: [
           '<b>OUT (xuất kho)</b>: chọn cửa hàng → <b>Bắt đầu phiên quét</b> → quét lần lượt từng mã → <b>Kết thúc phiên</b> → xem lại rồi bấm <b>XÁC NHẬN VÀ GHI</b>. Các mã <b>chỉ được ghi lên hệ thống ở bước này</b>.',
-          '<b>IN (nhập kho)</b>: không cần chọn cửa hàng - bắt đầu phiên rồi quét các tote cửa hàng trả về.',
-          'Số <b>CHƯA GHI</b> là các mã đã quét nhưng <b>chưa ghi lên hệ thống</b>. Chúng được lưu tạm trên máy: thoát app hoặc mất mạng vẫn còn, mở lại app sẽ hỏi bạn ghi tiếp hay bỏ. Nên kết thúc phiên sau mỗi khoảng 100 đến 200 mã để số liệu kịp cập nhật.',
+          '<b>IN (nhập kho)</b>: không cần chọn cửa hàng - bắt đầu phiên rồi quét các tote cửa hàng trả về. Mã IN <b>được ghi lên hệ thống ngay khi quét</b>; Hủy phiên IN không hoàn tác phần đã ghi.',
+          'Số <b>CHƯA GHI</b> là các mã đã quét nhưng <b>chưa ghi lên hệ thống</b> (OUT: tới khi kết thúc phiên; IN: chỉ vài giây). Chúng được lưu tạm trên máy: thoát app hoặc mất mạng vẫn còn, mở lại app sẽ hỏi bạn ghi tiếp hay bỏ. Nên kết thúc phiên sau mỗi khoảng 100 đến 200 mã để số liệu kịp cập nhật.',
           'Tài khoản kho lạnh chỉ quét mã <b>BAS</b> (rổ), kho khô chỉ quét mã <b>TOT</b> (tote); quét nhầm loại sẽ bị báo ngay.',
           'Mã bị đánh dấu <b>bất thường</b> (VD nhập kho một tote chưa từng xuất) vẫn được ghi lại và sẽ hiện ở mục <b>Lỗi</b> để kiểm tra.',
           'Quét nhầm? Bấm <b>Hủy phiên</b>: toàn bộ mã đã quét trong phiên bị bỏ, <b>không ghi gì</b> lên hệ thống, rồi bạn quét lại từ đầu.'
@@ -5913,8 +6106,8 @@
         ] },
         pda: { title: 'Outbound / inbound scanning', items: [
           '<b>OUT</b>: pick a store → <b>Start scan session</b> → scan each code → <b>End session</b> → review and tap <b>CONFIRM AND SAVE</b>. Codes are <b>only saved to the system at this step</b>.',
-          '<b>IN</b>: no store needed - start a session and scan the totes returned by stores.',
-          '<b>UNSAVED</b> counts codes that are scanned but <b>not saved to the system yet</b>. They are kept on this device: if you quit or lose the network they stay, and the app asks whether to save or discard them next time. End the session every 100-200 codes so the numbers stay up to date.',
+          '<b>IN</b>: no store needed - start a session and scan the totes returned by stores. IN codes are <b>saved to the system as soon as they are scanned</b>; cancelling an IN session does not undo what was saved.',
+          '<b>UNSAVED</b> counts codes that are scanned but <b>not saved to the system yet</b> (OUT: until the session ends; IN: only a few seconds). They are kept on this device: if you quit or lose the network they stay, and the app asks whether to save or discard them next time. End the session every 100-200 codes so the numbers stay up to date.',
           'Cold-warehouse accounts scan <b>BAS</b> (basket) codes only, ambient accounts <b>TOT</b> (tote) codes only; a wrong type is flagged immediately.',
           '<b>Abnormal</b> scans (e.g. receiving a tote that was never shipped) are still recorded and listed under <b>Errors</b> for review.',
           'Scanned something wrong? Tap <b>Cancel session</b>: every code scanned in the session is dropped, <b>nothing is saved</b>, and you can scan again from scratch.'
@@ -6743,7 +6936,7 @@
       document.getElementById('cTotal').innerText = total;
       document.getElementById('cOk').innerText = ok;
       document.getElementById('cFail').innerText = fail;
-      document.getElementById('cQueue').innerText = pendingQueue.length + (sending ? 1 : 0);
+      document.getElementById('cQueue').innerText = pendingQueue.length + inflightCount;
     }
 
     function beep(success) {
