@@ -3414,48 +3414,70 @@
       step();
     }
 
-    function queueDetailsHtml(items, removable) {
+    function queueDetailsHtml(items, removable, kind) {
       if (!items || !items.length) return '';
       const chips = items.map(function(x) {
         return removable
-          ? '<span class="chip chip-pick" data-code="' + escHtml_(x.toteId) + '" onclick="toggleEndPick(this)">' + escHtml_(x.toteId) + '</span>'
+          ? '<span class="chip chip-pick" data-code="' + escHtml_(x.toteId) + '" onclick="toggleEndPick(this, &quot;' + (kind || 'pda') + '&quot;)">' + escHtml_(x.toteId) + '</span>'
           : '<span class="chip">' + escHtml_(x.toteId) + '</span>';
       }).join('');
       const hint = removable ? '<div class="pick-hint">' + escHtml_(t('endPickHint')) + '</div>' : '';
-      const btn = removable ? '<button class="btn btn-danger hidden" id="endRemoveBtn" onclick="confirmEndRemove()"></button>' : '';
+      const btn = removable ? '<button class="btn btn-danger hidden" id="endRemoveBtn_' + (kind || 'pda') + '" onclick="confirmEndRemove(&quot;' + (kind || 'pda') + '&quot;)"></button>' : '';
       return '<details' + (removable ? ' open' : '') + '><summary>' + escHtml_(tf('viewPendingCodesMsg', { n: items.length })) + '</summary>' +
         '<div style="margin-top:8px">' + hint + chips + '</div>' + btn + '</details>';
     }
 
-    // Xóa mã quét nhầm ngay trong popup "Kết thúc phiên" (chỉ OUT - mã chưa ghi, chỉ gỡ khỏi máy).
+    // Xóa mã quét nhầm ngay trong popup "Kết thúc phiên" (OUT và Giao Nhận/cửa hàng - mã chưa ghi, chỉ gỡ khỏi máy).
     // IN ghi ngay khi quét nên muốn xóa phải hoàn tác trên máy chủ -> làm sau, khi nhập kho xong.
-    const REMOVE_CODES = { OUT: true, IN: false };
+    const REMOVE_CODES = { OUT: true, IN: false, DRIVER: true };
     let endPick = {};
 
-    function canRemoveCodes() {
+    function canRemoveCodes(kind) {
+      if (kind === 'driver') return REMOVE_CODES.DRIVER && DEFER_WRITE.DRIVER && endStage.driver === 'confirm';
       return mode === 'OUT' && sessionActive && REMOVE_CODES.OUT && DEFER_WRITE.OUT && endStage.pda === 'confirm';
     }
 
-    function toggleEndPick(el) {
-      if (!canRemoveCodes() || committing) return;
+    function toggleEndPick(el, kind) {
+      if (!canRemoveCodes(kind) || committing) return;
       const c = el.getAttribute('data-code');
       if (endPick[c]) { delete endPick[c]; el.classList.remove('picked'); } else { endPick[c] = true; el.classList.add('picked'); }
       const n = Object.keys(endPick).length;
-      const b = document.getElementById('endRemoveBtn');
+      const b = document.getElementById('endRemoveBtn_' + kind);
       if (!b) return;
       b.classList.toggle('hidden', n === 0);
       b.innerText = tf('removeCodesBtnN', { n });
     }
 
-    function confirmEndRemove() {
-      if (!canRemoveCodes() || committing) return;
+    function confirmEndRemove(kind) {
+      if (!canRemoveCodes(kind) || committing) return;
       const codes = Object.keys(endPick);
       if (!codes.length) return;
       const set = {};
       codes.forEach(function(c) { set[c] = true; });
+      let removed;
+
+      if (kind === 'driver') {
+        const before = driverPendingQueue.length;
+        driverPendingQueue = driverPendingQueue.filter(function(x) { return !set[x.toteId]; });
+        removed = before - driverPendingQueue.length;
+        codes.forEach(function(c) {
+          delete driverSessionCodes[c];
+          delete driverRecentScanMap[driverMode + '|' + driverStoreId + '|' + c];
+        });
+        driverTotal = Math.max(0, driverTotal - removed);
+        endPick = {};
+        persistDriverQueue();
+        updateDriverCounter();
+        document.getElementById('driverSumTotal').innerText = driverPendingQueue.length;
+        document.getElementById('driverScanLogDetails').innerHTML = queueDetailsHtml(driverPendingQueue, true, 'driver');
+        addDriverRecent('', tf('removedFromSession', { n: removed }), false);
+        showDriverMsg(tf('removedFromSession', { n: removed }), true);
+        return;
+      }
+
       const before = pendingQueue.length;
       pendingQueue = pendingQueue.filter(function(x) { return !set[x.toteId]; });
-      const removed = before - pendingQueue.length;
+      removed = before - pendingQueue.length;
       codes.forEach(function(c) {
         delete sessionCodes[c];
         delete recentScanMap[mode + '|' + selectedStoreId + '|' + c];
@@ -3465,7 +3487,7 @@
       persistPdaQueue();
       updateCounter();
       document.getElementById('sumTotal').innerText = pendingQueue.length;
-      document.getElementById('sessionScanLogDetails').innerHTML = queueDetailsHtml(pendingQueue, true);
+      document.getElementById('sessionScanLogDetails').innerHTML = queueDetailsHtml(pendingQueue, true, 'pda');
       addRecent('', tf('removedFromSession', { n: removed }), false);
       showResult(tf('removedFromSession', { n: removed }), true);
     }
@@ -3516,7 +3538,7 @@
       document.getElementById(u.sumOk).innerText = '-';
       document.getElementById(u.sumFail).innerText = '-';
       endPick = {};
-      document.getElementById(u.details).innerHTML = queueDetailsHtml(items, isPda && mode === 'OUT' && REMOVE_CODES.OUT && DEFER_WRITE.OUT);
+      document.getElementById(u.details).innerHTML = queueDetailsHtml(items, canRemoveCodes(kind), kind);
       setEndStage(kind, 'confirm', '');
       document.getElementById(u.overlay).classList.remove('hidden');
     }
