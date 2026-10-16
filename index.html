@@ -30,7 +30,7 @@
     'login', 'logout', 'getSession', 'getStores', 'addStore', 'scanBatch',
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
-    'changePassword', 'getWarehouseStock'
+    'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -38,7 +38,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1
   };
   var MAX_RETRY = 2;
 
@@ -362,6 +362,17 @@
   .kpi .icon svg{ width:15px; height:15px; }
   .kpi .num{ font-size:21px; font-weight:800; }
   .kpi .lbl{ font-size:10.5px; color:var(--muted); margin-top:2px; }
+  /* Thẻ số liệu / dòng hoạt động / mã tote bấm được (chỉ thêm class khi vai trò có quyền vào màn đích) */
+  .kpi.clickable{ cursor:pointer; user-select:none; }
+  .kpi.clickable .top::after{ content:"›"; font-size:20px; line-height:1; color:var(--muted); }
+  .kpi.clickable:hover{ border-color:#00A784; box-shadow:0 4px 14px rgba(0,0,0,.10); }
+  .kpi.clickable:active{ transform:scale(.98); }
+  .kpi.clickable:focus-visible{ outline:2px solid #00A784; outline-offset:2px; }
+  .activity-item.clickable{ cursor:pointer; border-radius:6px; }
+  .activity-item.clickable:hover{ background:var(--bg); }
+  [data-tote]{ cursor:pointer; }
+  .chip[data-tote]:hover{ border-color:#00A784; }
+  b[data-tote]{ text-decoration:underline dotted; text-underline-offset:3px; }
 
   .quick-row{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
   .quick{
@@ -653,6 +664,22 @@
   .kind-table th:first-child, .kind-table td:first-child{ text-align:left; }
   .kind-table th{ color:var(--muted); font-weight:800; font-size:11px; }
   .kind-table tr:last-child td{ border-bottom:0; }
+  /* Báo cáo ngày */
+  .dr-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .dr-scroll .kind-table{ min-width:0; }
+  .dr-scroll .kind-table th, .dr-scroll .kind-table td{ padding:6px 3px; font-size:11.5px; }
+  .dr-title{ margin:14px 0 2px; font-size:13px; font-weight:800; color:var(--ink); }
+  .dr-sub{ font-size:11px; color:var(--muted); margin-bottom:4px; line-height:1.45; }
+  .dr-total td{ background:var(--bg); font-weight:800; }
+  .dr-bad{ color:#E1364A; font-weight:800; }
+  .dr-warn{ color:#D97706; font-weight:700; }
+  .dr-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 12px; }
+  .dr-chip{ border:1px solid var(--border); background:var(--card); color:var(--ink); border-radius:999px; padding:6px 12px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+  .dr-chip.active{ background:var(--ink); color:var(--card); border-color:var(--ink); }
+  .dr-range{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .dr-range label{ margin-top:0; }
+  .dr-nodata td{ color:var(--muted); }
+  .dr-live{ color:var(--muted); font-weight:600; font-size:10.5px; }
 
   /* ---------------- MÀN VẬN CHUYỂN: 2 thẻ chọn + 1 bảng chi tiết ----------------
      Hai mục dùng 2 màu + 2 mũi tên khác hướng (xanh dương -> đi tới cửa hàng,
@@ -1077,25 +1104,25 @@
           </div>
 
           <div class="kpi-row">
-            <div class="kpi">
+            <div class="kpi" data-kpi="warehouseQty" onclick="onKpiClick(this)" onkeydown="onKpiKey(event, this)">
+              <div class="top"><div class="icon" style="background:rgba(124,58,237,.12)"><svg viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg></div></div>
+              <div class="num" id="kpiWarehouseQty">--</div>
+              <div class="lbl" data-i18n="kpiWarehouseQty">Tồn tại kho</div>
+            </div>
+            <div class="kpi" data-kpi="storeQty" onclick="onKpiClick(this)" onkeydown="onKpiKey(event, this)">
               <div class="top"><div class="icon" style="background:var(--blue-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2"><rect x="3" y="9" width="18" height="11"/><path d="M3 9l9-5 9 5"/></svg></div></div>
               <div class="num" id="kpiStoreQty">--</div>
               <div class="lbl" data-i18n="kpiStoreQty">Tote tại Store</div>
             </div>
-            <div class="kpi">
+            <div class="kpi" data-kpi="outToday" onclick="onKpiClick(this)" onkeydown="onKpiKey(event, this)">
               <div class="top"><div class="icon" style="background:var(--green-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="#00A784" stroke-width="2"><path d="M12 3v12M6 9l6 6 6-6"/></svg></div></div>
               <div class="num" id="kpiOutToday">--</div>
               <div class="lbl" data-i18n="kpiOutToday">OUT hôm nay</div>
             </div>
-            <div class="kpi">
+            <div class="kpi" data-kpi="inToday" onclick="onKpiClick(this)" onkeydown="onKpiKey(event, this)">
               <div class="top"><div class="icon" style="background:var(--amber-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2"><path d="M12 21V9M6 15l6-6 6 6"/></svg></div></div>
               <div class="num" id="kpiInToday">--</div>
               <div class="lbl" data-i18n="kpiInToday">IN hôm nay</div>
-            </div>
-            <div class="kpi">
-              <div class="top"><div class="icon" style="background:var(--red-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="#E1364A" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg></div></div>
-              <div class="num" id="kpiAbnormalToday">--</div>
-              <div class="lbl" data-i18n="kpiAbnormalToday">Bất thường hôm nay</div>
             </div>
           </div>
 
@@ -1577,7 +1604,11 @@
         </div>
 
         <div id="screen-dailyOut" class="screen">
-          <label data-i18n="dateOutLabel">Ngày Xuất</label>
+          <div class="viz-seg" role="group" style="margin-bottom:10px">
+            <button id="dailyActOut" class="active" onclick="setDailyAction('OUT')">OUT</button>
+            <button id="dailyActIn" onclick="setDailyAction('IN')">IN</button>
+          </div>
+          <label id="dailyDateLabel" data-i18n="dateOutLabel">Ngày Xuất</label>
           <input id="dailyOutDate" type="date">
 
           <label id="dailyOutSearchLabel" data-i18n="findStoreLabel">Tìm Store</label>
@@ -1589,6 +1620,19 @@
           <button class="btn" data-i18n="viewSummaryBtn" onclick="loadDailyOutSummary()">XEM TỔNG HỢP</button>
           <div class="export-row"><label class="sort-pick" data-i18n-title="sortLabel" title="Sắp xếp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg><select id="dailyOutSort" onchange="setSort('dailyOut', this.value, rerenderDailyOutSorted)"><option value="qtyDesc" data-i18n="sort_qtyDesc"></option><option value="qtyAsc" data-i18n="sort_qtyAsc"></option><option value="name" data-i18n="sort_name"></option><option value="id" data-i18n="sort_id"></option></select></label><button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDailyOutSummary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button><button class="btn-export" onclick="exportDailyOut()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="exportExcelBtn">Xuất Excel</span></button></div>
           <div id="dailyOutResult"></div>
+        </div>
+
+        <div id="screen-dayReport" class="screen">
+          <div class="dr-range">
+            <div><label data-i18n="drFromLabel">Từ ngày</label><input id="drFrom" type="date" onchange="loadDayReport()"></div>
+            <div><label data-i18n="drToLabel">Đến ngày</label><input id="drTo" type="date" onchange="loadDayReport()"></div>
+          </div>
+          <div id="drKindChips" class="dr-chips hidden"></div>
+          <div class="export-row">
+            <button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadDayReport)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+            <button id="drExportBtn" class="btn-export" onclick="exportDayReport()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#1D6F42"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span data-i18n="drExport">Tải tồn kho</span></button>
+          </div>
+          <div id="dayReportResult"></div>
         </div>
 
         <div id="screen-abnormal" class="screen">
@@ -1755,6 +1799,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16"/><path d="M3 9h18M8 3v4M16 3v4M8 14l2.5 2.5L16 12"/></svg>
         <span data-i18n="navDaily">Daily</span>
       </div>
+      <div id="tabDayReport" class="rail-item" onclick="showScreen('dayReport')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>
+        <span data-i18n="navDayReport">Báo cáo</span>
+      </div>
       <div id="tabAbnormal" class="rail-item" onclick="showScreen('abnormal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 9v6M12 18h.01"/></svg>
         <span data-i18n="navAbnormal">Lỗi</span>
@@ -1892,8 +1940,12 @@
         settingsNote: 'Lựa chọn chỉ áp dụng cho giao diện trên máy này. Các thông báo trả về từ hệ thống (kết quả quét, lỗi...) vẫn hiển thị bằng tiếng Việt.',
 
         homeSub: 'Tổng quan hoạt động hôm nay',
-        kpiStoreQty: 'Tote tại Store', kpiOutToday: 'OUT hôm nay', kpiInToday: 'IN hôm nay',
-        kpiAbnormalToday: 'Bất thường hôm nay',
+        kpiStoreQty: 'Tồn tại cửa hàng', kpiWarehouseQty: 'Tồn tại kho', kpiOutToday: 'OUT hôm nay', kpiInToday: 'IN hôm nay',
+        navDayReport: 'Báo cáo', drFromLabel: 'Từ ngày', drToLabel: 'Đến ngày', drExport: 'Tải tồn kho',
+        drPickDate: 'Chọn khoảng ngày', drLoading: 'ĐANG TẢI...', drErrPrefix: 'LỖI: ',
+        drLive: '(trực tiếp)', drAllKinds: 'Tất cả', drNoSnapshotRow: 'Chưa ghi tồn kho',
+        drColDate: 'Ngày', drColWh: 'Kho', drColSt: 'Cửa hàng', drColStAt: 'Tại cửa hàng', drColTs: 'Giao tới', drColTw: 'Về kho', drColTotal: 'Tổng',
+        drXlsDate: 'Ngày', drXlsZone: 'Kho', drXlsStore: 'Cửa hàng', drXlsCode: 'ID rổ/tote', drSheetCodes: 'Ton kho', drBuilding: 'Đang tạo file...',
         quickOutTitle: 'XUẤT KHO — OUT', quickOutSub: 'Chọn store & bắt đầu scan',
         quickInTitle: 'NHẬP KHO — IN', quickInSub: 'Thu hồi tote về kho',
         installHintPrompt: 'Bấm CÀI để thêm app vào màn hình chính.',
@@ -2112,8 +2164,12 @@
         settingsNote: 'This choice only affects the display on this device. Messages returned by the system (scan results, errors...) always show in Vietnamese.',
 
         homeSub: "Today's activity overview",
-        kpiStoreQty: 'Totes at stores', kpiOutToday: 'OUT today', kpiInToday: 'IN today',
-        kpiAbnormalToday: 'Issues today',
+        kpiStoreQty: 'In stores', kpiWarehouseQty: 'In warehouse', kpiOutToday: 'OUT today', kpiInToday: 'IN today',
+        navDayReport: 'Report', drFromLabel: 'From', drToLabel: 'To', drExport: 'Download stock',
+        drPickDate: 'Pick a date range', drLoading: 'LOADING...', drErrPrefix: 'ERROR: ',
+        drLive: '(live)', drAllKinds: 'All', drNoSnapshotRow: 'No stock recorded',
+        drColDate: 'Date', drColWh: 'Warehouse', drColSt: 'Stores', drColStAt: 'At store', drColTs: 'To store', drColTw: 'To WH', drColTotal: 'Total',
+        drXlsDate: 'Date', drXlsZone: 'Warehouse', drXlsStore: 'Store', drXlsCode: 'Basket/tote ID', drSheetCodes: 'Stock', drBuilding: 'Building file...',
         quickOutTitle: 'WAREHOUSE OUT', quickOutSub: 'Pick a store & start scanning',
         quickInTitle: 'WAREHOUSE IN', quickInSub: 'Recover totes back to warehouse',
         installHintPrompt: 'Tap INSTALL to add the app to your home screen.',
@@ -2383,6 +2439,9 @@
       if (stores.length) renderAllStores();
       renderZoneBar();
       if (lastTransitRes) renderTransit();
+      renderDailyHead();
+      if (lastDailyOutRes) renderDailyOutSummary(lastDailyOutRes);
+      if (lastDayReport) renderDayReport(lastDayReport);
     }
 
     function renderSettingsUI() {
@@ -2511,6 +2570,10 @@
       registerServiceWorker();
       setupInstallPrompt();
       document.addEventListener('keydown', globalScannerKeyHandler, true);
+      document.addEventListener('click', function(e) {
+        const el = e.target.closest ? e.target.closest('[data-tote]') : null;
+        if (el) openTrackFor(el.getAttribute('data-tote'));
+      });
 
       const saved = localStorage.getItem('TOTE_SESSION');
       if (!saved) {
@@ -2748,6 +2811,7 @@
       // Cửa hàng chỉ thấy rổ của chính mình nên không cần ô tìm cửa hàng/mã rổ
       document.getElementById('transitSearch').parentElement.classList.toggle('hidden', role === 'STORE');
       document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
+      document.getElementById('tabDayReport').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'VIEWER' || role === 'STORE'));
       document.getElementById('tabAbnormal').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // document.getElementById('tabInv').classList.toggle('hidden', role !== 'STORE');
@@ -2764,6 +2828,9 @@
       }
 
       applyRoleLabels();
+      const whCard = document.querySelector('.kpi[data-kpi="warehouseQty"]');
+      if (whCard) whCard.classList.toggle('hidden', !canSeeStock());
+      updateHomeKpiLinks();
     }
 
     // Nhãn tìm kiếm đổi theo vai trò (STORE thấy bản rút gọn chỉ của họ) -
@@ -2828,6 +2895,7 @@
       if (name === 'dash') document.getElementById('tabDash').classList.add('active');
       if (name === 'transit') document.getElementById('tabTransit').classList.add('active');
       if (name === 'dailyOut') document.getElementById('tabDailyOut').classList.add('active');
+      if (name === 'dayReport') document.getElementById('tabDayReport').classList.add('active');
       if (name === 'abnormal') document.getElementById('tabAbnormal').classList.add('active');
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') document.getElementById('tabInv').classList.add('active');
@@ -2843,7 +2911,8 @@
       if (name === 'driver') renderDriverSessionUI();
       if (name === 'dash') { updateDashTabs(); refreshDashTab(); }
       if (name === 'transit') loadInTransitSummary();
-      if (name === 'dailyOut') { initDailyOutDate(); loadDailyOutSummary(); }
+      if (name === 'dailyOut') { initDailyOutDate(); renderDailyHead(); loadDailyOutSummary(); }
+      if (name === 'dayReport') { initDayReportDate(); loadDayReport(); }
       if (name === 'abnormal') { initAbnormalDate(); loadAbnormalSummary(); }
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') { focusInventoryScan(); loadInventoryHistory(); }
@@ -4865,7 +4934,7 @@
           return '<div class="ds-group">' + kindChipHtml(k, groups[k].length) + '<div class="ds-chips">' +
             groups[k].map(function(x) {
               const when = isStore ? shortDate(x.lastUpdate) : '';
-              return '<span class="chip">' + escHtml_(x.toteId) + (when ? ' <small>· ' + escHtml_(when) + '</small>' : '') + '</span>';
+              return '<span class="chip" data-tote="' + escHtml_(x.toteId) + '">' + escHtml_(x.toteId) + (when ? ' <small>· ' + escHtml_(when) + '</small>' : '') + '</span>';
             }).join('') + '</div></div>';
         }).join('') || '-';
 
@@ -5241,7 +5310,7 @@
         const oldText = maxHours ? tf('transitOldest', { time: formatTransitHours(maxHours) }) : '';
         const chips = r.totes.map(function(x) {
           const timeText = formatTransitHours(x.hours);
-          return '<span class="chip">' + escHtml_(x.toteId) + (timeText ? ' · ' + escHtml_(timeText) : '') + '</span>';
+          return '<span class="chip" data-tote="' + escHtml_(x.toteId) + '">' + escHtml_(x.toteId) + (timeText ? ' · ' + escHtml_(timeText) : '') + '</span>';
         }).join('') || '-';
 
         return '<details class="transit-store"' + (r.open ? ' open' : '') + '>' +
@@ -5280,6 +5349,46 @@
       }
     }
 
+    // Màn Daily xem được cả OUT (kho xuất đi) lẫn IN (kho nhận về). Chữ riêng cho IN; OUT dùng chữ sẵn có.
+    let dailyAction = 'OUT';
+    const DAILY_IN_I18N = {
+      vi: {
+        dateOutLabel: 'Ngày Nhập', loadingDailyOutMsg: 'ĐANG TẢI TỔNG HỢP DAILY IN...',
+        totalStoresOutLabel: 'Tổng cửa hàng có nhập về:', totalOutOkLabel: 'Tổng tote IN / OK unique:',
+        rawOutRowsLabel: 'Dòng log IN raw:', totalOutAbnormalLabel: 'IN bất thường unique:',
+        noOutDataMsg: 'KHÔNG CÓ DỮ LIỆU NHẬP TOTE TRONG NGÀY NÀY', systemOutQtyLabel: 'Số tote nhập theo hệ thống:',
+        viewOutToteIdsMsg: 'Xem mã tote IN / OK unique', colOkQty: 'SL nhập (OK)', colRawRows: 'Dòng IN gốc'
+      },
+      en: {
+        dateOutLabel: 'Inbound Date', loadingDailyOutMsg: 'LOADING DAILY IN SUMMARY...',
+        totalStoresOutLabel: 'Total stores with inbound:', totalOutOkLabel: 'Total unique IN / OK totes:',
+        rawOutRowsLabel: 'Raw IN log rows:', totalOutAbnormalLabel: 'Unique abnormal IN:',
+        noOutDataMsg: 'NO INBOUND TOTE DATA FOR THIS DAY', systemOutQtyLabel: 'Inbound totes per system:',
+        viewOutToteIdsMsg: 'View unique IN / OK tote IDs', colOkQty: 'In qty (OK)', colRawRows: 'Raw IN rows'
+      }
+    };
+
+    function dt(key) {
+      const m = dailyAction === 'IN' && DAILY_IN_I18N[currentLang];
+      return (m && m[key]) || t(key);
+    }
+
+    function renderDailyHead() {
+      const a = document.getElementById('dailyActOut');
+      const b = document.getElementById('dailyActIn');
+      if (a) a.classList.toggle('active', dailyAction === 'OUT');
+      if (b) b.classList.toggle('active', dailyAction === 'IN');
+      const lbl = document.getElementById('dailyDateLabel');
+      if (lbl) lbl.innerText = dt('dateOutLabel');
+    }
+
+    function setDailyAction(action) {
+      if (dailyAction === action) return;
+      dailyAction = action;
+      renderDailyHead();
+      loadDailyOutSummary();
+    }
+
     function handleDailyOutKey(e) {
       if (e.key === 'Enter') loadDailyOutSummary();
     }
@@ -5291,7 +5400,7 @@
       const query = document.getElementById('dailyOutSearch').value.trim();
       const box = document.getElementById('dailyOutResult');
 
-      box.innerHTML = loadingHtml(t('loadingDailyOutMsg'));
+      box.innerHTML = loadingHtml(dt('loadingDailyOutMsg'));
 
       google.script.run
         .withSuccessHandler(renderDailyOutSummary)
@@ -5303,6 +5412,7 @@
           token: session.token,
           date,
           query,
+          action: dailyAction,
           zone: viewZoneParam()
         });
     }
@@ -5320,16 +5430,16 @@
       box.innerHTML += `
         <div class="summary-box">
           <div class="summary-title">${res.date}</div>
-          <div>${t('totalStoresOutLabel')} <b>${res.totalStores}</b></div>
-          <div>${t('totalOutOkLabel')} <b>${res.totalOk}</b></div>
-          <div>${t('rawOutRowsLabel')} <b>${res.totalRows || 0}</b></div>
+          <div>${dt('totalStoresOutLabel')} <b>${res.totalStores}</b></div>
+          <div>${dt('totalOutOkLabel')} <b>${res.totalOk}</b></div>
+          <div>${dt('rawOutRowsLabel')} <b>${res.totalRows || 0}</b></div>
           <div>${t('duplicateSkippedLabel')} <b>${res.totalDuplicateOk || 0}</b></div>
-          <div>${t('totalOutAbnormalLabel')} <b>${res.totalAbnormal}</b></div>
+          <div>${dt('totalOutAbnormalLabel')} <b>${res.totalAbnormal}</b></div>
         </div>
       `;
 
       if (!res.rows || res.rows.length === 0) {
-        box.innerHTML += '<div class="dashboard-card">' + t('noOutDataMsg') + '</div>';
+        box.innerHTML += '<div class="dashboard-card">' + dt('noOutDataMsg') + '</div>';
         return;
       }
 
@@ -5340,7 +5450,7 @@
         div.className = 'dashboard-card';
         const users = (r.users || []).join(', ') || '-';
         const abnormalLine = r.abnormalQty > 0
-          ? `<div style="color:#E1364A;font-weight:800">${t('totalOutAbnormalLabel')} ${r.abnormalQty}</div>`
+          ? `<div style="color:#E1364A;font-weight:800">${dt('totalOutAbnormalLabel')} ${r.abnormalQty}</div>`
           : '';
         const duplicateLine = r.duplicateOkQty > 0
           ? `<div style="color:#D97706;font-weight:800">${t('duplicateSkippedLabel')} ${r.duplicateOkQty}</div>`
@@ -5351,22 +5461,22 @@
             <div class="dashboard-title">${r.storeId} - ${r.storeName || ''}</div>
             <div class="qty">${r.okQty}</div>
           </div>
-          <div><b>${t('systemOutQtyLabel')}</b> ${r.okQty}</div>
-          <div>${t('rawOutRowsLabel')} <b>${r.rawOutRows || 0}</b></div>
+          <div><b>${dt('systemOutQtyLabel')}</b> ${r.okQty}</div>
+          <div>${dt('rawOutRowsLabel')} <b>${r.rawOutRows || 0}</b></div>
           ${duplicateLine}
           ${abnormalLine}
           <div>${t('userActionLabel')} <b>${users}</b></div>
           <details>
-            <summary>${t('viewOutToteIdsMsg')}</summary>
+            <summary>${dt('viewOutToteIdsMsg')}</summary>
             <div style="margin-top:8px">
-              ${(r.toteIds || []).map(id => `<span class="chip">${id}</span>`).join('') || '-'}
+              ${(r.toteIds || []).map(id => `<span class="chip" data-tote="${id}">${id}</span>`).join('') || '-'}
             </div>
           </details>
           ${(r.duplicateOkToteIds && r.duplicateOkToteIds.length) ? `
           <details>
             <summary style="color:#D97706">${t('viewDuplicateSkippedMsg')}</summary>
             <div style="margin-top:8px">
-              ${r.duplicateOkToteIds.map(id => `<span class="chip">${id}</span>`).join('')}
+              ${r.duplicateOkToteIds.map(id => `<span class="chip" data-tote="${id}">${id}</span>`).join('')}
             </div>
           </details>` : ''}
         `;
@@ -5376,7 +5486,204 @@
     }
 
     // =====================================================================
-    // NHÓM 14: BÁO CÁO "BẤT THƯỜNG"
+    // BÁO CÁO TỒN KHO THEO KHOẢNG NGÀY (getStockHistory): lịch sử tồn các ngày + tải danh sách từng mã tồn trong kho.
+    // Dữ liệu tồn nằm ở FILE SHEET RIÊNG (chụp mỗi đêm); backend đọc rồi trả JSON, file Excel dựng ngay trên máy.
+    // File tải về chỉ 3 cột: Ngày, Kho, ID rổ/tote (mỗi dòng 1 mã đang ở kho vào ngày đó). Ngày chưa có bản chụp thì
+    // không có dòng nào (khoảng ngày không có dữ liệu -> file trống, chỉ có dòng tiêu đề).
+    // =====================================================================
+    let lastDayReport = null;   // dữ liệu lịch sử của khoảng ngày đang xem
+    let drKind = '';            // lọc theo loại/màu ('' = tất cả)
+    let drKinds = [];           // các loại/màu có trong phạm vi kho đang xem (dựng bộ lọc)
+
+    function ymdLocal(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function initDayReportDate() {
+      const from = document.getElementById('drFrom');
+      const to = document.getElementById('drTo');
+      if (!from || !to) return;
+      const today = ymdLocal(new Date());
+      from.max = today;
+      to.max = today;
+      if (!to.value) to.value = today;
+      if (!from.value) { const d = new Date(); d.setDate(d.getDate() - 13); from.value = ymdLocal(d); }
+    }
+
+    function setDrKind(kind) {
+      drKind = kind;
+      loadDayReport();
+    }
+
+    function renderDrChips() {
+      const box = document.getElementById('drKindChips');
+      if (!box) return;
+      if (drKinds.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      box.classList.remove('hidden');
+      box.innerHTML = '<button class="dr-chip' + (drKind === '' ? ' active' : '') + '" onclick="setDrKind(&quot;&quot;)">' + escHtml_(t('drAllKinds')) + '</button>' +
+        drKinds.map(function(k) {
+          return '<button class="dr-chip' + (drKind === k ? ' active' : '') + '" onclick="setDrKind(&quot;' + k + '&quot;)">' + escHtml_(kindLabel(k)) + '</button>';
+        }).join('');
+    }
+
+    function drRange() {
+      initDayReportDate();
+      return { from: document.getElementById('drFrom').value, to: document.getElementById('drTo').value };
+    }
+
+    function loadDayReport() {
+      const r = drRange();
+      const box = document.getElementById('dayReportResult');
+      if (!r.from || !r.to) { box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('drPickDate')) + '</div>'; return; }
+      box.innerHTML = loadingHtml(t('drLoading'));
+
+      google.script.run
+        .withSuccessHandler(renderDayReport)
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('drErrPrefix') + getErrorMessage(err)) + '</div>';
+        })
+        .getStockHistory({ token: session.token, from: r.from, to: r.to, zone: viewZoneParam(), kind: drKind });
+    }
+
+    function drCell(v) {
+      return '<td>' + (v === null || v === undefined ? '–' : v) + '</td>';
+    }
+
+    // Liệt kê MỌI ngày trong khoảng (mới nhất trước); ngày chưa ghi tồn kho hiện dấu "–"
+    function drDays(from, to) {
+      const out = [];
+      const p = to.split('-');
+      const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      for (let i = 0; i < 400; i++) {
+        const k = ymdLocal(d);
+        out.push(k);
+        if (k <= from) break;
+        d.setDate(d.getDate() - 1);
+      }
+      return out;
+    }
+
+    function renderDayReport(res) {
+      const box = document.getElementById('dayReportResult');
+      lastDayReport = (res && res.success) ? res : null;
+      if (!res || !res.success) {
+        box.innerHTML = '<div class="dashboard-card">' + escHtml_(res ? res.message : t('noDataGeneric')) + '</div>';
+        return;
+      }
+
+      // bộ lọc loại/màu: chỉ cập nhật danh sách khi đang xem tất cả (đã lọc thì giữ danh sách cũ)
+      if (res.kindList && (drKind === '' || !drKinds.length)) drKinds = res.kindList;
+      if (drKind && drKinds.indexOf(drKind) === -1) drKind = '';
+      renderDrChips();
+
+      const byDate = {};
+      (res.history || []).forEach(function(h) { byDate[h.date] = h; });
+      const isStoreView = res.scope === 'STORE';    // cửa hàng: chỉ tồn của cửa hàng mình, không có cột Kho
+      const keys = isStoreView ? ['drColDate', 'drColStAt', 'drColTs', 'drColTw', 'drColTotal']
+                               : ['drColDate', 'drColWh', 'drColSt', 'drColTs', 'drColTw', 'drColTotal'];
+      const rows = drDays(res.from, res.to).map(function(d) {
+        const h = byDate[d];
+        const cells = h
+          ? (isStoreView ? drCell(h.st) + drCell(h.ts) + drCell(h.tw) + drCell(h.total)
+                         : drCell(h.wh) + drCell(h.st) + drCell(h.ts) + drCell(h.tw) + drCell(h.total))
+          : (isStoreView ? drCell(null) + drCell(null) + drCell(null) + drCell(null)
+                         : drCell(null) + drCell(null) + drCell(null) + drCell(null) + drCell(null));
+        return '<tr' + (h ? '' : ' class="dr-nodata"') + '><td>' + escHtml_(d) + (h && h.live ? ' <span class="dr-live">' + escHtml_(t('drLive')) + '</span>' : '') + '</td>' + cells + '</tr>';
+      }).join('');
+      box.innerHTML = '<div class="dr-scroll"><table class="kind-table"><tr>' +
+        keys.map(function(k) { return '<th>' + escHtml_(t(k)) + '</th>'; }).join('') + '</tr>' + rows + '</table></div>';
+    }
+
+    // ---- Excel
+    function exportWorkbook(fileName, sheets) {
+      loadXlsxLib().then(function(XLSX) {
+        const wb = XLSX.utils.book_new();
+        sheets.forEach(function(sh) {
+          const aoa = [sh.header].concat(sh.rows);
+          const ws = XLSX.utils.aoa_to_sheet(aoa);
+          ws['!cols'] = sh.header.map(function(h, i) {
+            let w = String(h).length;
+            const n = Math.min(sh.rows.length, 300);
+            for (let r = 0; r < n; r++) {
+              const len = String(sh.rows[r][i] === null || sh.rows[r][i] === undefined ? '' : sh.rows[r][i]).length;
+              if (len > w) w = len;
+            }
+            return { wch: Math.min(48, w + 2) };
+          });
+          XLSX.utils.book_append_sheet(wb, ws, String(sh.name).slice(0, 31));
+        });
+        XLSX.writeFile(wb, fileName + '.xlsx');
+      }).catch(function() {
+        const first = sheets[0];
+        if (first) downloadCsv(fileName + '.csv', [first.header].concat(first.rows));
+      });
+    }
+
+    function drFileSuffix() {
+      const parts = [];
+      const z = viewZoneParam();
+      if (z) parts.push(z === 'COLD' ? 'kho-lanh' : 'kho-kho');
+      if (drKind) parts.push(drKind);
+      if (session && session.role === 'STORE' && session.storeId) parts.push(session.storeId);
+      return parts.length ? '_' + parts.join('_') : '';
+    }
+
+    // ["1-3","7"] + kind BAS_RE -> BAS_RE_1, BAS_RE_2, BAS_RE_3, BAS_RE_7 (kind 'OTHER': token là mã nguyên văn)
+    function expandStockTokens(kind, tokens) {
+      const out = [];
+      (tokens || []).forEach(function(tk) {
+        if (kind === 'OTHER') { out.push(tk); return; }
+        const m = /^(\d+)(?:-(\d+))?$/.exec(tk);
+        if (!m) { out.push(tk); return; }
+        const a = Number(m[1]);
+        const b = m[2] ? Number(m[2]) : a;
+        for (let n = a; n <= b; n++) out.push(kind + '_' + n);
+      });
+      return out;
+    }
+
+    // Tải tồn kho của khoảng ngày đang chọn: 3 cột Ngày | Kho | ID rổ/tote, mỗi dòng 1 mã đang ở kho.
+    // Không có dữ liệu thì vẫn tải về, chỉ có dòng tiêu đề.
+    function exportDayReport() {
+      const r = drRange();
+      if (!r.from || !r.to) { alert(t('drPickDate')); return; }
+      const btn = document.getElementById('drExportBtn');
+      const oldHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>' + escHtml_(t('drBuilding')) + '</span>';
+      const restore = function() { btn.disabled = false; btn.innerHTML = oldHtml; };
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          restore();
+          if (!res || !res.success) { alert(t('drErrPrefix') + (res ? res.message : '')); return; }
+          const isStoreFile = res.scope === 'STORE';
+          const header = [t('drXlsDate'), isStoreFile ? t('drXlsStore') : t('drXlsZone'), t('drXlsCode')];
+          const all = [];
+          (res.groups || []).forEach(function(g) {
+            const place = isStoreFile ? g.location : zoneName(zoneOfKind(g.kind));
+            expandStockTokens(g.kind, g.tokens).forEach(function(code) { all.push([g.date, place, code]); });
+          });
+          // Excel tối đa 1.048.576 dòng/sheet: nhiều hơn thì tách sheet
+          const PER_SHEET = 1000000;
+          const sheets = [];
+          if (!all.length) sheets.push({ name: t('drSheetCodes'), header: header, rows: [] });
+          for (let i = 0; i < all.length; i += PER_SHEET) {
+            sheets.push({ name: t('drSheetCodes') + (all.length > PER_SHEET ? ' ' + (sheets.length + 1) : ''), header: header, rows: all.slice(i, i + PER_SHEET) });
+          }
+          exportWorkbook('ton-kho_' + res.from + '_' + res.to + drFileSuffix(), sheets);
+        })
+        .withFailureHandler(function(err) {
+          restore();
+          if (handleSessionError(err)) return;
+          alert(t('drErrPrefix') + getErrorMessage(err));
+        })
+        .getStockHistory({ token: session.token, from: r.from, to: r.to, zone: viewZoneParam(), kind: drKind, codes: true });
+    }
+
+    // =====================================================================
+    // NHÓM 14: BÁO CÁO "BẤT THƯỜNG\"
     // Liệt kê các lượt quét bị đánh dấu bất thường (ví dụ: quét IN nhưng
     // thùng chưa từng được ghi nhận xuất kho...) trong 1 ngày - gọi
     // getAbnormalSummary(). Lưu ý: quét bất thường KHÔNG bị chặn, chỉ bị
@@ -5481,7 +5788,7 @@
         div.className = 'history-row history-bad';
         div.innerHTML = `
           <div><b>${r.time}</b></div>
-          <div>${t('toteColonLabel')} <b>${r.toteId || '-'}</b></div>
+          <div>${t('toteColonLabel')} <b${r.toteId ? ' data-tote="' + r.toteId + '"' : ''}>${r.toteId || '-'}</b></div>
           <div>${t('actionColonLabel')} <b style="color:${isOut ? '#E1364A' : '#D97706'}">${actionLabel(r.action)}</b> | ${t('resultLabel')} <b>${r.result}</b></div>
           <div>${t('storeColonLabel')} <b>${r.storeId || '-'}</b> ${r.storeName ? '- ' + r.storeName : ''}</div>
           <div>${t('noteColonLabel')} ${r.note || '-'}</div>
@@ -5852,6 +6159,52 @@
         .getHomeSummary({ token: session.token, zone: viewZoneParam() });
     }
 
+    // Thẻ số liệu ở Home bấm vào để mở màn chi tiết tương ứng. Chỉ bật cho vai trò đang thấy tab đích
+    // (tab bị ẩn theo vai trò thì thẻ giữ nguyên là thẻ tĩnh).
+    const KPI_TARGETS = {
+      warehouseQty: { screen: 'dash',     tabId: 'tabDash',     needStock: true, apply: function() { dashTab = 'stock'; } },
+      storeQty:     { screen: 'dash',     tabId: 'tabDash',     apply: function() { dashTab = 'stores'; } },
+      outToday:     { screen: 'dailyOut', tabId: 'tabDailyOut', apply: function() { dailyAction = 'OUT'; } },
+      inToday:      { screen: 'dailyOut', tabId: 'tabDailyOut', apply: function() { dailyAction = 'IN'; } }
+    };
+
+    function kpiAllowed(kpi) {
+      const tg = KPI_TARGETS[kpi];
+      const tab = tg && document.getElementById(tg.tabId);
+      if (!tab || tab.classList.contains('hidden')) return false;
+      return !(tg.needStock && !canSeeStock());
+    }
+
+    function updateHomeKpiLinks() {
+      document.querySelectorAll('.kpi[data-kpi]').forEach(function(el) {
+        const on = kpiAllowed(el.getAttribute('data-kpi'));
+        el.classList.toggle('clickable', on);
+        if (on) { el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); }
+        else { el.removeAttribute('role'); el.removeAttribute('tabindex'); }
+      });
+    }
+
+    function onKpiClick(el) {
+      const kpi = el.getAttribute('data-kpi');
+      if (!kpiAllowed(kpi)) return;
+      const tg = KPI_TARGETS[kpi];
+      if (tg.apply) tg.apply();
+      showScreen(tg.screen);
+    }
+
+    function onKpiKey(e, el) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onKpiClick(el); }
+    }
+
+    // Mở màn Track với đúng mã tote đã chọn (dòng hoạt động gần đây, chip mã tote trong các danh sách).
+    function openTrackFor(code) {
+      const tab = document.getElementById('tabTrack');
+      if (!session || !code || !tab || tab.classList.contains('hidden')) return;
+      showScreen('track');
+      document.getElementById('trackToteInput').value = String(code).toUpperCase();
+      loadToteHistory();
+    }
+
     function getGreeting() {
       const h = new Date().getHours();
       if (h < 11) return t('greetMorning');
@@ -5874,9 +6227,9 @@
       }
 
       document.getElementById('kpiStoreQty').innerText = res.totalStoreQty;
+      document.getElementById('kpiWarehouseQty').innerText = res.distribution ? res.distribution.IN_WAREHOUSE : '--';
       document.getElementById('kpiOutToday').innerText = res.outToday;
       document.getElementById('kpiInToday').innerText = res.inToday;
-      document.getElementById('kpiAbnormalToday').innerText = res.abnormalToday;
 
       lastHomeSummary = res;
       renderTrendChart();
@@ -5907,6 +6260,10 @@
           ? `${r.toteId} — ${t('abnormalWordLabel')} (${actionLabel(r.action)})`
           : `${r.toteId} — ${actionLabel(r.action)}${r.store ? ' · ' + r.store : ''}`;
         div.innerHTML = `<div class="dot" style="background:${color}"></div><div>${label}<br><span style="color:var(--muted)">${r.time}</span></div>`;
+        if (session.role !== 'STORE' && r.toteId) {
+          div.classList.add('clickable');
+          div.addEventListener('click', function() { openTrackFor(r.toteId); });
+        }
         activityBox.appendChild(div);
       });
     }
@@ -6170,6 +6527,13 @@
           'Ô <b>sắp xếp</b>: xếp cửa hàng theo số lượng xuất, tên hoặc mã.',
           'Bấm "Xem mã tote OUT / OK" trong từng cửa hàng để xem danh sách mã đã xuất; nút <b>Excel</b> để tải báo cáo.'
         ] },
+        dayReport: { title: 'Báo cáo tồn kho', items: [
+          'Xem <b>lịch sử tồn kho</b> theo khoảng ngày: số lượng ở kho, ở cửa hàng, đang giao tới và đang về kho mỗi ngày. Ngày chưa ghi tồn kho hiện dấu "–".',
+          'Hệ thống chụp tồn mỗi đêm (khoảng 23h30) nên chỉ có dữ liệu từ ngày bật chức năng. Ngày hôm nay hiện số trực tiếp lúc xem.',
+          'Chọn <b>kho</b> (lạnh / khô) ở thanh Hiển thị phía trên, chọn <b>loại/màu</b> bằng các nút dưới ô ngày để chỉ xem một loại. Tài khoản kho chỉ thấy kho của mình.',
+          'Nút <b>Tải tồn kho</b> tải file Excel gồm 3 cột: <b>Ngày, Kho, ID rổ/tote</b> - mỗi dòng là một rổ/tote đang nằm trong kho vào ngày đó (cả khoảng ngày đang chọn). Khoảng ngày chưa có dữ liệu sẽ tải về file trống.',
+          '<b>Cửa hàng</b> chỉ xem được tồn của chính cửa hàng mình (rổ/tote đang ở cửa hàng, đang giao tới, đang về kho); file tải về là <b>Ngày, Cửa hàng, ID rổ/tote</b> của những mã đang ở cửa hàng mình.'
+        ] },
         abnormal: { title: 'Lỗi / bất thường', items: [
           'Liệt kê các lượt quét <b>bất thường</b> trong ngày để kho xử lý ngay (dữ liệu từ log có RESULT = ABNORMAL).',
           'Quét bất thường không bị chặn, chỉ bị đánh dấu - ví dụ nhập kho một tote chưa từng xuất.',
@@ -6240,6 +6604,13 @@
           '<b>Duplicates (skipped)</b>: a tote scanned OUT several times in a day is counted once.',
           '<b>Sort</b> box: order stores by quantity, name or code.',
           'Open "View unique OUT / OK tote IDs" in each store for the shipped codes; the <b>Excel</b> button downloads the report.'
+        ] },
+        dayReport: { title: 'Stock report', items: [
+          'See the <b>stock history</b> over a date range: quantity in the warehouse, at stores, in transit to stores and returning to the warehouse each day. Days without recorded stock show "–".',
+          'Stock is captured every night (around 11:30 pm), so data only exists from the day the feature was enabled. Today shows the live figure.',
+          'Pick the <b>zone</b> (cold / dry) in the Show bar above, and a <b>type/color</b> with the buttons under the dates to see one type only. Warehouse accounts only see their own warehouse.',
+          'The <b>Download stock</b> button downloads an Excel file with 3 columns: <b>Date, Warehouse, Basket/tote ID</b> - one row per basket/tote sitting in the warehouse on that day (for the whole selected range). A range without data downloads an empty file.',
+          '<b>Stores</b> only see their own store stock (baskets/totes at the store, in transit to it, returning to the warehouse); the download is <b>Date, Store, Basket/tote ID</b> for the codes sitting at their store.'
         ] },
         abnormal: { title: 'Errors / abnormal', items: [
           'Lists <b>abnormal</b> scans of the day so the warehouse can handle them right away (log rows with RESULT = ABNORMAL).',
@@ -6486,7 +6857,7 @@
       COLD: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M5 10h14"/><path d="M9 5.5v2M9 13v3.5"/></svg>',
       AMB: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>'
     };
-    const ZONE_SCREENS = ['home', 'dash', 'transit', 'dailyOut', 'abnormal'];
+    const ZONE_SCREENS = ['home', 'dash', 'transit', 'dailyOut', 'dayReport', 'abnormal'];
 
     function accountZone() {
       const z = session && session.zone;
@@ -6561,6 +6932,7 @@
       else if (currentScreen === 'dash') refreshDashTab();
       else if (currentScreen === 'transit') loadInTransitSummary();
       else if (currentScreen === 'dailyOut') loadDailyOutSummary();
+      else if (currentScreen === 'dayReport') { drKind = ''; loadDayReport(); }
       else if (currentScreen === 'abnormal') loadAbnormalSummary();
     }
 
@@ -7000,8 +7372,9 @@
           ids.forEach(id => rows.push(base.concat([id])));
         });
       }
-      exportTable('xuat-kho_' + (res ? res.date : todayStamp()), 'XuatKho',
-        [t('colDate'), t('colStoreId'), t('colStoreName'), t('colOkQty'), t('colRawRows'),
+      const isIn = dailyAction === 'IN';
+      exportTable((isIn ? 'nhap-kho_' : 'xuat-kho_') + (res ? res.date : todayStamp()), isIn ? 'NhapKho' : 'XuatKho',
+        [t('colDate'), t('colStoreId'), t('colStoreName'), dt('colOkQty'), dt('colRawRows'),
          t('colDupQty'), t('colAbnQty'), t('colUsers'), t('colToteId')], rows);
     }
 
