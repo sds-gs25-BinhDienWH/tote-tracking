@@ -2541,9 +2541,10 @@
             enterApp();
           })
           .withFailureHandler(function(err) {
-            clearLocalSession();
-            showLogin();
-            showLoginMsg('Không kiểm tra được phiên đăng nhập: ' + getErrorMessage(err));
+            // Lỗi mạng/máy chủ tạm thời KHÔNG có nghĩa là hết phiên: giữ đăng nhập, vào app bằng phiên
+            // đã lưu. Nếu phiên thật sự không còn hợp lệ thì lệnh gọi kế tiếp sẽ báo và tự đưa về đăng nhập.
+            session = savedSession;
+            enterApp();
           })
           .getSession(savedSession.token);
 
@@ -2713,7 +2714,7 @@
       setupDriverForRole();
       setMode('OUT');
 
-      if (session.role === 'ADMIN' || session.role === 'WAREHOUSE' || session.role === 'DRIVER') {
+      if (session.role === 'ADMIN' || session.role === 'WAREHOUSE' || session.role === 'DRIVER' || session.role === 'VIEWER') {
         loadStores();
       }
 
@@ -2737,15 +2738,17 @@
       document.getElementById('railIn').classList.toggle('hidden', !canScan);
       document.getElementById('tabDriver').classList.toggle('hidden', !canDriverScan);
       // Cửa hàng: ADMIN (quản lý) và tài xế (tra cửa hàng + chỉ đường).
-      document.getElementById('tabStore').classList.toggle('hidden', !(role === 'ADMIN' || role === 'DRIVER'));
+      document.getElementById('tabStore').classList.toggle('hidden', !(role === 'ADMIN' || role === 'DRIVER' || role === 'VIEWER'));
       document.getElementById('addStoreBox').classList.toggle('hidden', role !== 'ADMIN');
       // Tài xế chỉ cần quét giao nhận và tra cửa hàng, không cần xem tổng / tồn.
       document.getElementById('tabHome').classList.toggle('hidden', role === 'DRIVER');
       document.getElementById('tabDash').classList.toggle('hidden', role === 'DRIVER');
       document.getElementById('tabTrack').classList.toggle('hidden', role === 'DRIVER');
-      document.getElementById('tabTransit').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE'));
-      document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE'));
-      document.getElementById('tabAbnormal').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE'));
+      document.getElementById('tabTransit').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'VIEWER' || role === 'STORE'));
+      // Cửa hàng chỉ thấy rổ của chính mình nên không cần ô tìm cửa hàng/mã rổ
+      document.getElementById('transitSearch').parentElement.classList.toggle('hidden', role === 'STORE');
+      document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
+      document.getElementById('tabAbnormal').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // document.getElementById('tabInv').classList.toggle('hidden', role !== 'STORE');
       document.getElementById('homeQuickRow').classList.toggle('hidden', !canScan);
@@ -4881,7 +4884,7 @@
     // Màn Tồn đang xem những kho nào: ADMIN theo thanh chọn kho, cửa hàng thấy
     // cả hai, tài khoản kho chỉ thấy kho của mình.
     function dashZonesInView() {
-      if (session.role === 'ADMIN') return viewZone === 'ALL' ? ['AMB', 'COLD'] : [viewZone];
+      if (canPickViewZone()) return viewZone === 'ALL' ? ['AMB', 'COLD'] : [viewZone];
       if (session.role === 'STORE') return ['AMB', 'COLD'];
       return [accountZone() === 'AMB' ? 'AMB' : 'COLD'];
     }
@@ -6287,7 +6290,7 @@
     let stockData = null;
 
     function canSeeStock() {
-      return !!session && (session.role === 'ADMIN' || session.role === 'WAREHOUSE');
+      return !!session && (session.role === 'ADMIN' || session.role === 'WAREHOUSE' || session.role === 'VIEWER');
     }
 
     function setDashTab(tab) {
@@ -6520,8 +6523,13 @@
       return text.replace(/TOTE/g, 'RỔ').replace(/Tote/g, 'Rổ').replace(/tote/g, 'rổ');
     }
 
+    // ADMIN và VIEWER (khách xem) xem được cả hai kho nên được chọn kho hiển thị.
+    function canPickViewZone() {
+      return !!session && (session.role === 'ADMIN' || session.role === 'VIEWER');
+    }
+
     function viewZoneParam() {
-      return session && session.role === 'ADMIN' && viewZone !== 'ALL' ? viewZone : '';
+      return canPickViewZone() && viewZone !== 'ALL' ? viewZone : '';
     }
 
     function wrongZoneMessage(code, zone) {
@@ -6540,7 +6548,7 @@
     function updateZoneBar() {
       const bar = document.getElementById('zoneBar');
       if (!bar) return;
-      const show = !!session && session.role === 'ADMIN' && ZONE_SCREENS.indexOf(currentScreen) !== -1;
+      const show = canPickViewZone() && ZONE_SCREENS.indexOf(currentScreen) !== -1;
       bar.classList.toggle('hidden', !show);
       if (show) renderZoneBar();
     }
