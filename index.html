@@ -30,7 +30,8 @@
     'login', 'logout', 'getSession', 'getStores', 'addStore', 'scanBatch',
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
-    'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory'
+    'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
+    'getStoreIncoming'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -38,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1
   };
   var MAX_RETRY = 2;
 
@@ -887,6 +888,17 @@
     background:var(--green-soft); border-radius:var(--radius-sm); border:1.5px solid var(--cyan-deep);
   }
 
+  .incoming-box{
+    margin-top:10px; padding:12px 14px; font-size:13.5px; line-height:20px; color:var(--heading);
+    background:#EAF1FD; border-radius:var(--radius-sm); border:1.5px solid #9DB8EE;
+  }
+  .incoming-box.none{ background:var(--bg); border-color:var(--row-border); color:var(--muted); }
+  .incoming-box .incoming-qty{ font-size:22px; font-weight:800; margin-right:6px; }
+  .incoming-box .kind-chip{ margin:6px 6px 0 0; }
+  .incoming-progress{ margin-top:8px; padding:10px 14px; font-size:14px; font-weight:800; color:var(--heading); background:#EAF1FD; border-radius:var(--radius-sm); border:1.5px solid #9DB8EE; }
+  .incoming-progress.done{ background:var(--green-soft); border-color:var(--cyan-deep); color:var(--cyan-deep); }
+  .incoming-progress.over{ background:var(--red-soft); border-color:var(--red); color:var(--red); }
+
   .result{
     margin-top:12px; padding:14px; min-height:60px; font-size:15px; font-weight:800; text-align:center;
     border-radius:var(--radius);
@@ -1390,6 +1402,9 @@
               <div id="driverStoreFixedLabel" class="selected-store">-</div>
             </div>
 
+            <!-- Số rổ/tote ĐANG GIAO TỚI cửa hàng đã chọn (chỉ hiện ở chế độ NHẬN RỔ) -->
+            <div id="driverIncomingBox" class="incoming-box hidden"></div>
+
             <button id="driverStartSessionBtn" class="btn" data-i18n="startSessionBtn" disabled onclick="startDriverSession()">
               BẮT ĐẦU PHIÊN
             </button>
@@ -1403,6 +1418,8 @@
                 <button class="btn-link" data-i18n="endSessionBtn" onclick="askEndDriverSession()">KẾT THÚC PHIÊN</button>
               </span>
             </div>
+
+            <div id="driverIncomingProgress" class="incoming-progress hidden"></div>
 
             <!-- Camera quét trực tiếp - CHỈ dùng luồng camera sống
                  (getUserMedia + ZXing giải mã liên tục), KHÔNG dùng
@@ -2039,6 +2056,7 @@
         driverReceiveBtn: 'NHẬN RỔ', driverReturnBtn: 'XUẤT RỔ (LẤY VỎ)',
         driverStoreOwnLabel: 'Cửa hàng của bạn', startSessionBtn: 'BẮT ĐẦU PHIÊN',
         workingAtLabel: 'Đang thao tác tại:',
+        incomingLoading: 'Đang kiểm tra hàng giao tới...', incomingTitle: 'Đang giao tới cửa hàng này:', incomingNone: 'Không có hàng nào đang giao tới cửa hàng này.', incomingProgress: 'Đã quét {n} / {total}', incomingProgressNone: 'Đã quét {n} (hệ thống không có hàng giao tới)',
         driverConfirmContinueBtn: '✓ XÁC NHẬN - QUÉT TIẾP',
         cameraOffBtn: 'TẮT CAMERA', cameraOnBtn: 'BẬT CAMERA',
 
@@ -2263,6 +2281,7 @@
         driverReceiveBtn: 'RECEIVE', driverReturnBtn: 'RETURN (EMPTY TOTES)',
         driverStoreOwnLabel: 'Your store', startSessionBtn: 'START SESSION',
         workingAtLabel: 'Working at:',
+        incomingLoading: 'Checking incoming items...', incomingTitle: 'On the way to this store:', incomingNone: 'Nothing is on the way to this store.', incomingProgress: 'Scanned {n} / {total}', incomingProgressNone: 'Scanned {n} (none expected by the system)',
         driverConfirmContinueBtn: '✓ CONFIRM - KEEP SCANNING',
         cameraOffBtn: 'TURN OFF CAMERA', cameraOnBtn: 'TURN ON CAMERA',
 
@@ -4389,6 +4408,7 @@
       banner.classList.toggle('in', value === 'STORE_RETURN');
       document.getElementById('driverModeTag').innerText =
         value === 'STORE_RECEIVE' ? t('driverModeReceive') : t('driverModeReturn');
+      loadDriverIncoming();
     }
 
     function renderDriverSessionUI() {
@@ -4404,6 +4424,69 @@
     function refreshDriverStartSessionBtn() {
       const btn = document.getElementById('driverStartSessionBtn');
       if (btn) btn.disabled = !driverStoreId;
+    }
+
+    // ---------------- Hàng đang giao tới cửa hàng đã chọn (chế độ NHẬN RỔ) ----------------
+    // Tài xế chọn cửa hàng xong là thấy ngay cần giao bao nhiêu (kèm loại/màu),
+    // trong phiên quét thì hiện "Đã quét X / Y" để đối chiếu.
+    let driverIncoming = null;   // { storeId, qty, kinds } hoặc null nếu chưa có/đang tải
+    let driverIncomingSeq = 0;
+
+    function loadDriverIncoming() {
+      const box = document.getElementById('driverIncomingBox');
+      const seq = ++driverIncomingSeq;
+      driverIncoming = null;
+      renderDriverIncoming();
+      if (!driverStoreId || driverMode !== 'STORE_RECEIVE') return;
+      box.classList.remove('hidden', 'none');
+      box.innerText = t('incomingLoading');
+      const storeId = driverStoreId;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (seq !== driverIncomingSeq || !res || !res.success) return;
+          driverIncoming = res;
+          renderDriverIncoming();
+          updateDriverCounter();
+        })
+        .withFailureHandler(function(err) {
+          if (seq !== driverIncomingSeq) return;
+          if (handleSessionError(err)) return;
+          box.classList.add('hidden');   // lỗi mạng: không chặn việc quét, chỉ không hiện số
+        })
+        .getStoreIncoming({ token: session.token, storeId: storeId });
+    }
+
+    function renderDriverIncoming() {
+      const box = document.getElementById('driverIncomingBox');
+      if (!box) return;
+      if (!driverStoreId || driverMode !== 'STORE_RECEIVE' || !driverIncoming) {
+        if (!driverStoreId || driverMode !== 'STORE_RECEIVE') box.classList.add('hidden');
+        return;
+      }
+      box.classList.remove('hidden');
+      box.classList.toggle('none', driverIncoming.qty === 0);
+      if (driverIncoming.qty === 0) {
+        box.innerText = t('incomingNone');
+        return;
+      }
+      const ks = sortedKinds(Object.keys(driverIncoming.kinds || {}));
+      box.innerHTML = escHtml_(t('incomingTitle')) + '<br><span class="incoming-qty">' + driverIncoming.qty + '</span>' +
+        ks.map(function(k) { return kindChipHtml(k, driverIncoming.kinds[k]); }).join('');
+    }
+
+    function renderDriverIncomingProgress() {
+      const el = document.getElementById('driverIncomingProgress');
+      if (!el) return;
+      if (!driverSessionActive || driverMode !== 'STORE_RECEIVE' || !driverIncoming) {
+        el.classList.add('hidden');
+        return;
+      }
+      const n = driverTotal;
+      const total = driverIncoming.qty;
+      el.classList.remove('hidden');
+      el.classList.toggle('done', total > 0 && n === total);
+      el.classList.toggle('over', n > total);
+      el.innerText = total === 0 ? tf('incomingProgressNone', { n: n }) : tf('incomingProgress', { n: n, total: total });
     }
 
     function onDriverStoreSearch() {
@@ -4450,6 +4533,7 @@
           box.classList.remove('open');
 
           refreshDriverStartSessionBtn();
+          loadDriverIncoming();
           const startBtn = document.getElementById('driverStartSessionBtn');
           if (startBtn && !startBtn.disabled) startBtn.focus();
         };
@@ -4532,6 +4616,7 @@
       refreshDriverStartSessionBtn();
       stopDriverCamera();
       renderDriverSessionUI();
+      loadDriverIncoming();   // STORE giữ nguyên cửa hàng: tải lại số còn thiếu sau khi ghi; DRIVER: ẩn vì đã bỏ chọn
     }
 
     // Thiết lập màn Giao Nhận theo đúng vai trò - gọi 1 lần lúc đăng nhập:
@@ -4549,6 +4634,7 @@
         driverStoreLabel = `${session.storeId} - ${session.storeName || ''}`;
         document.getElementById('driverStoreFixedLabel').innerText = driverStoreLabel;
         refreshDriverStartSessionBtn();
+        loadDriverIncoming();
       }
     }
 
@@ -4691,6 +4777,7 @@
       document.getElementById('driverCOk').innerText = driverOk;
       document.getElementById('driverCFail').innerText = driverFail;
       document.getElementById('driverCQueue').innerText = driverPendingQueue.length + (driverSending ? 1 : 0);
+      renderDriverIncomingProgress();
     }
 
     // ---------------- Nhập tay (dự phòng khi camera không quét được) ----------------
