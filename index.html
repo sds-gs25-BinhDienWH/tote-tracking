@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming', 'getTripChoices'
+    'getStoreIncoming', 'getTripChoices', 'getTraySlipData'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTraySlipData: 1
   };
   var MAX_RETRY = 2;
 
@@ -897,6 +897,42 @@
   .incoming-box .kind-chip{ margin:6px 6px 0 0; }
   .incoming-progress{ margin-top:8px; padding:10px 14px; font-size:14px; font-weight:800; color:var(--heading); background:#EAF1FD; border-radius:var(--radius-sm); border:1.5px solid #9DB8EE; }
   .incoming-progress.done{ background:var(--green-soft); border-color:var(--cyan-deep); color:var(--cyan-deep); }
+  .ps-btn{ width:auto; padding:10px 14px; font-size:13px; }
+  .ps-row{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--row-border); }
+  .ps-row input{ width:22px; height:22px; flex:none; }
+  .ps-row .ps-main{ flex:1; min-width:0; }
+  .ps-row .ps-main b{ font-size:16px; color:var(--heading); }
+  .ps-row .ps-sub{ font-size:12.5px; color:var(--muted); }
+  .ps-chip{ font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; background:var(--bg); color:var(--muted); }
+  .ps-chip.on{ background:var(--green-soft); color:var(--cyan-deep); }
+  .ps-warn{ margin:10px 0; padding:10px 14px; font-size:13px; font-weight:700; color:var(--amber); background:var(--amber-soft); border-radius:var(--radius-sm); }
+  #printArea{ display:none; }
+  #printArea.show{ display:block; background:#fff; padding:10px; }
+  .slip-page{ font-family:Arial,sans-serif; color:#000; font-size:12px; padding:4px 0 10px; }
+  .slip-top{ display:grid; grid-template-columns:1fr 2fr 1fr; align-items:center; font-size:12px; }
+  .slip-title{ font-size:18px; font-weight:800; text-align:center; }
+  .slip-meta{ display:flex; justify-content:space-between; font-weight:700; margin:6px 0 8px; font-size:12.5px; }
+  .slip-tbl{ width:100%; border-collapse:collapse; table-layout:fixed; }
+  .slip-tbl th, .slip-tbl td{ border:1px solid #333; padding:2px 5px; text-align:center; vertical-align:middle; font-size:11.5px; }
+  .slip-tbl th{ background:#EDEDED; font-weight:800; }
+  .slip-tbl td.l{ text-align:left; }
+  .slip-tbl td.stamp{ min-width:80px; }
+  .slip-tbl tbody tr{ height:28px; page-break-inside:avoid; break-inside:avoid; }
+  .slip-tbl tfoot{ display:table-row-group; }
+  .slip-tbl tr.tot td{ font-weight:800; background:#EDEDED; }
+  .slip-tbl thead{ display:table-header-group; }
+  .slip-tbl small{ color:#B45309; font-weight:700; }
+  .slip-sum{ margin-top:8px; font-weight:800; font-size:13px; page-break-inside:avoid; }
+  .slip-sign{ width:100%; border-collapse:collapse; margin-top:8px; page-break-inside:avoid; }
+  .slip-sign td{ width:25%; text-align:center; vertical-align:top; font-weight:800; font-size:12px; height:80px; }
+  .slip-sign i{ display:block; font-weight:400; font-size:10px; color:#555; }
+  @media print{
+    body > *:not(#printArea){ display:none !important; }
+    #printArea{ display:block !important; padding:0; }
+    @page{ size:A4 landscape; margin:8mm; }
+    .slip-page{ page-break-after:always; break-after:page; }
+    .slip-page:last-child{ page-break-after:auto; break-after:auto; }
+  }
   .trip-choice-list{ display:flex; flex-direction:column; gap:10px; margin:12px 0; }
   .trip-choice-btn{ display:flex; flex-direction:column; align-items:center; gap:2px; padding:14px 12px; font-size:18px; }
   .trip-choice-btn small{ font-size:12px; font-weight:600; opacity:.8; }
@@ -1657,6 +1693,18 @@
           <div id="dailyOutResult"></div>
         </div>
 
+        <div id="screen-printSlips" class="screen">
+          <div class="dr-range">
+            <div><label data-i18n="psDateLabel">Ngày</label><input id="psDate" type="date" onchange="loadPrintSlips()"></div>
+          </div>
+          <div class="export-row">
+            <button class="btn-icon" data-i18n-title="refreshBtn" title="Làm mới" onclick="refreshClick(this, loadPrintSlips)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+            <button class="btn btn-gray ps-btn" data-i18n="psSelectScanned" onclick="psSelectScanned()">CHỌN CHUYẾN ĐÃ BẮN</button>
+            <button id="psPrintBtn" class="btn ps-btn" data-i18n="psPrint" onclick="printSelectedSlips()">IN CÁC CHUYẾN ĐÃ CHỌN</button>
+          </div>
+          <div id="psResult"></div>
+        </div>
+
         <div id="screen-dayReport" class="screen">
           <div class="dr-range">
             <div><label data-i18n="drFromLabel">Từ ngày</label><input id="drFrom" type="date" onchange="loadDayReport()"></div>
@@ -1837,6 +1885,10 @@
       <div id="tabDayReport" class="rail-item" onclick="showScreen('dayReport')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>
         <span data-i18n="navDayReport">Báo cáo</span>
+      </div>
+      <div id="tabPrintSlips" class="rail-item hidden" onclick="showScreen('printSlips')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/></svg>
+        <span data-i18n="navPrintSlips">In phiếu</span>
       </div>
       <div id="tabAbnormal" class="rail-item" onclick="showScreen('abnormal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2z"/><path d="M12 9v6M12 18h.01"/></svg>
@@ -2078,7 +2130,7 @@
         driverReceiveBtn: 'NHẬN RỔ', driverReturnBtn: 'XUẤT RỔ (LẤY VỎ)',
         driverStoreOwnLabel: 'Cửa hàng của bạn', startSessionBtn: 'BẮT ĐẦU PHIÊN',
         workingAtLabel: 'Đang thao tác tại:',
-        tripWord: 'Chuyến', truckWord: 'Xe', driverWord: 'TX', tripChoiceTitle: 'CHỌN CHUYẾN', tripChoiceHint: 'Cửa hàng {store} đi {n} chuyến hôm nay (hàng đông và hàng chill đi riêng). Bạn đang xuất hàng cho chuyến nào?', tripChoiceCancel: 'HỦY CHỌN CỬA HÀNG', incomingLoading: 'Đang kiểm tra hàng giao tới...', incomingTitle: 'Đang giao tới cửa hàng này:', incomingNone: 'Không có hàng nào đang giao tới cửa hàng này.', incomingProgressMissing: 'Đã quét {n} / {total} - còn thiếu {m}', incomingVerifying: 'Đang kiểm tra mã {code}...', incomingVerifyFail: '{code}: không kiểm tra được (mất mạng?), thử quét lại. Không ghi.', notForThisStore: '{code}: KHÔNG thuộc hàng giao tới {store}. Quét nhầm cửa hàng hoặc nhầm rổ, KHÔNG ghi.', notForThisStoreRecent: 'KHÔNG GHI - không thuộc cửa hàng này', missingWarn: 'THIẾU {n} mã chưa quét: {list}', incomingProgress: 'Đã quét {n} / {total}', incomingProgressNone: 'Đã quét {n} (hệ thống không có hàng giao tới)',
+        navPrintSlips: 'In phiếu', psDateLabel: 'Ngày', psSelectScanned: 'CHỌN CHUYẾN ĐÃ BẮN', psPrint: 'IN CÁC CHUYẾN ĐÃ CHỌN', psScanned: 'Đã bắn', psNotScanned: 'Chưa bắn', psStoresTrays: '{s} cửa hàng · {t} khay', psEmpty: 'Chưa có chuyến nào cho ngày này. Dán lịch chuyến vào sheet TRIP_INPUT.', psLoading: 'Đang tải chuyến...', psNonePicked: 'Chưa chọn chuyến nào để in.', psUnassigned: 'Có cửa hàng đã OUT nhưng không thuộc chuyến nào trong TRIP_INPUT: {list}', psAuto: 'TRIP_INPUT chưa có chuyến của ngày này: tự gom các cửa hàng đã OUT.', tripWord: 'Chuyến', truckWord: 'Xe', driverWord: 'TX', tripChoiceTitle: 'CHỌN CHUYẾN', tripChoiceHint: 'Cửa hàng {store} đi {n} chuyến hôm nay (hàng đông và hàng chill đi riêng). Bạn đang xuất hàng cho chuyến nào?', tripChoiceCancel: 'HỦY CHỌN CỬA HÀNG', tripChoiceAllDone: 'Cửa hàng {store} đã xuất xong cả {n} chuyến hôm nay. Chọn chuyến muốn xuất BỔ SUNG:', tripDoneNote: 'đã xuất {n} khay', incomingLoading: 'Đang kiểm tra hàng giao tới...', incomingTitle: 'Đang giao tới cửa hàng này:', incomingNone: 'Không có hàng nào đang giao tới cửa hàng này.', incomingProgressMissing: 'Đã quét {n} / {total} - còn thiếu {m}', incomingVerifying: 'Đang kiểm tra mã {code}...', incomingVerifyFail: '{code}: không kiểm tra được (mất mạng?), thử quét lại. Không ghi.', notForThisStore: '{code}: KHÔNG thuộc hàng giao tới {store}. Quét nhầm cửa hàng hoặc nhầm rổ, KHÔNG ghi.', notForThisStoreRecent: 'KHÔNG GHI - không thuộc cửa hàng này', missingWarn: 'THIẾU {n} mã chưa quét: {list}', incomingProgress: 'Đã quét {n} / {total}', incomingProgressNone: 'Đã quét {n} (hệ thống không có hàng giao tới)',
         driverConfirmContinueBtn: '✓ XÁC NHẬN - QUÉT TIẾP',
         cameraOffBtn: 'TẮT CAMERA', cameraOnBtn: 'BẬT CAMERA',
 
@@ -2303,7 +2355,7 @@
         driverReceiveBtn: 'RECEIVE', driverReturnBtn: 'RETURN (EMPTY TOTES)',
         driverStoreOwnLabel: 'Your store', startSessionBtn: 'START SESSION',
         workingAtLabel: 'Working at:',
-        tripWord: 'Trip', truckWord: 'Truck', driverWord: 'Driver', tripChoiceTitle: 'CHOOSE TRIP', tripChoiceHint: 'Store {store} has {n} trips today. Which trip are you loading for?', tripChoiceCancel: 'CANCEL STORE SELECTION', incomingLoading: 'Checking incoming items...', incomingTitle: 'On the way to this store:', incomingNone: 'Nothing is on the way to this store.', incomingProgressMissing: 'Scanned {n} / {total} - {m} still missing', incomingVerifying: 'Checking {code}...', incomingVerifyFail: '{code}: could not verify (offline?), scan again. Not saved.', notForThisStore: '{code}: NOT part of the delivery to {store}. Wrong store or wrong item, NOT saved.', notForThisStoreRecent: 'NOT SAVED - not for this store', missingWarn: '{n} codes NOT scanned yet: {list}', incomingProgress: 'Scanned {n} / {total}', incomingProgressNone: 'Scanned {n} (none expected by the system)',
+        navPrintSlips: 'Print slips', psDateLabel: 'Date', psSelectScanned: 'SELECT LOADED TRIPS', psPrint: 'PRINT SELECTED TRIPS', psScanned: 'Loaded', psNotScanned: 'Not loaded', psStoresTrays: '{s} stores · {t} trays', psEmpty: 'No trips for this date. Paste the trip plan into the TRIP_INPUT sheet.', psLoading: 'Loading trips...', psNonePicked: 'No trip selected.', psUnassigned: 'Stores loaded but not in any trip of TRIP_INPUT: {list}', psAuto: 'No trips in TRIP_INPUT for this date: grouped by stores loaded.', tripWord: 'Trip', truckWord: 'Truck', driverWord: 'Driver', tripChoiceTitle: 'CHOOSE TRIP', tripChoiceHint: 'Store {store} has {n} trips today. Which trip are you loading for?', tripChoiceCancel: 'CANCEL STORE SELECTION', tripChoiceAllDone: 'Store {store} already has all {n} trips loaded today. Pick the trip to ADD to:', tripDoneNote: '{n} loaded', incomingLoading: 'Checking incoming items...', incomingTitle: 'On the way to this store:', incomingNone: 'Nothing is on the way to this store.', incomingProgressMissing: 'Scanned {n} / {total} - {m} still missing', incomingVerifying: 'Checking {code}...', incomingVerifyFail: '{code}: could not verify (offline?), scan again. Not saved.', notForThisStore: '{code}: NOT part of the delivery to {store}. Wrong store or wrong item, NOT saved.', notForThisStoreRecent: 'NOT SAVED - not for this store', missingWarn: '{n} codes NOT scanned yet: {list}', incomingProgress: 'Scanned {n} / {total}', incomingProgressNone: 'Scanned {n} (none expected by the system)',
         driverConfirmContinueBtn: '✓ CONFIRM - KEEP SCANNING',
         cameraOffBtn: 'TURN OFF CAMERA', cameraOnBtn: 'TURN ON CAMERA',
 
@@ -2853,6 +2905,7 @@
       document.getElementById('transitSearch').parentElement.classList.toggle('hidden', role === 'STORE');
       document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
       document.getElementById('tabDayReport').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'VIEWER' || role === 'STORE'));
+      document.getElementById('tabPrintSlips').classList.toggle('hidden', role !== 'ADMIN');
       document.getElementById('tabAbnormal').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // document.getElementById('tabInv').classList.toggle('hidden', role !== 'STORE');
@@ -2937,6 +2990,7 @@
       if (name === 'transit') document.getElementById('tabTransit').classList.add('active');
       if (name === 'dailyOut') document.getElementById('tabDailyOut').classList.add('active');
       if (name === 'dayReport') document.getElementById('tabDayReport').classList.add('active');
+      if (name === 'printSlips') document.getElementById('tabPrintSlips').classList.add('active');
       if (name === 'abnormal') document.getElementById('tabAbnormal').classList.add('active');
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') document.getElementById('tabInv').classList.add('active');
@@ -2954,6 +3008,7 @@
       if (name === 'transit') loadInTransitSummary();
       if (name === 'dailyOut') { initDailyOutDate(); renderDailyHead(); loadDailyOutSummary(); }
       if (name === 'dayReport') { initDayReportDate(); loadDayReport(); }
+      if (name === 'printSlips') loadPrintSlips();
       if (name === 'abnormal') { initAbnormalDate(); loadAbnormalSummary(); }
       // Tab K.Kê (kiểm kê) TẠM TẮT - bỏ comment dòng dưới để bật lại:
       // if (name === 'inv') { focusInventoryScan(); loadInventoryHistory(); }
@@ -4245,7 +4300,15 @@
         .withSuccessHandler(function(res) {
           if (seq !== tripChoiceSeq || selectedStoreId !== storeId) return;
           const trips = (res && res.success && res.trips) || [];
-          if (trips.length >= 2) { openTripChoice(storeId, trips); return; }
+          // Cửa hàng đi nhiều chuyến: chuyến nào đã xuất rổ cho cửa hàng này rồi (done > 0) thì không hỏi lại.
+          // Còn >= 2 chuyến chưa xuất: hỏi. Còn đúng 1: tự chọn. Đã xuất hết: hỏi lại trong tất cả (để xuất bổ sung).
+          if (trips.length >= 2) {
+            const open = trips.filter(function(tr) { return !(tr.done > 0); });
+            if (open.length >= 2) { openTripChoice(storeId, open, false); return; }
+            if (open.length === 0) { openTripChoice(storeId, trips, true); return; }
+            trips.length = 0;
+            trips.push(open[0]);
+          }
           tripChoicePending = false;
           selectedTripId = trips.length === 1 ? String(trips[0].trip || '') : '';
           renderSelectedStoreLabel();
@@ -4260,14 +4323,15 @@
         .getTripChoices({ token: session.token, storeId: storeId, zone: sessionZoneFor('OUT') });
     }
 
-    function openTripChoice(storeId, trips) {
-      document.getElementById('tripChoiceHint').innerText = tf('tripChoiceHint', { store: storeId + ' - ' + selectedStoreName, n: trips.length });
+    function openTripChoice(storeId, trips, allDone) {
+      document.getElementById('tripChoiceHint').innerText = tf(allDone ? 'tripChoiceAllDone' : 'tripChoiceHint', { store: storeId + ' - ' + selectedStoreName, n: trips.length });
       const list = document.getElementById('tripChoiceList');
       list.innerHTML = '';
       trips.forEach(function(tr) {
         const b = document.createElement('button');
         b.className = 'btn trip-choice-btn';
-        const extra = [tr.truck ? (t('truckWord') + ' ' + tr.truck) : '', tr.driver ? (t('driverWord') + ' ' + tr.driver) : ''].filter(Boolean).join(' · ');
+        const extra = [tr.type || '', tr.truck ? (t('truckWord') + ' ' + tr.truck) : '', tr.driver ? (t('driverWord') + ' ' + tr.driver) : '',
+          tr.done > 0 ? tf('tripDoneNote', { n: tr.done }) : ''].filter(Boolean).join(' · ');
         b.innerHTML = '<b>' + escHtml_(t('tripWord') + ' ' + tr.trip) + '</b>' + (extra ? '<small>' + escHtml_(extra) + '</small>' : '');
         b.onclick = function() { pickTrip(String(tr.trip || '')); };
         list.appendChild(b);
@@ -5753,6 +5817,115 @@
     // File tải về chỉ 3 cột: Ngày, Kho, ID rổ/tote (mỗi dòng 1 mã đang ở kho vào ngày đó). Ngày chưa có bản chụp thì
     // không có dòng nào (khoảng ngày không có dữ liệu -> file trống, chỉ có dòng tiêu đề).
     // =====================================================================
+    // =====================================================================
+    // IN PHIẾU XUẤT - THU HỒI KHAY (chỉ ADMIN, in bằng máy tính ở văn phòng)
+    // Dữ liệu từ getTraySlipData (cùng cách tính với phiếu trong Google Sheet). Bấm in -> dựng #printArea rồi window.print(),
+    // CSS @media print chỉ in vùng này (khổ A4 ngang, dòng tiêu đề bảng lặp lại ở mọi trang, mỗi chuyến 1 phiếu riêng).
+    // =====================================================================
+    let psData = null;
+    let psChecked = {};
+
+    function loadPrintSlips() {
+      const dateEl = document.getElementById('psDate');
+      if (!dateEl.value) dateEl.value = ymdLocal(new Date());
+      const box = document.getElementById('psResult');
+      box.innerHTML = loadingHtml(t('psLoading'));
+      google.script.run
+        .withSuccessHandler(renderPrintSlips)
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
+        })
+        .getTraySlipData({ token: session.token, date: dateEl.value });
+    }
+
+    function renderPrintSlips(res) {
+      const box = document.getElementById('psResult');
+      if (!res || !res.success) { box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('genericErrPrefix')) + '</div>'; return; }
+      psData = res;
+      const keep = {};
+      res.trips.forEach(function(tr) {
+        const k = res.date + '|' + tr.trip;
+        keep[k] = (psChecked[k] !== undefined) ? psChecked[k] : tr.scanned;     // mặc định tick các chuyến đã bắn
+      });
+      psChecked = keep;
+      let html = '';
+      if (res.auto) html += '<div class="ps-warn">' + escHtml_(t('psAuto')) + '</div>';
+      if (res.unassigned && res.unassigned.length) html += '<div class="ps-warn">' + escHtml_(tf('psUnassigned', { list: res.unassigned.join(', ') })) + '</div>';
+      if (!res.trips.length) {
+        box.innerHTML = html + '<div class="dashboard-card">' + escHtml_(t('psEmpty')) + '</div>';
+        return;
+      }
+      html += '<div class="panel" style="padding:0">' + res.trips.map(function(tr, i) {
+        const extra = [tr.type || '', tr.truck ? t('truckWord') + ' ' + tr.truck : '', tr.driver ? t('driverWord') + ' ' + tr.driver : ''].filter(Boolean).join(' · ');
+        return '<label class="ps-row"><input type="checkbox" ' + (psChecked[res.date + '|' + tr.trip] ? 'checked' : '') + ' onchange="psToggle(' + i + ', this.checked)">' +
+          '<div class="ps-main"><b>' + escHtml_(t('tripWord') + ' ' + tr.trip) + '</b><div class="ps-sub">' +
+          escHtml_(tf('psStoresTrays', { s: tr.totalStores, t: tr.totalTrays }) + (extra ? ' · ' + extra : '')) + '</div></div>' +
+          '<span class="ps-chip ' + (tr.scanned ? 'on' : '') + '">' + escHtml_(tr.scanned ? t('psScanned') : t('psNotScanned')) + '</span></label>';
+      }).join('') + '</div>';
+      box.innerHTML = html;
+    }
+
+    function psToggle(i, on) {
+      if (!psData) return;
+      psChecked[psData.date + '|' + psData.trips[i].trip] = !!on;
+    }
+
+    function psSelectScanned() {
+      if (!psData) return;
+      psData.trips.forEach(function(tr) { psChecked[psData.date + '|' + tr.trip] = tr.scanned; });
+      renderPrintSlips(psData);
+    }
+
+    // Phiếu: mỗi cửa hàng 1 dòng. Chỉ in SỐ LƯỢNG kho giao theo từng loại rổ (đỏ/nâu) + tổng; cột "cần thu" và "CH trả" để trống cho
+    // tài xế điền tay; cột cuối để cửa hàng đóng dấu.
+    function buildSlipHtml(tr, date) {
+      const e = escHtml_;
+      const d = String(date).split('-');
+      const K = tr.kinds.length;
+      const numW = Math.floor((100 - 4 - 7 - 18 - 20) / (3 * (K + 1)) * 10) / 10;
+      let cols = '<col style="width:4%"><col style="width:7%"><col style="width:18%">';
+      for (let i = 0; i < 3 * (K + 1); i++) cols += '<col style="width:' + numW + '%">';
+      cols += '<col style="width:20%">';
+      const group = function(title) { return '<th colspan="' + (K + 1) + '">' + title + '</th>'; };
+      const sub = tr.kinds.map(function(k) { return '<th>' + e(k.label) + '</th>'; }).join('') + '<th>Tổng</th>';
+      let h = '<div class="slip-page"><div class="slip-top"><b>SDS - GS25 Bình Điền WH</b><span class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</span><span></span></div>' +
+        '<div class="slip-meta"><span>Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + '</span><span>Chuyến: ' + e(tr.trip || '') + '</span><span>Loại hàng: ' + e(tr.type || '') +
+        '</span><span>Xe tải: ' + e(tr.truck || '') + '</span><span>Tài xế: ' + e(tr.driver || '') + '</span></div>' +
+        '<table class="slip-tbl"><colgroup>' + cols + '</colgroup><thead><tr><th rowspan="2">TT</th><th rowspan="2">Mã CH</th><th rowspan="2">Cửa hàng</th>' +
+        group('Số lượng kho giao') + group('Số lượng cần thu') + group('Số lượng CH trả') + '<th rowspan="2">Đóng dấu cửa hàng</th></tr><tr>' + sub + sub + sub + '</tr></thead><tbody>';
+      const sums = tr.kinds.map(function() { return 0; });
+      tr.stores.forEach(function(st, i) {
+        h += '<tr><td>' + (i + 1) + '</td><td>' + e(st.id) + '</td><td class="l">' + e(st.name) + (st.note ? '<br><small>' + e(st.note) + '</small>' : '') + '</td>';
+        tr.kinds.forEach(function(k, j) { const q = st.qty[k.kind] || 0; sums[j] += q; h += '<td>' + q + '</td>'; });
+        h += '<td><b>' + st.total + '</b></td>';
+        for (let j = 0; j < 2 * (K + 1); j++) h += '<td></td>';
+        h += '<td class="stamp"></td></tr>';
+      });
+      h += '</tbody><tfoot><tr class="tot"><td colspan="3">TỔNG CẢ XE (' + tr.totalStores + ' cửa hàng)</td>' +
+        sums.map(function(v) { return '<td>' + v + '</td>'; }).join('') + '<td>' + tr.totalTrays + '</td>';
+      for (let j = 0; j < 2 * (K + 1); j++) h += '<td></td>';
+      h += '<td></td></tr></tfoot></table>' +
+        '<table class="slip-sign"><tr><td>Kho giao hàng<i>(ký và ghi rõ họ tên)</i></td><td>Tài xế giao hàng<i>(ký và ghi rõ họ tên)</i></td>' +
+        '<td>Tài xế trả hàng<i>(ký và ghi rõ họ tên)</i></td><td>Kho nhận hàng<i>(ký và ghi rõ họ tên)</i></td></tr></table></div>';
+      return h;
+    }
+
+    function buildPrintArea(trips, date) {
+      let area = document.getElementById('printArea');
+      if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
+      area.innerHTML = trips.map(function(tr) { return buildSlipHtml(tr, date); }).join('');
+      return area;
+    }
+
+    function printSelectedSlips() {
+      if (!psData) return;
+      const picked = psData.trips.filter(function(tr) { return psChecked[psData.date + '|' + tr.trip]; });
+      if (!picked.length) { alert(t('psNonePicked')); return; }
+      buildPrintArea(picked, psData.date);
+      window.print();
+    }
+
     let lastDayReport = null;   // dữ liệu lịch sử của khoảng ngày đang xem
     let drKind = '';            // lọc theo loại/màu ('' = tất cả)
     let drKinds = [];           // các loại/màu có trong phạm vi kho đang xem (dựng bộ lọc)
