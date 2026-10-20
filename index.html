@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming'
+    'getStoreIncoming', 'getTripChoices'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1
   };
   var MAX_RETRY = 2;
 
@@ -897,6 +897,11 @@
   .incoming-box .kind-chip{ margin:6px 6px 0 0; }
   .incoming-progress{ margin-top:8px; padding:10px 14px; font-size:14px; font-weight:800; color:var(--heading); background:#EAF1FD; border-radius:var(--radius-sm); border:1.5px solid #9DB8EE; }
   .incoming-progress.done{ background:var(--green-soft); border-color:var(--cyan-deep); color:var(--cyan-deep); }
+  .trip-choice-list{ display:flex; flex-direction:column; gap:10px; margin:12px 0; }
+  .trip-choice-btn{ display:flex; flex-direction:column; align-items:center; gap:2px; padding:14px 12px; font-size:18px; }
+  .trip-choice-btn small{ font-size:12px; font-weight:600; opacity:.8; }
+  .missing-warn{ margin:10px 0; padding:10px 14px; font-size:13.5px; line-height:20px; font-weight:700; color:var(--red); background:var(--red-soft); border:1.5px solid var(--red); border-radius:var(--radius-sm); word-break:break-word; }
+  .incoming-progress.warn{ background:#FFF4DB; border-color:#E0A800; color:#7A5600; }
   .incoming-progress.over{ background:var(--red-soft); border-color:var(--red); color:var(--red); }
 
   .result{
@@ -1292,6 +1297,18 @@
                Hiện tổng kết số đã quét được rồi mới hỏi xác nhận, đúng như
                yêu cầu: bắt đầu phiên -> scan -> xem tổng -> kết thúc + confirm.
                ============================================================= -->
+          <!-- Popup chọn chuyến: chỉ hiện khi cửa hàng vừa chọn đi từ 2 chuyến trở lên hôm nay (dữ liệu từ sheet TRIP_INPUT) -->
+          <div id="tripChoiceOverlay" class="session-overlay hidden">
+            <div class="session-confirm-box">
+              <h3 data-i18n="tripChoiceTitle">CHỌN CHUYẾN</h3>
+              <div id="tripChoiceHint" class="end-hint"></div>
+              <div id="tripChoiceList" class="trip-choice-list"></div>
+              <div class="session-confirm-actions">
+                <button class="btn btn-gray" data-i18n="tripChoiceCancel" onclick="cancelTripChoice()">HỦY CHỌN CỬA HÀNG</button>
+              </div>
+            </div>
+          </div>
+
           <div id="sessionConfirmOverlay" class="session-overlay hidden">
             <div class="session-confirm-box">
               <h3 data-i18n="endSessionTitle">Kết thúc phiên quét?</h3>
@@ -1486,6 +1503,7 @@
                 <div><span data-i18n="counterFail">Lỗi</span><b id="driverSumFail">0</b></div>
               </div>
 
+              <div id="driverMissingWarn" class="missing-warn hidden"></div>
               <div id="driverScanLogDetails"></div>
               <div id="driverCommitStatus" class="result pending hidden"></div>
 
@@ -1858,6 +1876,10 @@
     let mode = 'OUT';
     let stores = [];
     let selectedStoreId = '';
+    let selectedTripId = '';        // chuyến kho chọn khi OUT (chỉ hỏi khi cửa hàng đi từ 2 chuyến hôm nay trở lên)
+    let sessionTripId = '';         // chuyến của phiên OUT đang chạy
+    let tripChoicePending = false;  // đang hỏi máy chủ / đang chờ kho chọn chuyến
+    let tripChoiceSeq = 0;
 
     // "Phiên quét" - CẢ OUT VÀ IN đều bắt buộc bấm "Bắt đầu" riêng, và có
     // trạng thái hoàn toàn ĐỘC LẬP với nhau (đổi qua lại giữa 2 màn không
@@ -2056,7 +2078,7 @@
         driverReceiveBtn: 'NHẬN RỔ', driverReturnBtn: 'XUẤT RỔ (LẤY VỎ)',
         driverStoreOwnLabel: 'Cửa hàng của bạn', startSessionBtn: 'BẮT ĐẦU PHIÊN',
         workingAtLabel: 'Đang thao tác tại:',
-        incomingLoading: 'Đang kiểm tra hàng giao tới...', incomingTitle: 'Đang giao tới cửa hàng này:', incomingNone: 'Không có hàng nào đang giao tới cửa hàng này.', incomingProgress: 'Đã quét {n} / {total}', incomingProgressNone: 'Đã quét {n} (hệ thống không có hàng giao tới)',
+        tripWord: 'Chuyến', truckWord: 'Xe', driverWord: 'TX', tripChoiceTitle: 'CHỌN CHUYẾN', tripChoiceHint: 'Cửa hàng {store} đi {n} chuyến hôm nay (hàng đông và hàng chill đi riêng). Bạn đang xuất hàng cho chuyến nào?', tripChoiceCancel: 'HỦY CHỌN CỬA HÀNG', incomingLoading: 'Đang kiểm tra hàng giao tới...', incomingTitle: 'Đang giao tới cửa hàng này:', incomingNone: 'Không có hàng nào đang giao tới cửa hàng này.', incomingProgressMissing: 'Đã quét {n} / {total} - còn thiếu {m}', incomingVerifying: 'Đang kiểm tra mã {code}...', incomingVerifyFail: '{code}: không kiểm tra được (mất mạng?), thử quét lại. Không ghi.', notForThisStore: '{code}: KHÔNG thuộc hàng giao tới {store}. Quét nhầm cửa hàng hoặc nhầm rổ, KHÔNG ghi.', notForThisStoreRecent: 'KHÔNG GHI - không thuộc cửa hàng này', missingWarn: 'THIẾU {n} mã chưa quét: {list}', incomingProgress: 'Đã quét {n} / {total}', incomingProgressNone: 'Đã quét {n} (hệ thống không có hàng giao tới)',
         driverConfirmContinueBtn: '✓ XÁC NHẬN - QUÉT TIẾP',
         cameraOffBtn: 'TẮT CAMERA', cameraOnBtn: 'BẬT CAMERA',
 
@@ -2281,7 +2303,7 @@
         driverReceiveBtn: 'RECEIVE', driverReturnBtn: 'RETURN (EMPTY TOTES)',
         driverStoreOwnLabel: 'Your store', startSessionBtn: 'START SESSION',
         workingAtLabel: 'Working at:',
-        incomingLoading: 'Checking incoming items...', incomingTitle: 'On the way to this store:', incomingNone: 'Nothing is on the way to this store.', incomingProgress: 'Scanned {n} / {total}', incomingProgressNone: 'Scanned {n} (none expected by the system)',
+        tripWord: 'Trip', truckWord: 'Truck', driverWord: 'Driver', tripChoiceTitle: 'CHOOSE TRIP', tripChoiceHint: 'Store {store} has {n} trips today. Which trip are you loading for?', tripChoiceCancel: 'CANCEL STORE SELECTION', incomingLoading: 'Checking incoming items...', incomingTitle: 'On the way to this store:', incomingNone: 'Nothing is on the way to this store.', incomingProgressMissing: 'Scanned {n} / {total} - {m} still missing', incomingVerifying: 'Checking {code}...', incomingVerifyFail: '{code}: could not verify (offline?), scan again. Not saved.', notForThisStore: '{code}: NOT part of the delivery to {store}. Wrong store or wrong item, NOT saved.', notForThisStoreRecent: 'NOT SAVED - not for this store', missingWarn: '{n} codes NOT scanned yet: {list}', incomingProgress: 'Scanned {n} / {total}', incomingProgressNone: 'Scanned {n} (none expected by the system)',
         driverConfirmContinueBtn: '✓ CONFIRM - KEEP SCANNING',
         cameraOffBtn: 'TURN OFF CAMERA', cameraOnBtn: 'TURN ON CAMERA',
 
@@ -3421,7 +3443,7 @@
     }
 
     function persistPdaQueue() {
-      persistQueue(mode, { action: mode, store: mode === 'OUT' ? selectedStoreId : '', label: sessionStoreLabel, sessionId: sessionIds[mode], items: pendingQueue, at: Date.now() });
+      persistQueue(mode, { action: mode, store: mode === 'OUT' ? selectedStoreId : '', trip: mode === 'OUT' ? sessionTripId : '', label: sessionStoreLabel, sessionId: sessionIds[mode], items: pendingQueue, at: Date.now() });
     }
 
     function persistDriverQueue() {
@@ -3472,7 +3494,7 @@
             });
             st.remaining = st.remaining.slice(batch.length);
             persistQueue(st.slot, st.remaining.length
-              ? { action: st.action, store: st.store, label: st.label, sessionId: st.sessionId, items: st.remaining, at: Date.now() }
+              ? { action: st.action, store: st.store, trip: st.trip || '', label: st.label, sessionId: st.sessionId, items: st.remaining, at: Date.now() }
               : null);
             hooks.onProgress(st, 'ok');
             step();
@@ -3496,6 +3518,7 @@
             token: session.token,
             action: st.action,
             store: st.store,
+            trip: st.trip || '',
             zone: st.zone,
             sessionId: st.sessionId || '',
             items: batch
@@ -3561,6 +3584,7 @@
         updateDriverCounter();
         document.getElementById('driverSumTotal').innerText = driverPendingQueue.length;
         document.getElementById('driverScanLogDetails').innerHTML = queueDetailsHtml(driverPendingQueue, true, 'driver');
+        renderDriverMissingWarn();
         addDriverRecent('', tf('removedFromSession', { n: removed }), false);
         showDriverMsg(tf('removedFromSession', { n: removed }), true);
         return;
@@ -3630,6 +3654,7 @@
       document.getElementById(u.sumFail).innerText = '-';
       endPick = {};
       document.getElementById(u.details).innerHTML = queueDetailsHtml(items, canRemoveCodes(kind), kind);
+      if (!isPda) renderDriverMissingWarn();
       setEndStage(kind, 'confirm', '');
       document.getElementById(u.overlay).classList.remove('hidden');
     }
@@ -3679,6 +3704,7 @@
         slot: isPda ? mode : 'DRIVER',
         action: isPda ? mode : driverMode,
         store: isPda ? (mode === 'OUT' ? selectedStoreId : '') : driverStoreId,
+        trip: isPda && mode === 'OUT' ? sessionTripId : '',
         label: isPda ? sessionStoreLabel : driverStoreLabel,
         sessionId: isPda ? sessionIds[mode] : driverSessionId,
         zone: sessionZoneFor(isPda ? mode : 'DRIVER'),
@@ -3823,7 +3849,7 @@
       if (!c) { nextRecover(); return; }
 
       const st = {
-        slot: slot, action: c.action, store: c.store || '', label: c.label || '', sessionId: c.sessionId || '', zone: sessionZoneFor(c.action),
+        slot: slot, action: c.action, store: c.store || '', trip: c.trip || '', label: c.label || '', sessionId: c.sessionId || '', zone: sessionZoneFor(c.action),
         remaining: c.items.slice(), results: recoverPrior.slice(), total: c.items.length + recoverPrior.length
       };
 
@@ -3930,6 +3956,7 @@
         div.onmousedown = function(e) {
           e.preventDefault(); // giữ focus, tránh bàn phím ảo nhấp nháy
           selectedStoreId = s.id;
+          selectedStoreName = s.name;
           document.getElementById('selectedStore').innerText = `ĐÃ CHỌN: ${s.id} - ${s.name}`;
           input.value = '';
           box.innerHTML = '';
@@ -3937,6 +3964,8 @@
 
           // Chọn xong store thì mở khoá nút "Bắt đầu phiên quét" (nếu đang
           // ở màn thiết lập phiên OUT) và đưa focus tới đó luôn cho nhanh.
+          // OUT: hỏi máy chủ cửa hàng này đi mấy chuyến hôm nay (đi từ 2 chuyến thì hiện popup chọn chuyến).
+          if (mode === 'OUT') resolveTripForStore(s.id); else { selectedTripId = ''; tripChoicePending = false; }
           refreshStartSessionBtn();
           const startBtn = document.getElementById('startSessionBtn');
           if (startBtn && !startBtn.disabled) startBtn.focus();
@@ -3973,6 +4002,10 @@
     // gọi từ nơi khác nếu cần xoá trắng lựa chọn + ô tìm store.
     function clearStoreSearch() {
       selectedStoreId = '';
+      selectedStoreName = '';
+      selectedTripId = '';
+      tripChoicePending = false;
+      tripChoiceSeq++;
       document.getElementById('storeSearch').value = '';
       document.getElementById('selectedStore').innerText = t('storeNotSelected');
       renderStoreList();
@@ -4190,13 +4223,85 @@
     // Bật/tắt nút "Bắt đầu phiên quét" tuỳ theo đã chọn store hay chưa.
     function refreshStartSessionBtn() {
       const btn = document.getElementById('startSessionBtn');
-      if (btn) btn.disabled = !selectedStoreId;
+      if (btn) btn.disabled = !selectedStoreId || tripChoicePending;
+    }
+
+    // ---------- Chọn chuyến khi OUT cho cửa hàng đi nhiều chuyến cùng ngày ----------
+    // Dữ liệu chuyến lấy từ sheet TRIP_INPUT (cập nhật hằng ngày từ file LD). Cửa hàng chỉ đi 1 chuyến thì tự gắn chuyến đó, không hỏi;
+    // đi từ 2 chuyến (VD hàng đông + hàng chill) thì hiện popup để kho chọn chuyến đang xuất. Lỗi mạng/máy chủ cũ thì bỏ qua (không gắn chuyến).
+    let selectedStoreName = '';
+
+    function renderSelectedStoreLabel() {
+      const el = document.getElementById('selectedStore');
+      if (!selectedStoreId) return;
+      el.innerText = `ĐÃ CHỌN: ${selectedStoreId} - ${selectedStoreName}` + (selectedTripId ? ' · ' + t('tripWord') + ' ' + selectedTripId : '');
+    }
+
+    function resolveTripForStore(storeId) {
+      const seq = ++tripChoiceSeq;
+      selectedTripId = '';
+      tripChoicePending = true;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (seq !== tripChoiceSeq || selectedStoreId !== storeId) return;
+          const trips = (res && res.success && res.trips) || [];
+          if (trips.length >= 2) { openTripChoice(storeId, trips); return; }
+          tripChoicePending = false;
+          selectedTripId = trips.length === 1 ? String(trips[0].trip || '') : '';
+          renderSelectedStoreLabel();
+          refreshStartSessionBtn();
+        })
+        .withFailureHandler(function(err) {
+          if (seq !== tripChoiceSeq) return;
+          if (handleSessionError(err)) return;
+          tripChoicePending = false;
+          refreshStartSessionBtn();
+        })
+        .getTripChoices({ token: session.token, storeId: storeId, zone: sessionZoneFor('OUT') });
+    }
+
+    function openTripChoice(storeId, trips) {
+      document.getElementById('tripChoiceHint').innerText = tf('tripChoiceHint', { store: storeId + ' - ' + selectedStoreName, n: trips.length });
+      const list = document.getElementById('tripChoiceList');
+      list.innerHTML = '';
+      trips.forEach(function(tr) {
+        const b = document.createElement('button');
+        b.className = 'btn trip-choice-btn';
+        const extra = [tr.truck ? (t('truckWord') + ' ' + tr.truck) : '', tr.driver ? (t('driverWord') + ' ' + tr.driver) : ''].filter(Boolean).join(' · ');
+        b.innerHTML = '<b>' + escHtml_(t('tripWord') + ' ' + tr.trip) + '</b>' + (extra ? '<small>' + escHtml_(extra) + '</small>' : '');
+        b.onclick = function() { pickTrip(String(tr.trip || '')); };
+        list.appendChild(b);
+      });
+      document.getElementById('tripChoiceOverlay').classList.remove('hidden');
+    }
+
+    function pickTrip(tripId) {
+      selectedTripId = tripId;
+      tripChoicePending = false;
+      document.getElementById('tripChoiceOverlay').classList.add('hidden');
+      renderSelectedStoreLabel();
+      refreshStartSessionBtn();
+      const startBtn = document.getElementById('startSessionBtn');
+      if (startBtn && !startBtn.disabled) startBtn.focus();
+    }
+
+    // Hủy popup = bỏ luôn việc chọn cửa hàng (không được bắt đầu phiên khi chưa biết đang xuất cho chuyến nào)
+    function cancelTripChoice() {
+      document.getElementById('tripChoiceOverlay').classList.add('hidden');
+      tripChoiceSeq++;
+      tripChoicePending = false;
+      selectedTripId = '';
+      selectedStoreId = '';
+      selectedStoreName = '';
+      document.getElementById('selectedStore').innerText = t('storeNotSelected');
+      refreshStartSessionBtn();
     }
 
     function startScanSession() {
-      if (!selectedStoreId) return;
+      if (!selectedStoreId || tripChoicePending) return;
 
       sessionActive = true;
+      sessionTripId = selectedTripId;
       sessionStoreLabel = document.getElementById('selectedStore').innerText.replace('ĐÃ CHỌN: ', '');
       sessionOutTotesMap = {};
       pendingQueue = [];
@@ -4285,6 +4390,10 @@
       persistQueue('OUT', null);
       sessionIds.OUT = '';
       sessionStoreLabel = '';
+      sessionTripId = '';
+      selectedTripId = '';
+      tripChoicePending = false;
+      tripChoiceSeq++;
       selectedStoreId = '';
       sessionOutTotesMap = {};
       document.getElementById('selectedStore').innerText = t('storeNotSelected');
@@ -4432,10 +4541,35 @@
     let driverIncoming = null;   // { storeId, qty, kinds } hoặc null nếu chưa có/đang tải
     let driverIncomingSeq = 0;
 
+    let driverIncomingSet = {};
+
+    function setDriverIncoming(res) {
+      driverIncoming = res;
+      driverIncomingSet = {};
+      ((res && res.codes) || []).forEach(function(c) { driverIncomingSet[c] = true; });
+    }
+
+    // Mã còn thiếu = mã đang giao tới cửa hàng nhưng chưa có trong danh sách đã quét của phiên.
+    function driverMissingCodes() {
+      if (!driverIncoming || !driverIncoming.codes) return [];
+      return driverIncoming.codes.filter(function(c) { return !driverSessionCodes[c]; });
+    }
+
+    function renderDriverMissingWarn() {
+      const el = document.getElementById('driverMissingWarn');
+      if (!el) return;
+      const miss = (driverMode === 'STORE_RECEIVE') ? driverMissingCodes() : [];
+      if (!miss.length) { el.classList.add('hidden'); return; }
+      const shown = miss.slice(0, 30).join(', ') + (miss.length > 30 ? ' ...' : '');
+      el.classList.remove('hidden');
+      el.innerText = tf('missingWarn', { n: miss.length, list: shown });
+    }
+
     function loadDriverIncoming() {
       const box = document.getElementById('driverIncomingBox');
       const seq = ++driverIncomingSeq;
       driverIncoming = null;
+      driverIncomingSet = {};
       renderDriverIncoming();
       if (!driverStoreId || driverMode !== 'STORE_RECEIVE') return;
       box.classList.remove('hidden', 'none');
@@ -4444,7 +4578,7 @@
       google.script.run
         .withSuccessHandler(function(res) {
           if (seq !== driverIncomingSeq || !res || !res.success) return;
-          driverIncoming = res;
+          setDriverIncoming(res);
           renderDriverIncoming();
           updateDriverCounter();
         })
@@ -4483,10 +4617,13 @@
       }
       const n = driverTotal;
       const total = driverIncoming.qty;
+      const miss = Math.max(0, total - n);
       el.classList.remove('hidden');
       el.classList.toggle('done', total > 0 && n === total);
+      el.classList.toggle('warn', total > 0 && n < total);
       el.classList.toggle('over', n > total);
-      el.innerText = total === 0 ? tf('incomingProgressNone', { n: n }) : tf('incomingProgress', { n: n, total: total });
+      el.innerText = total === 0 ? tf('incomingProgressNone', { n: n })
+        : (miss > 0 && n > 0 ? tf('incomingProgressMissing', { n: n, total: total, m: miss }) : tf('incomingProgress', { n: n, total: total }));
     }
 
     function onDriverStoreSearch() {
@@ -4710,6 +4847,44 @@
         return;
       }
 
+      // NHẬN RỔ: chỉ nhận mã kho đã xuất cho ĐÚNG cửa hàng đang chọn. Mã ngoài danh sách bị chặn, KHÔNG ghi.
+      // Danh sách có thể cũ (kho vừa xuất thêm) nên mã lạ được kiểm tra lại với máy chủ trước khi từ chối.
+      if (driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && !driverIncomingSet[toteId]) {
+        verifyDriverCode(toteId, fromCamera);
+        return;
+      }
+
+      acceptDriverCode(toteId, fromCamera, now);
+    }
+
+    function rejectDriverCode(toteId, msg) {
+      showDriverMsg(msg, false);
+      addDriverRecent(toteId, t('notForThisStoreRecent'), false);
+      beepInvalid();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+
+    function verifyDriverCode(toteId, fromCamera) {
+      const storeId = driverStoreId;
+      const label = driverStoreLabel;
+      showPendingMsg('driverCameraMsg', tf('incomingVerifying', { code: toteId }));
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!driverSessionActive || driverStoreId !== storeId || driverMode !== 'STORE_RECEIVE') return;
+          if (!res || !res.success) { rejectDriverCode(toteId, tf('incomingVerifyFail', { code: toteId })); return; }
+          setDriverIncoming(res);
+          renderDriverIncoming();
+          if (driverIncomingSet[toteId] && !driverSessionCodes[toteId]) acceptDriverCode(toteId, fromCamera, Date.now());
+          else { updateDriverCounter(); rejectDriverCode(toteId, tf('notForThisStore', { code: toteId, store: label })); }
+        })
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          rejectDriverCode(toteId, tf('incomingVerifyFail', { code: toteId }));
+        })
+        .getStoreIncoming({ token: session.token, storeId: storeId });
+    }
+
+    function acceptDriverCode(toteId, fromCamera, now) {
       driverSessionCodes[toteId] = true;
       driverTotal++;
 
