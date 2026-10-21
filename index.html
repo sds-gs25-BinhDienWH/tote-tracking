@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming', 'getTripChoices', 'getTraySlipData'
+    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTraySlipData: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1
   };
   var MAX_RETRY = 2;
 
@@ -2734,6 +2734,8 @@
     function clearLocalSession() {
       localStorage.removeItem('TOTE_SESSION');
       session = null;
+      tripPlan = null;       // lịch chuyến theo kho của tài khoản cũ
+      tripPlanAt = 0;
     }
 
     function forceRelogin(message) {
@@ -3019,6 +3021,7 @@
     function goToScan(value) {
       setMode(value);
       showScreen('pda');
+      if (value === 'OUT' && session && (!tripPlan || Date.now() - tripPlanAt > TRIP_PLAN_FRESH_MS)) loadTripPlan();   // tải sẵn lịch chuyến để chọn cửa hàng không phải chờ
     }
 
     function setMode(value) {
@@ -3789,6 +3792,11 @@
           const failN = s.results.length - okN;
 
           if (isPda) {
+            if (s.action === 'OUT' && s.trip && tripPlan) {                 // cập nhật "chuyến đã xuất" ngay trong app
+              const dk = String(s.trip).toUpperCase() + '|' + s.store;
+              tripPlan.done = tripPlan.done || {};
+              tripPlan.done[dk] = (tripPlan.done[dk] || 0) + s.results.length;
+            }
             pendingQueue = [];
             sessionCodes = {};
             ok += okN; fail += failN;
@@ -4292,35 +4300,76 @@
       el.innerText = `ĐÃ CHỌN: ${selectedStoreId} - ${selectedStoreName}` + (selectedTripId ? ' · ' + t('tripWord') + ' ' + selectedTripId : '');
     }
 
+    // Lịch chuyến hôm nay tải 1 LẦN (lúc mở màn OUT) rồi giữ trong bộ nhớ app: chọn cửa hàng sau đó quyết định chuyến ngay, không chờ máy chủ.
+    let tripPlan = null;          // { date, trips: [{trip, type, truck, driver, stores}], done: {'CHUYẾN|CH': số rổ} }
+    let tripPlanAt = 0;
+    let tripPlanLoading = false;
+    const TRIP_PLAN_FRESH_MS = 10 * 60 * 1000;
+
+    function loadTripPlan(cb) {
+      if (tripPlanLoading) { if (cb) setTimeout(function() { loadTripPlan(cb); }, 400); return; }
+      tripPlanLoading = true;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          tripPlanLoading = false;
+          if (res && res.success) { tripPlan = res; tripPlanAt = Date.now(); if (cb) cb(true); }
+          else if (cb) cb(false);
+        })
+        .withFailureHandler(function() { tripPlanLoading = false; if (cb) cb(false); })
+        .getTripPlan({ token: session.token, zone: sessionZoneFor('OUT') });
+    }
+
+    function tripsForStoreFromPlan(storeId) {
+      const trips = tripPlan.trips.filter(function(tr) { return tr.stores.indexOf(storeId) !== -1; });
+      return trips.map(function(tr) {
+        return { trip: tr.trip, zone: tr.zone, truck: tr.truck, driver: tr.driver, type: tr.type,
+          done: (tripPlan.done || {})[String(tr.trip || '').toUpperCase() + '|' + storeId] || 0 };
+      });
+    }
+
+    // Cửa hàng đi nhiều chuyến: chuyến nào đã xuất rổ cho cửa hàng này rồi (done > 0) thì không hỏi lại.
+    // Còn >= 2 chuyến chưa xuất: hỏi. Còn đúng 1: tự chọn. Đã xuất hết: hỏi lại trong tất cả (để xuất bổ sung).
+    function applyTripChoices(storeId, trips) {
+      if (trips.length >= 2) {
+        const open = trips.filter(function(tr) { return !(tr.done > 0); });
+        if (open.length >= 2) { openTripChoice(storeId, open, false); return; }
+        if (open.length === 0) { openTripChoice(storeId, trips, true); return; }
+        trips = [open[0]];
+      }
+      tripChoicePending = false;
+      selectedTripId = trips.length === 1 ? String(trips[0].trip || '') : '';
+      renderSelectedStoreLabel();
+      refreshStartSessionBtn();
+    }
+
     function resolveTripForStore(storeId) {
       const seq = ++tripChoiceSeq;
       selectedTripId = '';
+
+      if (tripPlan && Date.now() - tripPlanAt < TRIP_PLAN_FRESH_MS) {       // đã có lịch chuyến: quyết định ngay
+        tripChoicePending = false;
+        applyTripChoices(storeId, tripsForStoreFromPlan(storeId));
+        return;
+      }
+
       tripChoicePending = true;
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (seq !== tripChoiceSeq || selectedStoreId !== storeId) return;
-          const trips = (res && res.success && res.trips) || [];
-          // Cửa hàng đi nhiều chuyến: chuyến nào đã xuất rổ cho cửa hàng này rồi (done > 0) thì không hỏi lại.
-          // Còn >= 2 chuyến chưa xuất: hỏi. Còn đúng 1: tự chọn. Đã xuất hết: hỏi lại trong tất cả (để xuất bổ sung).
-          if (trips.length >= 2) {
-            const open = trips.filter(function(tr) { return !(tr.done > 0); });
-            if (open.length >= 2) { openTripChoice(storeId, open, false); return; }
-            if (open.length === 0) { openTripChoice(storeId, trips, true); return; }
-            trips.length = 0;
-            trips.push(open[0]);
-          }
-          tripChoicePending = false;
-          selectedTripId = trips.length === 1 ? String(trips[0].trip || '') : '';
-          renderSelectedStoreLabel();
-          refreshStartSessionBtn();
-        })
-        .withFailureHandler(function(err) {
-          if (seq !== tripChoiceSeq) return;
-          if (handleSessionError(err)) return;
-          tripChoicePending = false;
-          refreshStartSessionBtn();
-        })
-        .getTripChoices({ token: session.token, storeId: storeId, zone: sessionZoneFor('OUT') });
+      loadTripPlan(function(ok) {
+        if (seq !== tripChoiceSeq || selectedStoreId !== storeId) return;
+        if (ok) { applyTripChoices(storeId, tripsForStoreFromPlan(storeId)); return; }
+        // Máy chủ chưa có getTripPlan (chưa cập nhật) hoặc lỗi mạng: hỏi riêng cho cửa hàng này như bản cũ
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (seq !== tripChoiceSeq || selectedStoreId !== storeId) return;
+            applyTripChoices(storeId, (res && res.success && res.trips) || []);
+          })
+          .withFailureHandler(function(err) {
+            if (seq !== tripChoiceSeq) return;
+            if (handleSessionError(err)) return;
+            tripChoicePending = false;
+            refreshStartSessionBtn();
+          })
+          .getTripChoices({ token: session.token, storeId: storeId, zone: sessionZoneFor('OUT') });
+      });
     }
 
     function openTripChoice(storeId, trips, allDone) {
