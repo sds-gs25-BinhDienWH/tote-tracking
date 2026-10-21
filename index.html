@@ -916,9 +916,24 @@
   .slip-tbl th{ background:#EDEDED; font-weight:800; }
   .slip-tbl td.l{ text-align:left; }
   .slip-tbl td.stamp{ min-width:80px; }
-  .slip-tbl tbody tr{ height:28px; page-break-inside:avoid; break-inside:avoid; }
+  /* Mỗi cửa hàng = 1 khung riêng (tbody.slip-st), giữa 2 cửa hàng là dòng trống không kẻ (tbody.slip-gap).
+     Trong khung: các dòng loại rổ/khay cách nhau nét ĐỨT, TT / Mã CH / Tên CH / ô đóng dấu là 1 ô liền. Không dùng màu (in trắng đen). */
+  .slip-tbl tbody.slip-st{ page-break-inside:avoid; break-inside:avoid; }
+  .slip-tbl tbody.slip-st tr{ height:23px; page-break-inside:avoid; break-inside:avoid; }
+  .slip-tbl tbody.slip-st td.k{ text-align:left; border-top:0; border-bottom:1px dashed #333; }
+  .slip-tbl tbody.slip-st td.q{ border-top:0; border-bottom:1px dashed #333; }
+  .slip-tbl tbody.slip-st tr:first-child td.k, .slip-tbl tbody.slip-st tr:first-child td.q{ border-top:1px solid #333; }
+  .slip-tbl tbody.slip-st tr:last-child td.k, .slip-tbl tbody.slip-st tr:last-child td.q{ border-bottom:1px solid #333; }
+  .slip-tbl tbody.slip-gap td{ border:0; height:8px; padding:0; }
+  .slip-tbl td.b{ font-weight:800; }
+  .slip-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px; }
+  .slip-brand b{ display:block; font-size:32px; font-weight:900; letter-spacing:1px; line-height:1; }
+  .slip-brand span{ display:block; font-size:13px; font-weight:700; margin-top:4px; letter-spacing:.5px; }
+  .slip-info{ text-align:right; font-size:12px; font-weight:700; line-height:1.6; }
+  .slip-info .slip-title{ display:block; font-size:17px; font-weight:800; margin-bottom:2px; }
+  .slip-plate{ display:inline-block; min-width:150px; border-bottom:1px solid #000; height:14px; vertical-align:bottom; }
   .slip-tbl tfoot{ display:table-row-group; }
-  .slip-tbl tr.tot td{ font-weight:800; background:#EDEDED; }
+  .slip-tbl tr.tot td{ font-weight:800; height:30px; }
   .slip-tbl thead{ display:table-header-group; }
   .slip-tbl small{ color:#B45309; font-weight:700; }
   .slip-sum{ margin-top:8px; font-weight:800; font-size:13px; page-break-inside:avoid; }
@@ -928,7 +943,7 @@
   @media print{
     body > *:not(#printArea){ display:none !important; }
     #printArea{ display:block !important; padding:0; }
-    @page{ size:A4 landscape; margin:8mm; }
+    @page{ size:A4 portrait; margin:6mm; }
     .slip-page{ page-break-after:always; break-after:page; }
     .slip-page:last-child{ page-break-after:auto; break-after:auto; }
   }
@@ -5936,36 +5951,56 @@
 
     // Phiếu: mỗi cửa hàng 1 dòng. Chỉ in SỐ LƯỢNG kho giao theo từng loại rổ (đỏ/nâu) + tổng; cột "cần thu" và "CH trả" để trống cho
     // tài xế điền tay; cột cuối để cửa hàng đóng dấu.
+    // Phiếu A4 DỌC, mỗi trang 5 cửa hàng (đầy trang, mỗi trang đều có đủ đầu phiếu). Mỗi cửa hàng 1 khung gồm: các loại rổ (điền sẵn số kho giao),
+    // các loại khay phụ (psData.manualRows, để trống điền tay). Tổng rổ / Tổng khay chỉ in 1 lần ở cuối chuyến, không có tổng phụ từng cửa hàng.
+    const SLIP_PER_PAGE = 5;
     function buildSlipHtml(tr, date) {
       const e = escHtml_;
       const d = String(date).split('-');
-      const K = tr.kinds.length;
-      const numW = Math.floor((100 - 4 - 7 - 18 - 20) / (3 * (K + 1)) * 10) / 10;
-      let cols = '<col style="width:4%"><col style="width:7%"><col style="width:18%">';
-      for (let i = 0; i < 3 * (K + 1); i++) cols += '<col style="width:' + numW + '%">';
-      cols += '<col style="width:20%">';
-      const group = function(title) { return '<th colspan="' + (K + 1) + '">' + title + '</th>'; };
-      const sub = tr.kinds.map(function(k) { return '<th>' + e(k.label) + '</th>'; }).join('') + '<th>Tổng</th>';
-      let h = '<div class="slip-page"><div class="slip-top"><b>SDS - GS25 Bình Điền WH</b><span class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</span><span></span></div>' +
-        '<div class="slip-meta"><span>Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + '</span><span>Chuyến: ' + e(tr.trip || '') + '</span><span>Loại hàng: ' + e(tr.type || '') +
-        '</span><span>Nhà vận tải: ' + e(tr.carrier || '') + '</span><span>Xe tải: ' + e(tr.truck || '') + '</span><span>Tài xế: ' + e(tr.driver || '') + '</span></div>' +
-        '<table class="slip-tbl"><colgroup>' + cols + '</colgroup><thead><tr><th rowspan="2">TT</th><th rowspan="2">Mã CH</th><th rowspan="2">Cửa hàng</th>' +
-        group('Số lượng kho giao') + group('Số lượng cần thu') + group('Số lượng CH trả') + '<th rowspan="2">Đóng dấu cửa hàng</th></tr><tr>' + sub + sub + sub + '</tr></thead><tbody>';
+      const manual = (psData && psData.manualRows) || [];
+      const N = tr.kinds.length + manual.length;
+      const cols = '<col style="width:5%"><col style="width:9%"><col style="width:19%"><col style="width:20%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:20%">';
+      const pages = Math.max(1, Math.ceil(tr.stores.length / SLIP_PER_PAGE));
       const sums = tr.kinds.map(function() { return 0; });
-      tr.stores.forEach(function(st, i) {
-        h += '<tr><td>' + (i + 1) + '</td><td>' + e(st.id) + '</td><td class="l">' + e(st.name) + (st.note ? '<br><small>' + e(st.note) + '</small>' : '') + '</td>';
-        tr.kinds.forEach(function(k, j) { const q = st.qty[k.kind] || 0; sums[j] += q; h += '<td>' + q + '</td>'; });
-        h += '<td><b>' + st.total + '</b></td>';
-        for (let j = 0; j < 2 * (K + 1); j++) h += '<td></td>';
-        h += '<td class="stamp"></td></tr>';
-      });
-      h += '</tbody><tfoot><tr class="tot"><td colspan="3">TỔNG CẢ XE (' + tr.totalStores + ' cửa hàng)</td>' +
-        sums.map(function(v) { return '<td>' + v + '</td>'; }).join('') + '<td>' + tr.totalTrays + '</td>';
-      for (let j = 0; j < 2 * (K + 1); j++) h += '<td></td>';
-      h += '<td></td></tr></tfoot></table>' +
-        '<table class="slip-sign"><tr><td>Kho giao hàng<i>(ký và ghi rõ họ tên)</i></td><td>Tài xế giao hàng<i>(ký và ghi rõ họ tên)</i></td>' +
-        '<td>Tài xế trả hàng<i>(ký và ghi rõ họ tên)</i></td><td>Kho nhận hàng<i>(ký và ghi rõ họ tên)</i></td></tr></table></div>';
-      return h;
+      let out = '';
+      for (let pg = 0; pg < pages; pg++) {
+        let h = '<div class="slip-page"><div class="slip-head"><div class="slip-brand"><b>SAMSUNG SDS</b><span>GS25 BÌNH ĐIỀN WH</span></div><div class="slip-info">' +
+          '<span class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</span>' +
+          'Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + ' · Chuyến: ' + e(tr.trip || '') + (tr.type ? ' · ' + e(tr.type) : '') + ' · Trang ' + (pg + 1) + '/' + pages + '<br>' +
+          'Nhà vận tải: ' + e(tr.carrier || '') + ' · Xe tải: ' + e(tr.truck || '') + ' · Tài xế: ' + e(tr.driver || '') + '<br>' +
+          'Biển số xe: <span class="slip-plate"></span></div></div>' +
+          '<table class="slip-tbl"><colgroup>' + cols + '</colgroup><thead><tr><th>TT</th><th>Mã CH</th><th>Cửa hàng</th><th>Loại</th>' +
+          '<th>SL kho giao</th><th>SL cần thu</th><th>SL CH trả</th><th>Đóng dấu cửa hàng</th></tr></thead>';
+        tr.stores.slice(pg * SLIP_PER_PAGE, (pg + 1) * SLIP_PER_PAGE).forEach(function(st, ii) {
+          const i = pg * SLIP_PER_PAGE + ii;
+          h += '<tbody class="slip-st">';
+          let j = 0;
+          const row = function(label, qty, bold) {
+            let x = '<tr>';
+            if (j === 0) x += '<td rowspan="' + N + '">' + (i + 1) + '</td><td rowspan="' + N + '">' + e(st.id) + '</td><td rowspan="' + N + '" class="l">' + e(st.name) + '</td>';
+            x += '<td class="k' + (bold ? ' b' : '') + '">' + e(label) + '</td><td class="q' + (bold ? ' b' : '') + '">' + qty + '</td><td class="q"></td><td class="q"></td>';
+            if (j === 0) x += '<td rowspan="' + N + '" class="stamp"></td>';
+            j++;
+            return x + '</tr>';
+          };
+          tr.kinds.forEach(function(k, kk) { const q = st.qty[k.kind] || 0; sums[kk] += q; h += row(k.label, q, false); });
+          manual.forEach(function(label) { h += row(label, '', false); });
+          h += '</tbody><tbody class="slip-gap"><tr><td colspan="8"></td></tr></tbody>';
+        });
+        if (pg === pages - 1) {
+          // Tổng cả xe (in 1 lần ở cuối chuyến), thẳng hàng với các cột SL kho giao / SL cần thu / SL CH trả:
+          // dòng Tổng rổ (SL kho giao điền sẵn, 2 cột còn lại điền tay) và dòng Tổng khay (để trống hết, điền tay)
+          h += '<tfoot><tr class="tot"><td colspan="3" rowspan="2">TỔNG CẢ XE</td><td>Tổng rổ</td><td>' + tr.totalTrays + '</td><td></td><td></td><td rowspan="2"></td></tr>' +
+            '<tr class="tot"><td>Tổng khay</td><td></td><td></td><td></td></tr></tfoot>';
+        }
+        h += '</table>';
+        if (pg === pages - 1) {
+          h += '<table class="slip-sign"><tr><td>Kho giao hàng<i>(ký và ghi rõ họ tên)</i></td><td>Tài xế giao hàng<i>(ký và ghi rõ họ tên)</i></td>' +
+            '<td>Tài xế trả hàng<i>(ký và ghi rõ họ tên)</i></td><td>Kho nhận hàng<i>(ký và ghi rõ họ tên)</i></td></tr></table>';
+        }
+        out += h + '</div>';
+      }
+      return out;
     }
 
     function buildPrintArea(trips, date) {
