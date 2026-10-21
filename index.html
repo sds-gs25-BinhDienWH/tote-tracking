@@ -836,7 +836,6 @@
   .driver-mode-switch{ display:flex; gap:8px; margin-bottom:12px; }
   .driver-mode-btn{ margin-top:0; font-size:12px; }
   .driver-mode-btn.active{ background:var(--navy); color:#fff; }
-
   .driver-camera-box{
     position:relative; width:100%; aspect-ratio:4/3; border-radius:var(--radius);
     overflow:hidden; background:#000; box-shadow:var(--shadow);
@@ -1419,14 +1418,14 @@
         <div id="screen-driver" class="screen">
           <div id="driverModeBanner" class="mode-banner out">
             <span data-i18n="modeCurrentLabel">Chế độ hiện tại</span>
-            <span class="tag" id="driverModeTag">NHẬN RỔ TẠI CH</span>
+            <span class="tag" id="driverModeTag">GIAO RỔ TỚI CH</span>
           </div>
 
           <!-- Chọn loại phiên - CHỈ bấm được lúc chưa bắt đầu phiên nào,
                tránh đổi loại phiên giữa chừng làm lẫn số liệu. -->
           <div id="driverModeSwitch" class="driver-mode-switch">
-            <button id="driverModeReceiveBtn" class="btn driver-mode-btn active" data-i18n="driverReceiveBtn" onclick="setDriverMode('STORE_RECEIVE')">NHẬN RỔ</button>
-            <button id="driverModeReturnBtn" class="btn btn-gray driver-mode-btn" data-i18n="driverReturnBtn" onclick="setDriverMode('STORE_RETURN')">XUẤT RỔ (LẤY VỎ)</button>
+            <button id="driverModeReceiveBtn" class="btn driver-mode-btn active" data-i18n="driverReceiveBtn" onclick="setDriverMode('STORE_RECEIVE')">GIAO RỔ TỚI CH</button>
+            <button id="driverModeReturnBtn" class="btn btn-gray driver-mode-btn" data-i18n="driverReturnBtn" onclick="setDriverMode('STORE_RETURN')">NHẬN RỔ TỪ CH VỀ KHO</button>
           </div>
 
           <div id="driverSessionSetup" class="store-box">
@@ -2126,8 +2125,8 @@
         cancelInSessionTitle: 'Hủy phiên nhập?', cancelInScannedLabel: 'Mã đã quét',
         cancelInHint: 'Các mã đã quét sẽ bị bỏ, không ghi.',
 
-        driverModeReceive: 'NHẬN RỔ TẠI CH', driverModeReturn: 'XUẤT RỔ TẠI CH (LẤY VỎ)',
-        driverReceiveBtn: 'NHẬN RỔ', driverReturnBtn: 'XUẤT RỔ (LẤY VỎ)',
+        driverModeReceive: 'GIAO RỔ TỚI CH', driverModeReturn: 'NHẬN RỔ TỪ CH VỀ KHO',
+        driverReceiveBtn: 'GIAO RỔ TỚI CH', driverReturnBtn: 'NHẬN RỔ TỪ CH VỀ KHO',
         driverStoreOwnLabel: 'Cửa hàng của bạn', startSessionBtn: 'BẮT ĐẦU PHIÊN',
         workingAtLabel: 'Đang thao tác tại:',
         navPrintSlips: 'In phiếu', psDateLabel: 'Ngày', psSelectScanned: 'CHỌN CHUYẾN ĐÃ BẮN', psPrint: 'IN CÁC CHUYẾN ĐÃ CHỌN', psScanned: 'Đã bắn', psNotScanned: 'Chưa bắn', psStoresTrays: '{s} cửa hàng · {t} khay', psEmpty: 'Chưa có chuyến nào cho ngày này. Dán lịch chuyến vào sheet TRIP_INPUT.', psLoading: 'Đang tải chuyến...', psNonePicked: 'Chưa chọn chuyến nào để in.', psUnassigned: 'Có cửa hàng đã OUT nhưng không thuộc chuyến nào trong TRIP_INPUT: {list}', psAuto: 'TRIP_INPUT chưa có chuyến của ngày này: tự gom các cửa hàng đã OUT.', tripWord: 'Chuyến', truckWord: 'Xe', driverWord: 'TX', tripChoiceTitle: 'CHỌN CHUYẾN', tripChoiceHint: 'Cửa hàng {store} đi {n} chuyến hôm nay (hàng đông và hàng chill đi riêng). Bạn đang xuất hàng cho chuyến nào?', tripChoiceCancel: 'HỦY CHỌN CỬA HÀNG', tripChoiceAllDone: 'Cửa hàng {store} đã xuất xong cả {n} chuyến hôm nay. Chọn chuyến muốn xuất BỔ SUNG:', tripDoneNote: 'đã xuất {n} khay', incomingLoading: 'Đang kiểm tra hàng giao tới...', incomingTitle: 'Đang giao tới cửa hàng này:', incomingNone: 'Không có hàng nào đang giao tới cửa hàng này.', incomingProgressMissing: 'Đã quét {n} / {total} - còn thiếu {m}', incomingVerifying: 'Đang kiểm tra mã {code}...', incomingVerifyFail: '{code}: không kiểm tra được (mất mạng?), thử quét lại. Không ghi.', notForThisStore: '{code}: KHÔNG thuộc hàng giao tới {store}. Quét nhầm cửa hàng hoặc nhầm rổ, KHÔNG ghi.', notForThisStoreRecent: 'KHÔNG GHI - không thuộc cửa hàng này', missingWarn: 'THIẾU {n} mã chưa quét: {list}', incomingProgress: 'Đã quét {n} / {total}', incomingProgressNone: 'Đã quét {n} (hệ thống không có hàng giao tới)',
@@ -2351,8 +2350,8 @@
         cancelInSessionTitle: 'Cancel IN session?', cancelInScannedLabel: 'Scanned codes',
         cancelInHint: 'Scanned codes are dropped, not saved.',
 
-        driverModeReceive: 'RECEIVE AT STORE', driverModeReturn: 'RETURN AT STORE (EMPTY TOTES)',
-        driverReceiveBtn: 'RECEIVE', driverReturnBtn: 'RETURN (EMPTY TOTES)',
+        driverModeReceive: 'DELIVER TO STORE', driverModeReturn: 'COLLECT FROM STORE TO WAREHOUSE',
+        driverReceiveBtn: 'DELIVER TO STORE', driverReturnBtn: 'COLLECT TO WAREHOUSE',
         driverStoreOwnLabel: 'Your store', startSessionBtn: 'START SESSION',
         workingAtLabel: 'Working at:',
         navPrintSlips: 'Print slips', psDateLabel: 'Date', psSelectScanned: 'SELECT LOADED TRIPS', psPrint: 'PRINT SELECTED TRIPS', psScanned: 'Loaded', psNotScanned: 'Not loaded', psStoresTrays: '{s} stores · {t} trays', psEmpty: 'No trips for this date. Paste the trip plan into the TRIP_INPUT sheet.', psLoading: 'Loading trips...', psNonePicked: 'No trip selected.', psUnassigned: 'Stores loaded but not in any trip of TRIP_INPUT: {list}', psAuto: 'No trips in TRIP_INPUT for this date: grouped by stores loaded.', tripWord: 'Trip', truckWord: 'Truck', driverWord: 'Driver', tripChoiceTitle: 'CHOOSE TRIP', tripChoiceHint: 'Store {store} has {n} trips today. Which trip are you loading for?', tripChoiceCancel: 'CANCEL STORE SELECTION', tripChoiceAllDone: 'Store {store} already has all {n} trips loaded today. Pick the trip to ADD to:', tripDoneNote: '{n} loaded', incomingLoading: 'Checking incoming items...', incomingTitle: 'On the way to this store:', incomingNone: 'Nothing is on the way to this store.', incomingProgressMissing: 'Scanned {n} / {total} - {m} still missing', incomingVerifying: 'Checking {code}...', incomingVerifyFail: '{code}: could not verify (offline?), scan again. Not saved.', notForThisStore: '{code}: NOT part of the delivery to {store}. Wrong store or wrong item, NOT saved.', notForThisStoreRecent: 'NOT SAVED - not for this store', missingWarn: '{n} codes NOT scanned yet: {list}', incomingProgress: 'Scanned {n} / {total}', incomingProgressNone: 'Scanned {n} (none expected by the system)',
@@ -3248,6 +3247,16 @@
         addRecent(toteId, wrongZone, false);
         beepInvalid();
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        return;
+      }
+
+      // Rổ tạm khóa xuất (trùng tem): báo đỏ, rung dài, KHÔNG nhận vào phiên OUT
+      const blocked = mode === 'OUT' ? blockedOutMessage(toteId) : '';
+      if (blocked) {
+        showResult(blocked, false);
+        addRecent(toteId, blocked, false);
+        beepInvalid();
+        if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
         return;
       }
 
@@ -4634,8 +4643,7 @@
     }
 
     function renderDriverSessionUI() {
-      document.getElementById('driverModeSwitch').classList.toggle('hidden', driverSessionActive);
-      document.getElementById('driverSessionSetup').classList.toggle('hidden', driverSessionActive);
+      document.getElementById('driverModeSwitch').classList.toggle('hidden', driverSessionActive);      document.getElementById('driverSessionSetup').classList.toggle('hidden', driverSessionActive);
       document.getElementById('driverScanArea').classList.toggle('hidden', !driverSessionActive);
 
       if (driverSessionActive) {
@@ -5940,7 +5948,7 @@
       const sub = tr.kinds.map(function(k) { return '<th>' + e(k.label) + '</th>'; }).join('') + '<th>Tổng</th>';
       let h = '<div class="slip-page"><div class="slip-top"><b>SDS - GS25 Bình Điền WH</b><span class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</span><span></span></div>' +
         '<div class="slip-meta"><span>Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + '</span><span>Chuyến: ' + e(tr.trip || '') + '</span><span>Loại hàng: ' + e(tr.type || '') +
-        '</span><span>Xe tải: ' + e(tr.truck || '') + '</span><span>Tài xế: ' + e(tr.driver || '') + '</span></div>' +
+        '</span><span>Nhà vận tải: ' + e(tr.carrier || '') + '</span><span>Xe tải: ' + e(tr.truck || '') + '</span><span>Tài xế: ' + e(tr.driver || '') + '</span></div>' +
         '<table class="slip-tbl"><colgroup>' + cols + '</colgroup><thead><tr><th rowspan="2">TT</th><th rowspan="2">Mã CH</th><th rowspan="2">Cửa hàng</th>' +
         group('Số lượng kho giao') + group('Số lượng cần thu') + group('Số lượng CH trả') + '<th rowspan="2">Đóng dấu cửa hàng</th></tr><tr>' + sub + sub + sub + '</tr></thead><tbody>';
       const sums = tr.kinds.map(function() { return 0; });
@@ -6974,7 +6982,7 @@
           'Quét nhầm vài mã (OUT)? Bấm <b>Kết thúc phiên</b>, trong danh sách mã bấm chọn các mã nhầm rồi <b>Xóa</b> - các mã còn lại giữ nguyên, rồi <b>Xác nhận và ghi</b>. Quét sai quá nhiều thì bấm <b>Hủy phiên</b>: bỏ toàn bộ mã, <b>không ghi gì</b> lên hệ thống.'
         ] },
         driver: { title: 'Giao nhận tại cửa hàng', items: [
-          'Chọn loại phiên: <b>NHẬN RỔ</b> (cửa hàng nhận hàng kho giao tới) hoặc <b>XUẤT RỔ</b> (cửa hàng trả vỏ cho tài xế mang về kho).',
+          'Chọn loại phiên: <b>GIAO RỔ TỚI CH</b> (giao hàng kho xuất tới cửa hàng) hoặc <b>NHẬN RỔ TỪ CH VỀ KHO</b> (lấy rổ rỗng của cửa hàng mang về kho).',
           'Tài xế: chọn đúng cửa hàng đang đứng trước khi bắt đầu. Tài khoản cửa hàng thì tự động là cửa hàng của mình.',
           'Bấm bắt đầu phiên rồi đưa mã vào khung camera để quét; quét xong bấm kết thúc phiên rồi <b>XÁC NHẬN VÀ GHI</b> - lúc đó mã mới được ghi lên hệ thống.',
           'Cửa hàng quét được cả <b>BAS</b> (rổ, kho lạnh) và <b>TOT</b> (tote, kho khô).',
@@ -7390,6 +7398,21 @@
     function wrongZoneMessage(code, zone) {
       if (!zone || zoneOfCode(code) === zone) return '';
       return tf('wrongZoneMsg', { code: code, codeZone: zoneName(zoneOfCode(code)), sessionZone: zoneName(zone) });
+    }
+
+    // Rổ tạm KHÓA XUẤT (in trùng tem, 2 rổ cùng 1 mã): quét OUT là báo đỏ + rung + không nhận. Backend cũng chặn (BLOCKED_OUT_RANGES trong Backend.gs), sửa cả 2 chỗ cùng lúc.
+    const BLOCKED_OUT_RANGES = [{ prefix: 'BAS_BR_', from: 4401, to: 4500 }];
+    function blockedOutMessage(code) {
+      const c = String(code || '').toUpperCase();
+      for (let i = 0; i < BLOCKED_OUT_RANGES.length; i++) {
+        const r = BLOCKED_OUT_RANGES[i];
+        if (c.indexOf(r.prefix) !== 0) continue;
+        const rest = c.slice(r.prefix.length);
+        if (!/^\d+$/.test(rest)) continue;
+        const n = Number(rest);
+        if (n >= r.from && n <= r.to) return 'RỔ ĐANG BỊ KHÓA - KHÔNG XUẤT: ' + c + ' (trùng tem). Liên hệ anh Minh hoặc Thư để được hướng dẫn.';
+      }
+      return '';
     }
 
     function renderZoneBar() {
