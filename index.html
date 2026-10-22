@@ -907,7 +907,7 @@
   .ps-warn{ margin:10px 0; padding:10px 14px; font-size:13px; font-weight:700; color:var(--amber); background:var(--amber-soft); border-radius:var(--radius-sm); }
   #printArea{ display:none; }
   #printArea.show{ display:block; background:#fff; padding:10px; }
-  .slip-page{ font-family:Arial,sans-serif; color:#000; font-size:12px; padding:4px 0 10px; }
+  .slip-page{ font-family:Arial,sans-serif; color:#000; font-size:12px; padding:0; display:flex; flex-direction:column; min-height:283mm; }
   .slip-top{ display:grid; grid-template-columns:1fr 2fr 1fr; align-items:center; font-size:12px; }
   .slip-title{ font-size:18px; font-weight:800; text-align:center; }
   .slip-meta{ display:flex; justify-content:space-between; font-weight:700; margin:6px 0 8px; font-size:12.5px; }
@@ -926,16 +926,21 @@
   .slip-tbl tbody.slip-st tr:last-child td.k, .slip-tbl tbody.slip-st tr:last-child td.q{ border-bottom:1px solid #333; }
   .slip-tbl tbody.slip-gap td{ border:0; height:8px; padding:0; }
   .slip-tbl td.b{ font-weight:800; }
-  .slip-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px; }
+  /* Đầu phiếu (CHỈ trang đầu): trái SAMSUNG SDS + GS25 BÌNH ĐIỀN WH, cạnh đó tên phiếu; dưới là 2 dòng thông tin chuyến */
+  .slip-head{ display:flex; align-items:center; gap:18px; margin-bottom:4px; }
   .slip-brand b{ display:block; font-size:32px; font-weight:900; letter-spacing:1px; line-height:1; }
   .slip-brand span{ display:block; font-size:13px; font-weight:700; margin-top:4px; letter-spacing:.5px; }
-  .slip-info{ text-align:right; font-size:12px; font-weight:700; line-height:1.6; }
-  .slip-info .slip-title{ display:block; font-size:17px; font-weight:800; margin-bottom:2px; }
-  .slip-plate{ display:inline-block; min-width:150px; border-bottom:1px solid #000; height:14px; vertical-align:bottom; }
+  .slip-head .slip-title{ flex:1; text-align:center; font-size:19px; font-weight:800; }
+  .slip-head .slip-no{ font-size:13px; font-weight:800; }
+  .slip-info{ border-top:1.5px solid #000; border-bottom:1.5px solid #000; padding:4px 0; margin-bottom:6px; font-size:12.5px; font-weight:700; line-height:1.9; display:flex; flex-direction:column; }
+  .slip-info div{ display:flex; gap:22px; flex-wrap:wrap; }
+  .slip-plate{ display:inline-block; min-width:130px; border-bottom:1px solid #000; height:13px; vertical-align:bottom; }
+  .slip-cont{ font-size:11px; font-weight:700; margin-bottom:4px; }
+  /* Chân trang: in nhỏ, ghim dưới đáy tờ giấy */
+  .slip-foot{ margin-top:auto; padding-top:4px; border-top:1px solid #999; font-size:9px; color:#444; display:flex; justify-content:space-between; }
   .slip-tbl tfoot{ display:table-row-group; }
   .slip-tbl tr.tot td{ font-weight:800; height:30px; }
   .slip-tbl thead{ display:table-header-group; }
-  .slip-tbl small{ color:#B45309; font-weight:700; }
   .slip-sum{ margin-top:8px; font-weight:800; font-size:13px; page-break-inside:avoid; }
   .slip-sign{ width:100%; border-collapse:collapse; margin-top:8px; page-break-inside:avoid; }
   .slip-sign td{ width:25%; text-align:center; vertical-align:top; font-weight:800; font-size:12px; height:80px; }
@@ -5953,54 +5958,100 @@
 
     // Phiếu: mỗi cửa hàng 1 dòng. Chỉ in SỐ LƯỢNG kho giao theo từng loại rổ (đỏ/nâu) + tổng; cột "cần thu" và "CH trả" để trống cho
     // tài xế điền tay; cột cuối để cửa hàng đóng dấu.
-    // Phiếu A4 DỌC, mỗi trang 5 cửa hàng (đầy trang, mỗi trang đều có đủ đầu phiếu). Mỗi cửa hàng 1 khung gồm: các loại rổ (điền sẵn số kho giao),
-    // các loại khay phụ (psData.manualRows, để trống điền tay). Tổng rổ / Tổng khay chỉ in 1 lần ở cuối chuyến, không có tổng phụ từng cửa hàng.
-    const SLIP_PER_PAGE = 5;
+    // Phiếu A4 DỌC. Đầu phiếu (SAMSUNG SDS, tên phiếu, 2 dòng thông tin chuyến) CHỈ ở trang đầu; mọi trang có chân trang nhỏ "in lúc ... - Tờ x/y".
+    // CHỈ in cửa hàng có xuất rổ thật (tổng > 0), cửa hàng có trong plan mà thực tế 0 rổ thì bỏ (TT đánh lại liên tục).
+    // Mỗi cửa hàng 1 khung: các loại rổ (điền sẵn số kho giao) + các loại khay phụ (psData.manualRows, để trống điền tay).
+    // Tổng rổ / Tổng khay chỉ in 1 lần ở cuối chuyến. Chia trang bằng cách ĐO chiều cao thật của từng khối trên trình duyệt rồi xếp cho đầy tờ giấy
+    // (không đoán số cửa hàng mỗi trang) - trang cuối chừa chỗ cho tổng + ô ký tên.
     function buildSlipHtml(tr, date) {
       const e = escHtml_;
       const d = String(date).split('-');
       const manual = (psData && psData.manualRows) || [];
       const N = tr.kinds.length + manual.length;
+      const stores = tr.stores.filter(function(st) { return st.total > 0; });
       const cols = '<col style="width:5%"><col style="width:9%"><col style="width:19%"><col style="width:20%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:20%">';
-      const pages = Math.max(1, Math.ceil(tr.stores.length / SLIP_PER_PAGE));
-      const sums = tr.kinds.map(function() { return 0; });
+      const nowT = new Date();
+      const two = function(v) { return ('0' + v).slice(-2); };
+      const printedAt = two(nowT.getDate()) + '/' + two(nowT.getMonth() + 1) + '/' + nowT.getFullYear() + ' ' + two(nowT.getHours()) + ':' + two(nowT.getMinutes());
+
+      const theadHtml = '<thead><tr><th>TT</th><th>Mã CH</th><th>Cửa hàng</th><th>Loại</th><th>SL kho giao</th><th>SL cần thu</th><th>SL CH trả</th><th>Đóng dấu cửa hàng</th></tr></thead>';
+      const headHtml = function(pages) {
+        return '<div class="slip-head"><div class="slip-brand"><b>SAMSUNG SDS</b><span>GS25 BÌNH ĐIỀN WH</span></div>' +
+          '<div class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</div><div class="slip-no">1/' + pages + '</div></div>' +
+          '<div class="slip-info"><div><span>Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + '</span><span>Chuyến: ' + e(tr.trip || '') + '</span><span>Loại hàng: ' + e(tr.type || '') + '</span></div>' +
+          '<div><span>Nhà vận tải: ' + e(tr.carrier || '') + '</span><span>Xe tải: ' + e(tr.truck || '') + '</span><span>Tài xế: ' + e(tr.driver || '') + '</span>' +
+          '<span>Biển số: <span class="slip-plate"></span></span></div></div>';
+      };
+      const contHtml = function(pg, pages) { return '<div class="slip-cont">Chuyến: ' + e(tr.trip || '') + ' · Tờ ' + (pg + 1) + '/' + pages + '</div>'; };
+      const storeHtml = function(st, i) {
+        let h = '<tbody class="slip-st">';
+        let j = 0;
+        const row = function(label, qty) {
+          let x = '<tr>';
+          if (j === 0) x += '<td rowspan="' + N + '">' + (i + 1) + '</td><td rowspan="' + N + '">' + e(st.id) + '</td><td rowspan="' + N + '" class="l">' + e(st.name) + '</td>';
+          x += '<td class="k">' + e(label) + '</td><td class="q">' + qty + '</td><td class="q"></td><td class="q"></td>';
+          if (j === 0) x += '<td rowspan="' + N + '" class="stamp"></td>';
+          j++;
+          return x + '</tr>';
+        };
+        tr.kinds.forEach(function(k) { h += row(k.label, st.qty[k.kind] || 0); });
+        manual.forEach(function(label) { h += row(label, ''); });
+        return h + '</tbody><tbody class="slip-gap"><tr><td colspan="8"></td></tr></tbody>';
+      };
+      // Tổng cả xe (in 1 lần ở cuối chuyến), thẳng hàng với các cột SL kho giao / SL cần thu / SL CH trả
+      const totHtml = '<tfoot><tr class="tot"><td colspan="3" rowspan="2">TỔNG CẢ XE</td><td>Tổng rổ</td><td>' + tr.totalTrays + '</td><td></td><td></td><td rowspan="2"></td></tr>' +
+        '<tr class="tot"><td>Tổng khay</td><td></td><td></td><td></td></tr></tfoot>';
+      const signHtml = '<table class="slip-sign"><tr><td>Kho giao hàng<i>(ký và ghi rõ họ tên)</i></td><td>Tài xế giao hàng<i>(ký và ghi rõ họ tên)</i></td>' +
+        '<td>Tài xế trả hàng<i>(ký và ghi rõ họ tên)</i></td><td>Kho nhận hàng<i>(ký và ghi rõ họ tên)</i></td></tr></table>';
+      const footHtml = function(pg, pages) {
+        return '<div class="slip-foot"><span>In lúc ' + printedAt + ' · Chuyến ' + e(tr.trip || '') + '</span><span>Tờ ' + (pg + 1) + '/' + pages + '</span></div>';
+      };
+
+      // ---- ĐO chiều cao thật (host ẩn, đúng bề ngang vùng in A4 dọc lề 6mm = 198mm) ----
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;left:-99999px;top:0;width:198mm;visibility:hidden;font-family:Arial,sans-serif;font-size:12px;color:#000;';
+      host.innerHTML = '<div id="m_head">' + headHtml(9) + '</div><div id="m_cont">' + contHtml(1, 9) + '</div>' +
+        '<table class="slip-tbl" style="width:100%"><colgroup>' + cols + '</colgroup>' + theadHtml +
+        stores.map(function(st, i) { return storeHtml(st, i); }).join('') + totHtml + '</table>' + '<div id="m_sign">' + signHtml + '</div>' + '<div id="m_foot">' + footHtml(0, 9) + '</div>';
+      document.body.appendChild(host);
+      const hh = function(el) { return el ? el.getBoundingClientRect().height : 0; };
+      const headH = hh(host.querySelector('#m_head')), contH = hh(host.querySelector('#m_cont'));
+      const thH = hh(host.querySelector('thead')), totH = hh(host.querySelector('tfoot'));
+      const signH = hh(host.querySelector('#m_sign')) + 8, footH = hh(host.querySelector('#m_foot')) + 4;
+      const stH = Array.prototype.map.call(host.querySelectorAll('tbody.slip-st'), hh);
+      const gapH = hh(host.querySelector('tbody.slip-gap'));
+      document.body.removeChild(host);
+
+      // ---- xếp cửa hàng vào từng tờ: mỗi tờ cao tối đa PAGE_H (A4 dọc trừ lề 6mm, chừa 24px an toàn) ----
+      const PAGE_H = 285 * 3.7795 - 24;
+      const sizes = [];
+      let i0 = 0;
+      while (i0 < stores.length) {
+        const pg = sizes.length;
+        const avail = PAGE_H - footH - thH - (pg === 0 ? headH : contH);
+        let used = 0, cnt = 0;
+        while (i0 + cnt < stores.length && used + stH[i0 + cnt] + gapH <= avail) { used += stH[i0 + cnt] + gapH; cnt++; }
+        if (cnt === 0) { used = stH[i0] + gapH; cnt = 1; }
+        if (i0 + cnt >= stores.length) {                       // tờ cuối: phải chừa chỗ cho tổng + ô ký tên
+          while (cnt > 1 && used + totH + signH > avail) { cnt--; used -= stH[i0 + cnt] + gapH; }
+        }
+        sizes.push(cnt);
+        i0 += cnt;
+      }
+      if (!sizes.length) sizes.push(0);
+      const pages = sizes.length;
+
       let out = '';
+      let from = 0;
       for (let pg = 0; pg < pages; pg++) {
-        let h = '<div class="slip-page"><div class="slip-head"><div class="slip-brand"><b>SAMSUNG SDS</b><span>GS25 BÌNH ĐIỀN WH</span></div><div class="slip-info">' +
-          '<span class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</span>' +
-          'Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + ' · Chuyến: ' + e(tr.trip || '') + (tr.type ? ' · ' + e(tr.type) : '') + ' · Trang ' + (pg + 1) + '/' + pages + '<br>' +
-          'Nhà vận tải: ' + e(tr.carrier || '') + ' · Xe tải: ' + e(tr.truck || '') + ' · Tài xế: ' + e(tr.driver || '') + '<br>' +
-          'Biển số xe: <span class="slip-plate"></span></div></div>' +
-          '<table class="slip-tbl"><colgroup>' + cols + '</colgroup><thead><tr><th>TT</th><th>Mã CH</th><th>Cửa hàng</th><th>Loại</th>' +
-          '<th>SL kho giao</th><th>SL cần thu</th><th>SL CH trả</th><th>Đóng dấu cửa hàng</th></tr></thead>';
-        tr.stores.slice(pg * SLIP_PER_PAGE, (pg + 1) * SLIP_PER_PAGE).forEach(function(st, ii) {
-          const i = pg * SLIP_PER_PAGE + ii;
-          h += '<tbody class="slip-st">';
-          let j = 0;
-          const row = function(label, qty, bold) {
-            let x = '<tr>';
-            if (j === 0) x += '<td rowspan="' + N + '">' + (i + 1) + '</td><td rowspan="' + N + '">' + e(st.id) + '</td><td rowspan="' + N + '" class="l">' + e(st.name) + '</td>';
-            x += '<td class="k' + (bold ? ' b' : '') + '">' + e(label) + '</td><td class="q' + (bold ? ' b' : '') + '">' + qty + '</td><td class="q"></td><td class="q"></td>';
-            if (j === 0) x += '<td rowspan="' + N + '" class="stamp"></td>';
-            j++;
-            return x + '</tr>';
-          };
-          tr.kinds.forEach(function(k, kk) { const q = st.qty[k.kind] || 0; sums[kk] += q; h += row(k.label, q, false); });
-          manual.forEach(function(label) { h += row(label, '', false); });
-          h += '</tbody><tbody class="slip-gap"><tr><td colspan="8"></td></tr></tbody>';
-        });
-        if (pg === pages - 1) {
-          // Tổng cả xe (in 1 lần ở cuối chuyến), thẳng hàng với các cột SL kho giao / SL cần thu / SL CH trả:
-          // dòng Tổng rổ (SL kho giao điền sẵn, 2 cột còn lại điền tay) và dòng Tổng khay (để trống hết, điền tay)
-          h += '<tfoot><tr class="tot"><td colspan="3" rowspan="2">TỔNG CẢ XE</td><td>Tổng rổ</td><td>' + tr.totalTrays + '</td><td></td><td></td><td rowspan="2"></td></tr>' +
-            '<tr class="tot"><td>Tổng khay</td><td></td><td></td><td></td></tr></tfoot>';
-        }
+        let h = '<div class="slip-page">' + (pg === 0 ? headHtml(pages) : contHtml(pg, pages));
+        h += '<table class="slip-tbl"><colgroup>' + cols + '</colgroup>' + theadHtml;
+        stores.slice(from, from + sizes[pg]).forEach(function(st, ii) { h += storeHtml(st, from + ii); });
+        from += sizes[pg];
+        if (pg === pages - 1) h += totHtml;
         h += '</table>';
-        if (pg === pages - 1) {
-          h += '<table class="slip-sign"><tr><td>Kho giao hàng<i>(ký và ghi rõ họ tên)</i></td><td>Tài xế giao hàng<i>(ký và ghi rõ họ tên)</i></td>' +
-            '<td>Tài xế trả hàng<i>(ký và ghi rõ họ tên)</i></td><td>Kho nhận hàng<i>(ký và ghi rõ họ tên)</i></td></tr></table>';
-        }
-        out += h + '</div>';
+        if (pg === pages - 1) h += signHtml;
+        out += h + footHtml(pg, pages) + '</div>';
       }
       return out;
     }
