@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData'
+    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1
   };
   var MAX_RETRY = 2;
 
@@ -578,6 +578,10 @@
     box-shadow:0 8px 20px rgba(10,25,48,.3); opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
     max-width:calc(100% - 40px); text-align:center;
   }
+  .outbox-chip{ position:fixed; right:12px; bottom:76px; z-index:9000; padding:9px 14px; border-radius:20px; font-size:13px; font-weight:800; color:#fff; background:#2563EB; box-shadow:0 2px 10px rgba(0,0,0,.25); cursor:pointer; }
+  .outbox-chip.stuck{ background:#E1364A; }
+  .outbox-chip.warn{ background:#D97706; }
+  .outbox-chip.hidden{ display:none; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* ---------------- MÀN TỒN: Tote | Rổ + thẻ cửa hàng gấp gọn ---------------- */
@@ -905,6 +909,9 @@
   .ps-chip{ font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; background:var(--bg); color:var(--muted); }
   .ps-chip.on{ background:var(--green-soft); color:var(--cyan-deep); }
   .ps-warn{ margin:10px 0; padding:10px 14px; font-size:13px; font-weight:700; color:var(--amber); background:var(--amber-soft); border-radius:var(--radius-sm); }
+  .ps-arch{ margin-top:22px; padding-top:12px; border-top:2px solid var(--border, #ddd); }
+  .ps-arch-title{ font-weight:800; font-size:14px; margin-bottom:8px; }
+  .ps-arch-q{ width:100%; box-sizing:border-box; margin:8px 0; padding:10px; font-size:14px; border:1px solid var(--border, #ccc); border-radius:8px; }
   #printArea{ display:none; }
   #printArea.show{ display:block; background:#fff; padding:10px; }
   .slip-page{ font-family:Arial,sans-serif; color:#000; font-size:12px; padding:0; display:flex; flex-direction:column; min-height:283mm; }
@@ -1724,6 +1731,20 @@
             <button id="psPrintBtn" class="btn ps-btn" data-i18n="psPrint" onclick="printSelectedSlips()">IN CÁC CHUYẾN ĐÃ CHỌN</button>
           </div>
           <div id="psResult"></div>
+
+          <div class="ps-arch">
+            <div class="ps-arch-title">TRA CỨU PHIẾU ĐÃ LƯU</div>
+            <div class="dr-range">
+              <div><label>Từ ngày</label><input id="psaFrom" type="date"></div>
+              <div><label>Đến ngày</label><input id="psaTo" type="date"></div>
+            </div>
+            <input id="psaQuery" class="ps-arch-q" type="text" placeholder="Mã chuyến / mã hoặc tên cửa hàng / nhà vận tải / xe / tài xế" onkeydown="if(event.key==='Enter')searchSlipArchive()">
+            <div class="export-row">
+              <button class="btn ps-btn" onclick="searchSlipArchive()">TÌM PHIẾU</button>
+              <button class="btn btn-gray ps-btn" onclick="printArchivedSlips()">IN LẠI CÁC PHIẾU ĐÃ CHỌN</button>
+            </div>
+            <div id="psaResult"></div>
+          </div>
         </div>
 
         <div id="screen-dayReport" class="screen">
@@ -2102,6 +2123,11 @@
         commitStopped: 'Còn {n} mã chưa ghi. {reason} Bấm GHI LẠI.', commitDoneMsg: 'ĐÃ GHI XONG: {ok} OK, {fail} lỗi/bất thường',
         commitExpiredMsg: 'Hết phiên đăng nhập. Đăng nhập lại, mã chưa ghi vẫn còn.',
         alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi, vui lòng chờ...',
+        outboxQueued: 'Đã nhận {n} mã - đang ghi lên máy chủ, quét tiếp được', outboxWriting: 'Đang ghi {n} mã lên máy chủ...',
+        outboxStuck: 'Chưa ghi được {n} mã - bấm để thử lại', outboxAlerts: 'Có {n} cảnh báo mã - bấm để xem',
+        outboxDoneOk: 'Đã ghi {store}: {n} mã OK', outboxDoneBad: 'Đã ghi {store}: {ok} mã OK, {n} mã LỖI/BẤT THƯỜNG:',
+        outboxLeaveWarn: 'Còn {n} mã chưa ghi xong lên máy chủ. Đăng xuất bây giờ thì mã vẫn được giữ trên máy này và tự ghi tiếp khi đăng nhập lại. Vẫn đăng xuất?',
+        outboxPrintWarn: 'Còn {n} mã OUT chưa ghi xong, phiếu có thể thiếu số rổ. Vẫn in?',
         recoverTitle: 'Còn mã quét dở chưa ghi', recoverHint: 'Còn mã chưa ghi từ lần trước. Bấm GHI LÊN HỆ THỐNG hoặc BỎ.',
         recoverSaveBtn: 'GHI LÊN HỆ THỐNG', recoverDiscardBtn: 'BỎ', recoverTypeLabel: 'Loại phiên', recoverCountLabel: 'Số mã chưa ghi', recoverNextBtn: 'TIẾP TỤC',
         endSessionHintNow: 'Các mã đã được ghi.', immediateWaitMsg: 'Đang ghi {n} mã...',
@@ -2327,6 +2353,11 @@
         commitStopped: '{n} codes not saved. {reason} Tap RETRY.', commitDoneMsg: 'SAVED: {ok} OK, {fail} errors/abnormal',
         commitExpiredMsg: 'Login expired. Log in again, unsaved codes are kept.',
         alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving, please wait...',
+        outboxQueued: 'Got {n} codes - saving to server, you can keep scanning', outboxWriting: 'Saving {n} codes to server...',
+        outboxStuck: 'Could not save {n} codes - tap to retry', outboxAlerts: '{n} code warning(s) - tap to view',
+        outboxDoneOk: 'Saved {store}: {n} codes OK', outboxDoneBad: 'Saved {store}: {ok} OK, {n} ERROR/ABNORMAL:',
+        outboxLeaveWarn: '{n} codes are not saved to the server yet. If you log out they stay on this device and are saved on next login. Log out anyway?',
+        outboxPrintWarn: '{n} OUT codes are not saved yet, the slip may miss baskets. Print anyway?',
         recoverTitle: 'Unsaved scans found', recoverHint: 'Unsaved codes from last time. Tap SAVE or DISCARD.',
         recoverSaveBtn: 'SAVE TO SYSTEM', recoverDiscardBtn: 'DISCARD', recoverTypeLabel: 'Session type', recoverCountLabel: 'Unsaved codes', recoverNextBtn: 'CONTINUE',
         endSessionHintNow: 'Codes are already saved.', immediateWaitMsg: 'Saving {n} codes...',
@@ -2757,6 +2788,7 @@
       session = null;
       tripPlan = null;       // lịch chuyến theo kho của tài khoản cũ
       tripPlanAt = 0;
+      outboxReset();
     }
 
     function forceRelogin(message) {
@@ -2856,6 +2888,7 @@
     }
 
     function doLogout() {
+      if (outbox.length && !confirm(tf('outboxLeaveWarn', { n: outboxCount() }))) return;
       const token = session ? session.token : '';
       google.script.run.logout(token);
       clearTimeout(autoTimer); sending = false; inflightCount = 0;
@@ -2901,6 +2934,8 @@
 
       showScreen(defaultScreen());
       maybeRecover();
+      outboxLoad();                      // gửi tiếp các phiên OUT còn dở từ lần trước (tắt app/đăng xuất giữa chừng)
+      outboxPump();
       if (pendingQueue.length > 0 && !DEFER_WRITE[mode]) scheduleAutoFlush();   // đăng nhập lại: ghi tiếp mã IN còn dở
       focusScanLoop();
     }
@@ -3350,7 +3385,7 @@
     // chia lô nhỏ). "HỦY PHIÊN" = bỏ hàng đợi, KHÔNG ghi gì -> quét nhầm thì hủy và
     // quét lại, không cần hoàn tác trên máy chủ nữa.
     // =====================================================================
-    const COMMIT_CHUNK = 30;            // mỗi lần gửi tối đa 30 mã (giữ khóa ghi ngắn)
+    const COMMIT_CHUNK = 100;           // mỗi lần gửi tối đa 100 mã (mỗi lệnh gọi Apps Script có chi phí cố định vài giây nên gom lô lớn cho ít lượt hơn; trước là 30)
     const LONG_SESSION_WARN = 150;      // cứ mỗi 150 mã chưa ghi thì nhắc nên kết thúc phiên để ghi bớt
     let committing = false;             // đang ghi phiên lên máy chủ (khóa quét)
     const endStage = { pda: 'confirm', driver: 'confirm' };   // confirm | sending | stopped | done
@@ -3540,7 +3575,7 @@
     }
 
     function hasUnsavedScans() {
-      return pendingQueue.length > 0 || driverPendingQueue.length > 0 ||
+      return outbox.length > 0 || pendingQueue.length > 0 || driverPendingQueue.length > 0 ||
         sessionSnapshot.OUT.queue.length > 0 || sessionSnapshot.IN.queue.length > 0;
     }
 
@@ -3787,6 +3822,7 @@
       const isPda = kind === 'pda';
       const items = isPda ? pendingQueue : driverPendingQueue;
       if (!items.length) { finishEnd(kind); return; }   // chưa quét gì -> chỉ đóng phiên
+      if (isPda && mode === 'OUT' && OUT_BG_WRITE) { outboxEnqueueCurrent(); return; }
 
       const u = END_UI[kind];
       const st = {
@@ -3862,6 +3898,140 @@
           setEndStage(kind, 'stopped', tf('commitStopped', { n: s.remaining.length, reason: message || '' }), 'fail');
         }
       });
+    }
+
+    // =====================================================================
+    // GHI NỀN CHO OUT (hàng chờ gửi / outbox)
+    // Popup "Kết thúc phiên" vẫn cho gỡ mã quét nhầm như cũ. Bấm XÁC NHẬN thì phiên được CHUYỂN vào hàng chờ gửi (lưu ngay vào localStorage
+    // theo tài khoản) rồi app đóng phiên luôn để quét cửa hàng kế tiếp; việc gửi lên Apps Script chạy nền, tuần tự từng phiên, tự thử lại.
+    // Không mất dữ liệu: phiên chỉ bị xóa khỏi hàng chờ SAU KHI máy chủ trả kết quả; tắt app/mất điện/đăng xuất thì lần đăng nhập sau gửi tiếp
+    // (mỗi phiên có sessionId riêng nên gửi lại không ghi trùng). Chip góc phải dưới cho biết đang ghi / kẹt / có mã bất thường.
+    // Tắt tính năng (quay lại chờ ghi xong mới đóng phiên): OUT_BG_WRITE = false.
+    // =====================================================================
+    const OUT_BG_WRITE = true;
+    let outbox = [];                    // [{id, action, store, trip, label, sessionId, zone, items, results, at}]
+    let outboxRunning = false;
+    let outboxTimer = null;
+    let outboxTries = 0;                // số lần thất bại liên tiếp (để chip chuyển đỏ + giãn thời gian thử lại)
+    let outboxStuck = '';               // lý do kẹt gần nhất ('' = bình thường)
+    let outboxAlerts = [];              // thông báo mã lỗi/bất thường chờ người dùng xem
+    let outboxGen = 0;                  // đổi khi đăng xuất/hết phiên: bỏ qua phản hồi muộn của lần gửi cũ
+
+    function outboxKey() { return 'TOTE_OUTBOX_' + (session ? String(session.loginId || '').toUpperCase() : ''); }
+    function outboxSave() {
+      try {
+        if (outbox.length) localStorage.setItem(outboxKey(), JSON.stringify(outbox));
+        else localStorage.removeItem(outboxKey());
+      } catch (e) {}
+    }
+    function outboxLoad() {
+      try { outbox = JSON.parse(localStorage.getItem(outboxKey()) || '[]') || []; } catch (e) { outbox = []; }
+    }
+    function outboxCount() { return outbox.reduce(function(n, j) { return n + j.items.length; }, 0); }
+    function outboxReset() {            // gọi khi mất phiên đăng nhập (dữ liệu vẫn nằm trong localStorage)
+      outboxGen++;
+      clearTimeout(outboxTimer);
+      outbox = []; outboxRunning = false; outboxTries = 0; outboxStuck = ''; outboxAlerts = [];
+      renderOutboxChip();
+    }
+
+    function outboxEnqueueCurrent() {
+      const items = pendingQueue.slice();
+      outbox.push({
+        id: sessionIds.OUT || ('J' + Date.now()), action: 'OUT', store: selectedStoreId, trip: sessionTripId, label: sessionStoreLabel,
+        sessionId: sessionIds.OUT, zone: sessionZoneFor('OUT'), items: items, results: [], at: Date.now()
+      });
+      outboxSave();                                                    // lưu TRƯỚC khi đóng phiên (đóng phiên sẽ xóa bản lưu của phiên quét)
+      if (tripPlan && sessionTripId) {                                 // cập nhật "chuyến đã xuất" ngay trong app
+        const dk = String(sessionTripId).toUpperCase() + '|' + selectedStoreId;
+        tripPlan.done = tripPlan.done || {};
+        tripPlan.done[dk] = (tripPlan.done[dk] || 0) + items.length;
+      }
+      showToast(tf('outboxQueued', { n: items.length }));
+      finishEnd('pda');
+      outboxTries = 0;
+      outboxPump();
+    }
+
+    function outboxRetryLater() {
+      outboxTries++;
+      renderOutboxChip();
+      clearTimeout(outboxTimer);
+      outboxTimer = setTimeout(outboxPump, Math.min(30000, 3000 * outboxTries));
+    }
+
+    function outboxPump() {
+      if (outboxRunning || !session || !outbox.length) { renderOutboxChip(); return; }
+      outboxRunning = true;
+      clearTimeout(outboxTimer);
+      const gen = outboxGen;
+      const job = outbox[0];
+      const batch = job.items.slice(0, COMMIT_CHUNK);
+      renderOutboxChip();
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (gen !== outboxGen) return;
+          outboxRunning = false;
+          if (res && res.busy) { outboxTimer = setTimeout(outboxPump, 1500); return; }          // máy chủ bận: chắc chắn chưa ghi, thử lại
+          if (!res || !res.success) { outboxStuck = (res && res.message) || t('couldNotLoadData'); outboxRetryLater(); return; }
+          outboxTries = 0; outboxStuck = '';
+          (res.results || []).forEach(function(r) { job.results.push({ toteId: r.toteId, success: !!r.success, message: r.message }); });
+          job.items = job.items.slice(batch.length);
+          if (!job.items.length) { outboxJobDone(job); outbox.shift(); }
+          outboxSave();
+          renderOutboxChip();
+          outboxPump();
+        })
+        .withFailureHandler(function(err) {
+          if (gen !== outboxGen) return;
+          outboxRunning = false;
+          if (isSessionExpiredError(err)) { forceRelogin(t('commitExpiredMsg')); return; }
+          outboxStuck = getErrorMessage(err);
+          outboxRetryLater();
+        })
+        .scanBatch({ token: session.token, action: job.action, store: job.store, trip: job.trip || '', zone: job.zone, sessionId: job.sessionId || '', items: batch });
+    }
+
+    function outboxJobDone(job) {
+      const bad = job.results.filter(function(r) { return !r.success; });
+      if (!bad.length) { showToast(tf('outboxDoneOk', { store: job.label, n: job.results.length })); return; }
+      outboxAlerts.push(tf('outboxDoneBad', { store: job.label, n: bad.length, ok: job.results.length - bad.length }) + '\n' +
+        bad.slice(0, 15).map(function(r) { return '- ' + r.toteId + ': ' + r.message; }).join('\n') + (bad.length > 15 ? '\n...' : ''));
+      beep(false);
+    }
+
+    function renderOutboxChip() {
+      let el = document.getElementById('outboxChip');
+      const n = outboxCount();
+      if (!n && !outboxAlerts.length) { if (el) el.classList.add('hidden'); return; }
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'outboxChip';
+        el.className = 'outbox-chip';
+        el.onclick = outboxChipClick;
+        document.body.appendChild(el);
+      }
+      el.classList.remove('hidden');
+      const stuck = outboxTries >= 2 && n > 0;
+      el.classList.toggle('stuck', stuck);
+      el.classList.toggle('warn', !stuck && !n && outboxAlerts.length > 0);
+      if (stuck) el.textContent = tf('outboxStuck', { n: n });
+      else if (n) el.textContent = tf('outboxWriting', { n: n });
+      else el.textContent = tf('outboxAlerts', { n: outboxAlerts.length });
+    }
+
+    function outboxChipClick() {
+      if (outboxCount()) { outboxTries = 0; outboxStuck = ''; outboxPump(); if (outboxAlerts.length) showOutboxAlerts(); return; }
+      showOutboxAlerts();
+    }
+
+    function showOutboxAlerts() {
+      if (!outboxAlerts.length) return;
+      const text = outboxAlerts.join('\n\n');
+      outboxAlerts = [];
+      renderOutboxChip();
+      alert(text);
     }
 
     // Tên hàm gắn trên nút bấm (HTML) giữ nguyên
@@ -4294,6 +4464,10 @@
     // Hủy phiên = bỏ các mã đó, không ghi gì. Lý do đổi: quét nhầm thì hủy rồi
     // quét lại, không phải hoàn tác từng dòng đã ghi.
     // =====================================================================
+    // Tự bắt đầu phiên OUT để người quét chỉ cần quét: OUT chọn xong cửa hàng (và chuyến nếu có popup)
+    // là có phiên luôn. Muốn quay lại kiểu bấm nút "BẮT ĐẦU PHIÊN" thì đổi thành false.
+    const AUTO_START_SESSION = true;
+
     function renderPdaSessionUI() {
       const showOutSetup = (mode === 'OUT' && !sessionActive);
       const showInSetup = (mode === 'IN' && !inSessionActive);
@@ -4318,6 +4492,7 @@
     function refreshStartSessionBtn() {
       const btn = document.getElementById('startSessionBtn');
       if (btn) btn.disabled = !selectedStoreId || tripChoicePending;
+      if (AUTO_START_SESSION && btn && !btn.disabled && mode === 'OUT' && !sessionActive) startScanSession();
     }
 
     // ---------- Chọn chuyến khi OUT cho cửa hàng đi nhiều chuyến cùng ngày ----------
@@ -5903,6 +6078,9 @@
     // =====================================================================
     let psData = null;
     let psChecked = {};
+    let slipManualRows = [];          // khay phụ để trống (psData.manualRows hoặc kết quả tra cứu kho lưu)
+    // Cột "SL cần thu" (= số tồn nợ ở cửa hàng) tạm TẮT chưa in; bật lại = đổi thành true (cột vẫn để trống cho tài xế điền tay).
+    const SLIP_SHOW_OWED = false;
 
     function loadPrintSlips() {
       const dateEl = document.getElementById('psDate');
@@ -5922,6 +6100,7 @@
       const box = document.getElementById('psResult');
       if (!res || !res.success) { box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('genericErrPrefix')) + '</div>'; return; }
       psData = res;
+      slipManualRows = res.manualRows || [];
       const keep = {};
       res.trips.forEach(function(tr) {
         const k = res.date + '|' + tr.trip;
@@ -5929,6 +6108,7 @@
       });
       psChecked = keep;
       let html = '';
+      if (res.planStale) html += '<div class="ps-warn">' + escHtml_('Lịch chuyến hôm nay CHƯA được nạp: file LD vẫn là kế hoạch cũ. Cập nhật file LD rồi chạy lại nạp lịch (adminImportTruckPlanToday).') + '</div>';
       if (res.auto) html += '<div class="ps-warn">' + escHtml_(t('psAuto')) + '</div>';
       if (res.unassigned && res.unassigned.length) html += '<div class="ps-warn">' + escHtml_(tf('psUnassigned', { list: res.unassigned.join(', ') })) + '</div>';
       if (!res.trips.length) {
@@ -5966,15 +6146,18 @@
     function buildSlipHtml(tr, date) {
       const e = escHtml_;
       const d = String(date).split('-');
-      const manual = (psData && psData.manualRows) || [];
+      const manual = slipManualRows;
       const N = tr.kinds.length + manual.length;
       const stores = tr.stores.filter(function(st) { return st.total > 0; });
-      const cols = '<col style="width:5%"><col style="width:9%"><col style="width:19%"><col style="width:20%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:20%">';
+      const NC = SLIP_SHOW_OWED ? 8 : 7;
+      const cols = SLIP_SHOW_OWED
+        ? '<col style="width:5%"><col style="width:9%"><col style="width:19%"><col style="width:20%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:20%">'
+        : '<col style="width:5%"><col style="width:9%"><col style="width:22%"><col style="width:21%"><col style="width:11%"><col style="width:11%"><col style="width:21%">';
       const nowT = new Date();
       const two = function(v) { return ('0' + v).slice(-2); };
       const printedAt = two(nowT.getDate()) + '/' + two(nowT.getMonth() + 1) + '/' + nowT.getFullYear() + ' ' + two(nowT.getHours()) + ':' + two(nowT.getMinutes());
 
-      const theadHtml = '<thead><tr><th>TT</th><th>Mã CH</th><th>Cửa hàng</th><th>Loại</th><th>SL kho giao</th><th>SL cần thu</th><th>SL CH trả</th><th>Đóng dấu cửa hàng</th></tr></thead>';
+      const theadHtml = '<thead><tr><th>TT</th><th>Mã CH</th><th>Cửa hàng</th><th>Loại</th><th>SL kho giao</th>' + (SLIP_SHOW_OWED ? '<th>SL cần thu</th>' : '') + '<th>SL CH trả</th><th>Đóng dấu cửa hàng</th></tr></thead>';
       const headHtml = function(pages) {
         return '<div class="slip-head"><div class="slip-brand"><b>SAMSUNG SDS</b><span>GS25 BÌNH ĐIỀN WH</span></div>' +
           '<div class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</div><div class="slip-no">1/' + pages + '</div></div>' +
@@ -5989,18 +6172,18 @@
         const row = function(label, qty) {
           let x = '<tr>';
           if (j === 0) x += '<td rowspan="' + N + '">' + (i + 1) + '</td><td rowspan="' + N + '">' + e(st.id) + '</td><td rowspan="' + N + '" class="l">' + e(st.name) + '</td>';
-          x += '<td class="k">' + e(label) + '</td><td class="q">' + qty + '</td><td class="q"></td><td class="q"></td>';
+          x += '<td class="k">' + e(label) + '</td><td class="q">' + qty + '</td>' + (SLIP_SHOW_OWED ? '<td class="q"></td>' : '') + '<td class="q"></td>';
           if (j === 0) x += '<td rowspan="' + N + '" class="stamp"></td>';
           j++;
           return x + '</tr>';
         };
         tr.kinds.forEach(function(k) { h += row(k.label, st.qty[k.kind] || 0); });
         manual.forEach(function(label) { h += row(label, ''); });
-        return h + '</tbody><tbody class="slip-gap"><tr><td colspan="8"></td></tr></tbody>';
+        return h + '</tbody><tbody class="slip-gap"><tr><td colspan="' + NC + '"></td></tr></tbody>';
       };
       // Tổng cả xe (in 1 lần ở cuối chuyến), thẳng hàng với các cột SL kho giao / SL cần thu / SL CH trả
-      const totHtml = '<tfoot><tr class="tot"><td colspan="3" rowspan="2">TỔNG CẢ XE</td><td>Tổng rổ</td><td>' + tr.totalTrays + '</td><td></td><td></td><td rowspan="2"></td></tr>' +
-        '<tr class="tot"><td>Tổng khay</td><td></td><td></td><td></td></tr></tfoot>';
+      const totHtml = '<tfoot><tr class="tot"><td colspan="3" rowspan="2">TỔNG CẢ XE</td><td>Tổng rổ</td><td>' + tr.totalTrays + '</td>' + (SLIP_SHOW_OWED ? '<td></td>' : '') + '<td></td><td rowspan="2"></td></tr>' +
+        '<tr class="tot"><td>Tổng khay</td><td></td>' + (SLIP_SHOW_OWED ? '<td></td>' : '') + '<td></td></tr></tfoot>';
       const signHtml = '<table class="slip-sign"><tr><td>Kho giao hàng<i>(ký và ghi rõ họ tên)</i></td><td>Tài xế giao hàng<i>(ký và ghi rõ họ tên)</i></td>' +
         '<td>Tài xế trả hàng<i>(ký và ghi rõ họ tên)</i></td><td>Kho nhận hàng<i>(ký và ghi rõ họ tên)</i></td></tr></table>';
       const footHtml = function(pg, pages) {
@@ -6059,7 +6242,7 @@
     function buildPrintArea(trips, date) {
       let area = document.getElementById('printArea');
       if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
-      area.innerHTML = trips.map(function(tr) { return buildSlipHtml(tr, date); }).join('');
+      area.innerHTML = trips.map(function(tr) { return buildSlipHtml(tr, tr.date || date); }).join('');
       return area;
     }
 
@@ -6067,7 +6250,64 @@
       if (!psData) return;
       const picked = psData.trips.filter(function(tr) { return psChecked[psData.date + '|' + tr.trip]; });
       if (!picked.length) { alert(t('psNonePicked')); return; }
+      if (outbox.length && !confirm(tf('outboxPrintWarn', { n: outboxCount() }))) return;
       buildPrintArea(picked, psData.date);
+      // Lưu bản chụp vào kho phiếu (chạy ngầm, lỗi thì bỏ qua - trigger đêm vẫn chốt lại)
+      try {
+        google.script.run.withSuccessHandler(function() {}).withFailureHandler(function() {})
+          .archiveSlips({ token: session.token, date: psData.date, trips: picked.filter(function(tr) { return tr.scanned; }).map(function(tr) { return tr.trip; }) });
+      } catch (e) {}
+      window.print();
+    }
+
+    // ---- Tra cứu phiếu đã lưu (kho SLIP_ARCHIVE, giữ lâu dài) ----
+    let psArch = { trips: [], checked: {} };
+
+    function psaInit() {
+      const from = document.getElementById('psaFrom'), to = document.getElementById('psaTo');
+      if (!from || !to) return;
+      if (!to.value) to.value = ymdLocal(new Date());
+      if (!from.value) { const d = new Date(); d.setDate(d.getDate() - 30); from.value = ymdLocal(d); }
+    }
+
+    function searchSlipArchive() {
+      psaInit();
+      const box = document.getElementById('psaResult');
+      box.innerHTML = loadingHtml('Đang tìm...');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) { box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('genericErrPrefix')) + '</div>'; return; }
+          slipManualRows = res.manualRows || [];
+          psArch = { trips: res.trips || [], checked: {} };
+          renderSlipArchive(res.truncated);
+        })
+        .withFailureHandler(function(err) {
+          if (handleSessionError(err)) return;
+          box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('genericErrPrefix') + getErrorMessage(err)) + '</div>';
+        })
+        .searchSlipArchive({ token: session.token, from: document.getElementById('psaFrom').value, to: document.getElementById('psaTo').value, query: document.getElementById('psaQuery').value });
+    }
+
+    function renderSlipArchive(truncated) {
+      const box = document.getElementById('psaResult');
+      if (!psArch.trips.length) { box.innerHTML = '<div class="dashboard-card">Không tìm thấy phiếu nào đã lưu.</div>'; return; }
+      let html = truncated ? '<div class="ps-warn">Chỉ hiện 150 chuyến mới nhất - thu hẹp khoảng ngày hoặc thêm từ khóa.</div>' : '';
+      html += '<div class="panel" style="padding:0">' + psArch.trips.map(function(tr, i) {
+        const dd = tr.date.split('-');
+        const snap = tr.source === 'NIGHT' ? 'Chốt cuối ngày' : (tr.source === 'BACKFILL' ? 'Chụp bù' : 'Đã in') + ' ' + escHtml_(tr.snapAt || '');
+        const extra = [tr.type || '', tr.carrier || '', tr.truck ? t('truckWord') + ' ' + tr.truck : '', tr.driver ? t('driverWord') + ' ' + tr.driver : ''].filter(Boolean).join(' · ');
+        return '<label class="ps-row"><input type="checkbox" ' + (psArch.checked[i] ? 'checked' : '') + ' onchange="psArch.checked[' + i + '] = this.checked">' +
+          '<div class="ps-main"><b>' + dd[2] + '/' + dd[1] + '/' + dd[0] + ' · ' + escHtml_(t('tripWord') + ' ' + tr.trip) + '</b><div class="ps-sub">' +
+          escHtml_(tr.totalStores + ' cửa hàng · ' + tr.totalTrays + ' rổ' + (extra ? ' · ' + extra : '')) + '</div></div>' +
+          '<span class="ps-chip">' + snap + '</span></label>';
+      }).join('') + '</div>';
+      box.innerHTML = html;
+    }
+
+    function printArchivedSlips() {
+      const picked = psArch.trips.filter(function(tr, i) { return psArch.checked[i]; });
+      if (!picked.length) { alert(t('psNonePicked')); return; }
+      buildPrintArea(picked, '');
       window.print();
     }
 
