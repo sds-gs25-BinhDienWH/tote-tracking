@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}</style>
+</head><body>
+<title>SOP Tote Tracking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* Bố cục: thanh tab theo vai trò; mỗi vai trò là một "bài hướng dẫn" gồm danh sách bước bên trái và màn hình điện thoại minh họa bên phải (đổi theo bước) */
+  :root{
+    --bg:#F6F8FA; --surface:#FFFFFF; --ink:#13202E; --muted:#5B6B7B; --line:#DCE3EA;
+    --brand:#0B5CAD; --brand-soft:#E3EEF9;
+    --warn:#B45309; --warn-soft:#FDF1DC;
+    --stop:#B4232C; --stop-soft:#FBE7E8;
+    --good:#16784A; --good-soft:#E1F4EA;
+    --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E1620; --surface:#16212D; --ink:#E7EDF3; --muted:#9AA9B8; --line:#26364A;
+      --brand:#6BB0F2; --brand-soft:#173149;
+      --warn:#F2B65A; --warn-soft:#3A2D14;
+      --stop:#FF8A91; --stop-soft:#3F1C20;
+      --good:#6FD3A0; --good-soft:#14342A;
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E1620; --surface:#16212D; --ink:#E7EDF3; --muted:#9AA9B8; --line:#26364A;
+    --brand:#6BB0F2; --brand-soft:#173149;
+    --warn:#F2B65A; --warn-soft:#3A2D14;
+    --stop:#FF8A91; --stop-soft:#3F1C20;
+    --good:#6FD3A0; --good-soft:#14342A;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.6;
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:27px;line-height:1.2;margin:0 0 4px;font-weight:800;text-wrap:balance}
+  h2{font-size:20px;line-height:1.3;margin:0 0 4px;font-weight:700}
+  h3{font-size:15px;margin:20px 0 8px;font-weight:700}
+  p{margin:0 0 10px}
+  .lead{color:var(--muted);margin-bottom:14px}
+  button{font-family:inherit;cursor:pointer}
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+  nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);padding:10px 0;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  nav ul{display:flex;gap:6px;list-style:none;margin:0;padding:0;overflow-x:auto}
+  nav button{white-space:nowrap;padding:8px 13px;border-radius:6px;font-size:13px;font-weight:600;color:var(--muted);border:1px solid var(--line);background:var(--surface)}
+  nav button[aria-selected="true"]{background:var(--brand);border-color:var(--brand);color:var(--surface)}
+  .panel{display:none} .panel.on{display:block}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px;min-width:0}
+  .who{font-size:13px;color:var(--muted);margin-bottom:12px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:2px}
+  code{font-family:var(--mono);font-size:13px;background:var(--brand-soft);color:var(--brand);padding:1px 6px;border-radius:4px;overflow-wrap:anywhere}
+  .callout{border-radius:8px;padding:10px 14px;margin:10px 0;font-size:14px;border-left:4px solid}
+  .callout.warn{background:var(--warn-soft);border-color:var(--warn)}
+  .callout.stop{background:var(--stop-soft);border-color:var(--stop)}
+  .callout b{display:block}
+
+  /* ---------- bài hướng dẫn theo bước ---------- */
+  .walk{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:22px;align-items:start}
+  .steps{list-style:none;margin:0;padding:0;counter-reset:s}
+  .steps li{counter-increment:s}
+  .steps button{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:10px 12px 10px 46px;margin-bottom:8px;position:relative;font-size:14px;line-height:1.5}
+  .steps button::before{content:counter(s);position:absolute;left:12px;top:10px;width:24px;height:24px;border-radius:50%;background:var(--line);color:var(--ink);font-size:12px;font-weight:700;display:grid;place-items:center}
+  .steps button b{display:block;font-weight:700}
+  .steps button span{color:var(--muted);font-size:13px;display:none}
+  .steps button[aria-current="step"]{border-color:var(--brand);background:var(--brand-soft)}
+  .steps button[aria-current="step"]::before{background:var(--brand);color:var(--surface)}
+  .steps button[aria-current="step"] span{display:block;margin-top:2px;color:var(--ink)}
+  .stage{position:sticky;top:70px}
+  .nav2{display:flex;gap:8px;justify-content:center;margin-top:10px}
+  .nav2 button{padding:7px 16px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:13px}
+  .nav2 button:disabled{opacity:.4;cursor:default}
+  .cap{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+
+  /* ---------- điện thoại minh họa (vẽ lại bằng HTML, không phải ảnh chụp thật) ---------- */
+  .phone{width:270px;height:500px;border:8px solid #1d2733;border-radius:30px;background:#fff;color:#13202e;overflow:hidden;position:relative;font-size:11px;line-height:1.35;box-shadow:0 6px 20px rgba(0,0,0,.18);margin:0 auto}
+  .ph-bar{height:22px;background:#0B5CAD;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:space-between;padding:0 10px;letter-spacing:.04em}
+  .ph-bar.in{background:#16784A}
+  .ph-bar.drv{background:#6B3FA0}
+  .ph-bar.store{background:#B45309}
+  .ph-b{padding:10px;position:relative;height:calc(100% - 22px)}
+  .ph-lbl{font-size:9px;font-weight:700;letter-spacing:.06em;color:#5B6B7B;margin:8px 0 3px}
+  .ph-in{border:1px solid #c9d3dd;border-radius:6px;padding:7px 8px;background:#fff;font-size:11px}
+  .ph-sel{background:#E3EEF9;border-radius:6px;padding:7px 8px;font-weight:700;color:#0B5CAD;margin-top:6px}
+  .ph-list div{padding:6px 8px;border-bottom:1px solid #e5eaef}
+  .ph-btn{margin-top:8px;border-radius:6px;background:#0B5CAD;color:#fff;font-weight:700;text-align:center;padding:8px;font-size:11px}
+  .ph-btn.gray{background:#e5eaef;color:#13202e}
+  .ph-btn.red{background:#B4232C}
+  .ph-btn.dis{background:#c9d3dd;color:#fff}
+  .ph-cnt{display:flex;gap:6px;margin:6px 0}
+  .ph-cnt div{flex:1;text-align:center;border-radius:6px;background:#f1f4f7;padding:5px 2px}
+  .ph-cnt b{display:block;font-size:16px}
+  .ph-rec div{padding:4px 7px;border-radius:5px;margin-bottom:3px;font-family:var(--mono);font-size:10px}
+  .ph-rec .g{background:#E1F4EA;color:#16784A}
+  .ph-rec .r{background:#FBE7E8;color:#B4232C}
+  .ph-ov{position:absolute;inset:0;background:rgba(10,20,30,.55);display:flex;align-items:center;justify-content:center;padding:12px}
+  .ph-pop{background:#fff;border-radius:10px;padding:12px;width:100%}
+  .ph-pop h4{margin:0 0 6px;font-size:12px}
+  .chip{display:inline-block;font-family:var(--mono);font-size:9px;background:#e5eaef;border-radius:4px;padding:2px 5px;margin:0 3px 3px 0}
+  .chip.pick{background:#B4232C;color:#fff}
+  .ph-pill{position:absolute;right:8px;bottom:10px;border-radius:16px;padding:6px 10px;font-weight:700;font-size:10px;color:#fff;background:#2563EB;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .ph-pill.warn{background:#D97706}
+  .ph-flash{position:absolute;inset:0;background:#B4232C;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;gap:8px;font-weight:700;font-size:13px}
+  .ph-flash small{font-weight:500;font-size:11px}
+  .hl{outline:2.5px solid #F59E0B;outline-offset:1px;animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{50%{outline-color:rgba(245,158,11,.25)}}
+  .slip{border:1px solid #13202e;font-size:8px}
+  .slip td,.slip th{border:1px solid #13202e;padding:2px 3px;text-align:left}
+  .slip th{background:#eef2f6}
+
+  /* ---------- sơ đồ vòng đời ---------- */
+  .life{display:flex;flex-wrap:wrap;gap:8px 0;align-items:center;margin:8px 0 14px}
+  .life button.n{font-family:var(--mono);font-size:12px;font-weight:600;padding:9px 12px;border-radius:8px;border:2px solid transparent;background:var(--brand-soft);color:var(--brand)}
+  .life button.n[aria-pressed="true"]{border-color:var(--brand);background:var(--brand);color:var(--surface)}
+  .life .ar{padding:0 8px;color:var(--muted);font-size:12px;text-align:center}
+  .life .ar b{display:block;color:var(--ink)}
+  .detail{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--bg)}
+  .detail dl{display:grid;grid-template-columns:120px 1fr;gap:4px 12px;margin:0}
+  .detail dt{color:var(--muted);font-size:13px}
+  .detail dd{margin:0}
+
+  /* ---------- sơ đồ ghi nền ---------- */
+  .lanes{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+  .lane-grid{display:grid;grid-template-columns:110px repeat(7,minmax(104px,1fr));min-width:850px}
+  .lane-grid > div{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:6px;min-height:62px;font-size:12px}
+  .lane-grid .lh{background:var(--bg);font-weight:700;display:flex;align-items:center;font-size:12px}
+  .lane-grid .ch{background:var(--bg);color:var(--muted);font-weight:700;text-align:center;min-height:0;padding:4px}
+  .lane-grid .cell.on{background:var(--brand-soft);color:var(--ink)}
+  .lane-grid .cell.cur{background:var(--brand);color:var(--surface);font-weight:600}
+  .play{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .play button{padding:7px 16px;border-radius:6px;border:1px solid var(--brand);background:var(--brand);color:var(--surface);font-weight:700;font-size:13px}
+  #laneNote{font-size:14px;color:var(--ink)}
+
+  /* ---------- sự cố + checklist ---------- */
+  .find{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;margin-bottom:10px}
+  .tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+  tr:last-child td{border-bottom:0}
+  .chk{list-style:none;margin:0 0 12px;padding:0}
+  .chk label{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+  .chk input{width:18px;height:18px;margin-top:3px;flex:none}
+  .chk input:checked + span{text-decoration:line-through;color:var(--muted)}
+  .reset{padding:6px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;font-size:13px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  footer{font-size:12px;color:var(--muted);text-align:center;margin-top:20px}
+
+  @media (max-width:760px){
+    .walk{grid-template-columns:1fr}
+    .stage{position:static;order:-1}
+    .detail dl{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){ .hl{animation:none} }
+</style>
+
+<div class="wrap">
+  <h1>SOP Tote Tracking – GS25 Bình Điền WH</h1>
+  <p class="lead">Chọn vai trò của bạn, bấm từng bước để xem màn hình tương ứng. Hình điện thoại là minh họa vẽ lại theo bố cục app, màu và chữ có thể khác bản thật đôi chút.</p>
+  <div class="callout warn"><b>Bản nháp chạy thử</b>Phần có nhãn “Mới” (OUT tự bắt đầu phiên, ghi nền) chưa có trên app đang chạy, chỉ áp dụng khi quản trị thông báo.</div>
+
+  <nav aria-label="Vai trò">
+    <ul role="tablist" id="tabs">
+      <li><button role="tab" data-t="tongquan" aria-selected="true">Tổng quan</button></li>
+      <li><button role="tab" data-t="kho" aria-selected="false">Nhân viên kho</button></li>
+      <li><button role="tab" data-t="taixe" aria-selected="false">Tài xế</button></li>
+      <li><button role="tab" data-t="cuahang" aria-selected="false">Cửa hàng</button></li>
+      <li><button role="tab" data-t="admin" aria-selected="false">In phiếu</button></li>
+      <li><button role="tab" data-t="suco" aria-selected="false">Sự cố</button></li>
+      <li><button role="tab" data-t="ca" aria-selected="false">Checklist</button></li>
+    </ul>
+  </nav>
+
+  <!-- ===== TỔNG QUAN ===== -->
+  <div class="panel on" id="p-tongquan">
+    <div class="card">
+      <h2>Vòng đời một tote / rổ</h2>
+      <p class="who">Bấm vào từng trạng thái để xem ai làm gì, ở màn nào.</p>
+      <div class="life" id="life"></div>
+      <div class="detail" id="lifeDetail"></div>
+      <div class="callout warn"><b>Quét sai trạng thái</b>Hệ thống tự cập nhật và ghi dòng BẤT THƯỜNG vào lịch sử. Chọn nhầm cửa hàng thì dữ liệu bị đóng băng, không đổi trạng thái.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3 style="margin-top:0">Mã và hai kho</h3>
+        <p><code>TOT_YE_n</code> <code>TOT_BR_n</code> – tote, <b>kho khô</b> (AMB).<br>
+           <code>BAS_RE_n</code> (rổ đỏ) <code>BAS_BR_n</code> (rổ nâu) – rổ, <b>kho lạnh</b> (COLD).</p>
+        <p>Không quét lẫn hai loại trong cùng một phiên.</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Ai làm được gì</h3>
+        <p><b>Kho:</b> OUT, IN. <b>Tài xế:</b> giao và nhận tại cửa hàng. <b>Cửa hàng:</b> chỉ cửa hàng mình. <b>Admin:</b> tất cả, in phiếu. <b>Khách xem:</b> chỉ xem báo cáo.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:0">
+      <h2>Sơ đồ ghi nền khi xuất rổ (OUT) <span class="tag">Mới</span></h2>
+      <p class="who">Nhân viên kho không phải chờ máy chủ. Bấm “Phát” để xem từng bước chạy.</p>
+      <div class="play"><button id="lanePlay">▶ Phát</button><span id="laneNote">Bấm Phát để xem.</span></div>
+      <div class="lanes"><div class="lane-grid" id="laneGrid"></div></div>
+    </div>
+  </div>
+
+  <!-- ===== BÀI HƯỚNG DẪN: dựng bằng JS ===== -->
+  <div class="panel" id="p-kho">
+    <div class="card"><h2>OUT – xuất rổ cho cửa hàng <span class="tag">Mới</span></h2><p class="who">Màn OUT của nhân viên kho.</p><div class="walk" id="w-out"></div>
+      <div class="callout stop"><b>Dải mã BAS_BR_4401 đến 4500 đang bị khóa xuất</b>In trùng tem. Quét vào sẽ đỏ, rung, không nhận vào phiên. Để rổ riêng và liên hệ người phụ trách.</div>
+      <div class="callout warn"><b>Hủy phiên không ghi gì</b>Chỉ bỏ các mã đang giữ trên máy. Sau khi Xác nhận thì không hủy được nữa.</div></div>
+    <div class="card"><h2>IN – nhập rổ về kho</h2><p class="who">Màn IN. Ghi ngay khi quét, không có bước Xác nhận ghi nền.</p><div class="walk" id="w-in"></div></div>
+  </div>
+
+  <div class="panel" id="p-taixe">
+    <div class="card"><h2>Giao rổ tới cửa hàng</h2><p class="who">Màn Giao Nhận của tài xế.</p><div class="walk" id="w-drv"></div></div>
+    <div class="card"><h2>Nhận rổ từ cửa hàng về kho</h2><div class="walk" id="w-ret"></div>
+      <div class="callout warn"><b>Mã lạ</b>Rổ không đúng trạng thái vẫn có thể được ghi nhận và đánh dấu bất thường. Thấy mã lạ thì nói với cửa hàng và kho.</div></div>
+  </div>
+
+  <div class="panel" id="p-cuahang">
+    <div class="card"><h2>Cửa hàng nhận và trả rổ</h2><p class="who">Tài khoản cửa hàng chỉ thao tác trên cửa hàng của mình.</p><div class="walk" id="w-store"></div>
+      <p>Kiểm kê: dùng chức năng kiểm kê để báo số rổ thực tế đang giữ, văn phòng sẽ đối chiếu với số hệ thống.</p></div>
+  </div>
+
+  <div class="panel" id="p-admin">
+    <div class="card"><h2>In phiếu xuất – thu hồi khay</h2><p class="who">Chỉ Admin, in bằng máy tính ở văn phòng.</p><div class="walk" id="w-slip"></div>
+      <p>Cột “SL cần thu” (số tồn nợ tại cửa hàng) tạm không in.</p></div>
+  </div>
+
+  <!-- ===== SỰ CỐ ===== -->
+  <div class="panel" id="p-suco">
+    <div class="card">
+      <h2>Xử lý sự cố</h2>
+      <input class="find" id="find" placeholder="Gõ từ khóa: chip, đỏ, thiếu, chọn nhầm…" aria-label="Tìm sự cố">
+      <div class="tbl"><table>
+        <thead><tr><th>Hiện tượng</th><th>Làm gì</th><th>Báo ai</th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- ===== CHECKLIST ===== -->
+  <div class="panel" id="p-ca">
+    <div class="card">
+      <h2>Checklist đầu ca và cuối ngày</h2>
+      <p class="who">Tích được, tự lưu trên máy này. Sang ngày mới thì bấm Đặt lại.</p>
+      <div class="grid2" id="chkWrap"></div>
+      <button class="reset" id="chkReset">Đặt lại</button>
+    </div>
+  </div>
+
+  <footer>SOP Tote Tracking · GS25 Bình Điền WH · bản nháp chạy thử</footer>
+</div>
+
+<script>
+(function(){
+  /* ============ Màn hình điện thoại minh họa ============ */
+  function phone(kind, body, hlKey, bar){
+    var h = '<div class="phone"><div class="ph-bar '+(kind||'')+'"><span>'+bar+'</span><span>● ▮▮▮</span></div><div class="ph-b">'+body+'</div></div>';
+    return h;
+  }
+  /* Mỗi màn: html thân; phần tử có data-k để làm nổi bật theo bước */
+  var S = {
+    outSelect: function(){ return '<div class="ph-lbl">CHỌN CỬA HÀNG</div><div class="ph-in" data-k="search">G0002 sao</div><div class="ph-list" data-k="list"><div><b>G0002</b><br>GS25 Sao Hỏa</div><div><b>G0021</b><br>GS25 Sao Mộc</div></div><div class="ph-sel" data-k="sel">ĐÃ CHỌN: G0002 - GS25 Sao Hỏa</div>'; },
+    outTrip: function(){ return S.outSelect()+'<div class="ph-ov"><div class="ph-pop" data-k="pop"><h4>Cửa hàng đi 2 chuyến hôm nay</h4><div class="ph-btn">trip_1_20261022 · Chill</div><div class="ph-btn gray">trip_2_20261022 · Frozen</div></div></div>'; },
+    outScan: function(){ return '<div class="ph-sel" data-k="bar">ĐANG XUẤT: G0002 · trip_1_20261022</div><div class="ph-cnt"><div><b>8</b>Tổng</div><div><b>8</b>OK</div><div><b>0</b>Lỗi</div></div><div class="ph-in" data-k="scan">Quét mã ở đây…</div><div class="ph-rec" style="margin-top:6px" data-k="rec"><div class="g">BAS_RE_0112 ✓</div><div class="g">BAS_BR_0301 ✓</div><div class="g">BAS_RE_0113 ✓</div></div><div class="ph-btn red" data-k="end" style="position:absolute;left:10px;right:10px;bottom:10px">KẾT THÚC PHIÊN</div>'; },
+    outBlocked: function(){ return '<div class="ph-flash" data-k="flash"><div style="font-size:30px">⚠</div>BAS_BR_4410<small>Mã bị khóa xuất (in trùng tem).<br>Liên hệ người phụ trách.</small></div>'; },
+    outEnd: function(){ return S.outScan().replace(/data-k="[a-z]+"/g,'')+'<div class="ph-ov"><div class="ph-pop"><h4>Kết thúc phiên</h4>Cửa hàng: G0002<br>Tổng mã: <b>8</b><div style="margin:6px 0" data-k="chips"><span class="chip">BAS_RE_0112</span><span class="chip pick">BAS_RE_0113</span><span class="chip">BAS_BR_0301</span><span class="chip">…</span></div><div class="ph-btn red" data-k="rm">GỠ 1 MÃ ĐÃ CHỌN</div><div class="ph-btn" data-k="ok">XÁC NHẬN</div></div></div>'; },
+    outBg: function(){ return S.outSelect().replace('ĐÃ CHỌN: G0002 - GS25 Sao Hỏa','CHƯA CHỌN STORE').replace('G0002 sao','')+'<div class="ph-pill" data-k="pill">Đang ghi 7 mã lên máy chủ…</div>'; },
+    outAlert: function(){ return S.outSelect().replace('ĐÃ CHỌN: G0002 - GS25 Sao Hỏa','CHƯA CHỌN STORE').replace('G0002 sao','')+'<div class="ph-pill warn" data-k="pill">Có 1 cảnh báo mã - bấm để xem</div>'; },
+    inStart: function(){ return '<div class="ph-lbl">PHIÊN NHẬP</div><div style="color:#5B6B7B;margin:6px 0">IN không cần chọn cửa hàng. Bấm bắt đầu để tạo ranh giới phiên.</div><div class="ph-btn" data-k="start" style="background:#16784A">BẮT ĐẦU PHIÊN NHẬP</div>'; },
+    inScan: function(){ return '<div class="ph-sel" style="background:#E1F4EA;color:#16784A">ĐANG NHẬP KHO</div><div class="ph-cnt"><div><b>24</b>Tổng</div><div data-k="cnt"><b>24</b>Đã ghi</div><div><b>0</b>Lỗi</div></div><div class="ph-in" data-k="scan">Quét mã ở đây…</div><div class="ph-rec" style="margin-top:6px"><div class="g">BAS_RE_0201 ✓</div><div class="g">BAS_BR_0310 ✓</div></div><div class="ph-btn" data-k="end" style="position:absolute;left:10px;right:10px;bottom:10px;background:#16784A">KẾT THÚC PHIÊN</div>'; },
+    drvSelect: function(){ return '<div class="ph-lbl">CHỌN CỬA HÀNG</div><div class="ph-in" data-k="search">G0002 sao</div><div class="ph-sel" data-k="sel">ĐÃ CHỌN: G0002 - GS25 Sao Hỏa</div><div class="ph-sel" data-k="need" style="background:#EDE4F7;color:#6B3FA0">Cần giao tới cửa hàng này: 10 rổ</div><div class="ph-btn" data-k="map" style="background:#6B3FA0">MỞ GOOGLE MAPS</div>'; },
+    drvScan: function(){ return '<div class="ph-sel" style="background:#EDE4F7;color:#6B3FA0">GIAO TỚI: G0002</div><div class="ph-cnt"><div data-k="prog"><b>6/10</b>Đã quét</div><div><b>4</b>Còn thiếu</div></div><div class="ph-in">Quét mã ở đây…</div><div class="ph-rec" style="margin-top:6px"><div class="g">BAS_RE_0112 ✓</div><div class="r" data-k="rej">BAS_RE_0999 ✗ không thuộc cửa hàng này</div></div>'; },
+    drvEnd: function(){ return S.drvScan().replace(/data-k="[a-z]+"/g,'')+'<div class="ph-ov"><div class="ph-pop"><h4>Kết thúc phiên</h4>Đã quét 6 / 10<div class="callout" style="background:#FDF1DC;color:#B45309;padding:6px;border-radius:6px;margin:6px 0;font-weight:700" data-k="miss">THIẾU 4 mã: BAS_RE_0120, …</div><div class="ph-btn" style="background:#6B3FA0">XÁC NHẬN VẪN GHI</div></div></div>'; },
+    retSelect: function(){ return '<div class="ph-lbl">CHỌN CỬA HÀNG LẤY RỔ</div><div class="ph-in" data-k="search">G0002 sao</div><div class="ph-sel" data-k="sel">ĐÃ CHỌN: G0002 - GS25 Sao Hỏa</div><div class="ph-btn" style="background:#6B3FA0" data-k="start">BẮT ĐẦU</div>'; },
+    retScan: function(){ return '<div class="ph-sel" style="background:#EDE4F7;color:#6B3FA0">NHẬN VỀ KHO TỪ: G0002</div><div class="ph-cnt"><div><b>5</b>Đã quét</div></div><div class="ph-in" data-k="scan">Quét mã ở đây…</div><div class="ph-rec" style="margin-top:6px"><div class="g">BAS_RE_0112 ✓</div><div class="g">BAS_BR_0301 ✓</div></div><div class="ph-btn" data-k="end" style="position:absolute;left:10px;right:10px;bottom:10px;background:#6B3FA0">KẾT THÚC PHIÊN</div>'; },
+    storeIn: function(){ return '<div class="ph-lbl">VẬN CHUYỂN</div><div class="ph-sel" style="background:#FDF1DC;color:#B45309" data-k="in">Đang giao tới cửa hàng: 10 rổ</div><div class="ph-sel" style="background:#f1f4f7;color:#13202e" data-k="back">Đang về kho: 0 rổ</div>'; },
+    storeScan: function(){ return '<div class="ph-sel" style="background:#FDF1DC;color:#B45309">NHẬN RỔ</div><div class="ph-cnt"><div data-k="prog"><b>10/10</b>Đã quét</div></div><div class="ph-in">Quét mã ở đây…</div><div class="ph-btn" data-k="end" style="background:#B45309;position:absolute;left:10px;right:10px;bottom:10px">KẾT THÚC PHIÊN</div>'; },
+    slip: function(){ return '<div style="font-weight:800;font-size:13px">SAMSUNG SDS</div><div style="font-size:8px">GS25 BÌNH ĐIỀN WH · PHIẾU XUẤT - THU HỒI KHAY</div><div style="border-top:1.5px solid #13202e;border-bottom:1.5px solid #13202e;margin:4px 0;padding:3px 0;font-size:8px" data-k="head">Ngày 22/10/2026 · Chuyến trip_1 · Chill<br>Nhà vận tải: ABC · Xe: 51C-123 · Tài xế: Nam · Biển số: ……</div><table class="slip" style="width:100%;border-collapse:collapse" data-k="tbl"><tr><th>TT</th><th>Mã CH</th><th>Cửa hàng</th><th>Loại</th><th>SL giao</th><th>SL trả</th><th>Dấu</th></tr><tr><td rowspan="3">1</td><td rowspan="3">G0002</td><td rowspan="3">Sao Hỏa</td><td>Rổ đỏ</td><td>6</td><td></td><td rowspan="3"></td></tr><tr><td>Rổ nâu</td><td>4</td><td></td></tr><tr><td>Khay HD</td><td></td><td></td></tr><tr><td colspan="3"><b>TỔNG CẢ XE</b></td><td>Tổng rổ</td><td>10</td><td></td><td></td></tr></table><div style="font-size:7px;margin-top:6px;color:#5B6B7B">In lúc 22/10/2026 16:05 · Tờ 1/1</div>'; },
+    slipList: function(){ return '<div class="ph-lbl">NGÀY</div><div class="ph-in" data-k="date">22/10/2026</div><div class="ph-btn gray" data-k="sel" style="margin-top:6px">CHỌN CHUYẾN ĐÃ BẮN</div><div class="ph-list" style="margin-top:6px"><div data-k="trips">☑ <b>trip_1</b> · 15 cửa hàng · 142 rổ<br><span style="color:#16784A">Đã bắn</span></div><div>☐ <b>trip_2</b> · 12 cửa hàng · 0 rổ<br><span style="color:#5B6B7B">Chưa bắn</span></div></div><div class="ph-btn" data-k="print" style="position:absolute;left:10px;right:10px;bottom:10px">IN CÁC CHUYẾN ĐÃ CHỌN</div>'; }
+  };
+  function render(name, key, kind, bar){ return phone(kind, S[name](), key, bar); }
+
+  /* ============ Các bài hướng dẫn ============ */
+  var W = {
+    out: { kind:'', bar:'OUT · XUẤT', steps:[
+      ['Mở màn OUT','Lịch chuyến hôm nay tự tải sẵn, không cần thao tác.','outSelect','search'],
+      ['Chọn cửa hàng','Gõ ID hoặc tên, chọn trong danh sách. Kiểm tra dòng “ĐÃ CHỌN” đúng cửa hàng.','outSelect','sel'],
+      ['Chọn chuyến (nếu có hỏi)','Cửa hàng đi một chuyến thì tự gắn chuyến. Đi hai chuyến (hàng đông và hàng chill) thì chọn chuyến đang xuất.','outTrip','pop'],
+      ['Phiên tự bắt đầu','Không có nút “Bắt đầu phiên quét”. Chọn nhầm cửa hàng thì Hủy phiên rồi chọn lại.','outScan','bar'],
+      ['Quét từng rổ','Mã xanh là nhận. Mã đỏ là lỗi kèm lý do.','outScan','rec'],
+      ['Gặp mã bị khóa','Màn đỏ, rung. Để rổ riêng, không quét lại, báo người phụ trách.','outBlocked','flash'],
+      ['Kết thúc phiên','Cửa sổ tổng kết hiện số mã. Quét nhầm thì chạm vào mã để chọn.','outEnd','chips'],
+      ['Gỡ mã nhầm rồi Xác nhận','Bấm gỡ mã đã chọn, sau đó Xác nhận.','outEnd','ok'],
+      ['Làm tiếp cửa hàng kế','Máy về màn chọn cửa hàng ngay. Chip xanh cho biết đang ghi nền. Chip biến mất là đã ghi xong.','outBg','pill'],
+      ['Chip cam: xem cảnh báo','Có mã lỗi hoặc bất thường. Chạm chip, đọc danh sách, ghi lại mã.','outAlert','pill']
+    ]},
+    in: { kind:'in', bar:'IN · NHẬP', steps:[
+      ['Mở màn IN và bấm Bắt đầu','IN không cần chọn cửa hàng. Hệ thống tự thu hồi về đúng cửa hàng cũ của từng rổ.','inStart','start'],
+      ['Quét từng rổ','Mã được ghi ngay: đủ 10 mã hoặc sau 1,5 giây không quét thêm thì gửi.','inScan','scan'],
+      ['Kết thúc phiên','Chờ không còn mã đang gửi rồi mới Xác nhận. Quét nhầm trong IN thì báo quản trị, đừng quét bù.','inScan','end']
+    ]},
+    drv: { kind:'drv', bar:'GIAO NHẬN', steps:[
+      ['Chọn chế độ giao rổ và chọn cửa hàng','Màn hiện số rổ cần giao tới cửa hàng này.','drvSelect','need'],
+      ['Cần chỉ đường','Bấm vào cửa hàng để mở Google Maps. Chưa có tọa độ thì báo văn phòng.','drvSelect','map'],
+      ['Quét từng rổ giao','Màn hiện “Đã quét X / Y – còn thiếu Z”.','drvScan','prog'],
+      ['Rổ không thuộc cửa hàng','Bị từ chối ngay, không vào phiên.','drvScan','rej'],
+      ['Kết thúc phiên','Còn thiếu thì hiện “THIẾU n mã”. Vẫn xác nhận được, nhưng hãy báo cửa hàng và kho trước.','drvEnd','miss']
+    ]},
+    ret: { kind:'drv', bar:'GIAO NHẬN', steps:[
+      ['Chọn chế độ nhận rổ về kho','Chọn cửa hàng đang lấy rổ.','retSelect','sel'],
+      ['Quét từng rổ lấy lên xe','Rổ chuyển sang trạng thái “đang về kho”.','retScan','scan'],
+      ['Kết thúc phiên và xác nhận','Rổ chờ kho nhập IN.','retScan','end']
+    ]},
+    store: { kind:'store', bar:'CỬA HÀNG', steps:[
+      ['Xem rổ đang giao tới','Mở Vận chuyển để xem số rổ đang giao tới và đang về kho.','storeIn','in'],
+      ['Đối chiếu số rổ','So số rổ thực tế với phiếu của tài xế.','storeIn','in'],
+      ['Quét nhận từng rổ','Kết thúc phiên và xác nhận.','storeScan','prog'],
+      ['Đóng dấu lên phiếu','Đóng dấu vào ô “Đóng dấu” của phiếu xuất – thu hồi khay. Rổ trả thì ghi tay “SL CH trả”.','slip','tbl']
+    ]},
+    slip: { kind:'', bar:'IN PHIẾU', steps:[
+      ['Chọn ngày','Các chuyến đã bắn OUT được tick sẵn.','slipList','date'],
+      ['Kiểm tra trước khi in','Không còn chip “Đang ghi” ở kho. Còn chip thì phiếu có thể thiếu rổ.','slipList','trips'],
+      ['Bấm in','A4 dọc, mỗi chuyến một phiếu, chỉ cửa hàng thực tế có xuất rổ.','slipList','print'],
+      ['Phiếu đưa tài xế','Số kho giao điền sẵn. Khay phụ và “SL CH trả” để trống điền tay; cửa hàng đóng dấu.','slip','tbl']
+    ]}
+  };
+
+  function mountWalk(id){
+    var cfg = W[id], root = document.getElementById('w-'+id), cur = 0;
+    var ol = document.createElement('ol'); ol.className='steps';
+    var stage = document.createElement('div'); stage.className='stage';
+    var nav = document.createElement('div'); nav.className='nav2';
+    var prev = document.createElement('button'); prev.textContent='◀ Trước';
+    var next = document.createElement('button'); next.textContent='Tiếp ▶';
+    nav.appendChild(prev); nav.appendChild(next);
+    var scr = document.createElement('div');
+    var cap = document.createElement('div'); cap.className='cap';
+    stage.appendChild(scr); stage.appendChild(nav); stage.appendChild(cap);
+    var btns = cfg.steps.map(function(st,i){
+      var li=document.createElement('li'), b=document.createElement('button');
+      b.innerHTML='<b></b><span></span>'; b.firstChild.textContent=st[0]; b.lastChild.textContent=st[1];
+      b.onclick=function(){ go(i); }; li.appendChild(b); ol.appendChild(li); return b;
+    });
+    function go(i){
+      cur=i;
+      btns.forEach(function(b,j){ if(j===i) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current'); });
+      var st=cfg.steps[i];
+      scr.innerHTML = render(st[2], '', cfg.kind, cfg.bar);
+      var hl = scr.querySelector('[data-k="'+st[3]+'"]'); if(hl) hl.classList.add('hl');
+      cap.textContent = 'Bước '+(i+1)+'/'+cfg.steps.length+' · minh họa màn hình';
+      prev.disabled = i===0; next.disabled = i===cfg.steps.length-1;
+    }
+    prev.onclick=function(){ if(cur>0) go(cur-1); };
+    next.onclick=function(){ if(cur<cfg.steps.length-1) go(cur+1); };
+    root.appendChild(ol); root.appendChild(stage); go(0);
+  }
+  Object.keys(W).forEach(mountWalk);
+
+  /* ============ Vòng đời ============ */
+  var NODES = [
+    {k:'Trong kho',  c:'IN_WAREHOUSE', who:'Kho', op:'Đang nằm trong kho, sẵn sàng xuất.', scr:'Báo cáo > tồn kho', wr:'Không có thao tác. Trạng thái cuối của vòng IN.'},
+    {k:'Đang giao tới CH', c:'IN_TRANSIT_TO_STORE', who:'Nhân viên kho', op:'OUT (xuất cho cửa hàng)', scr:'Màn OUT', wr:'Ghi vào TOTE_LOG: action OUT, cửa hàng, chuyến, phiên.'},
+    {k:'Tại cửa hàng', c:'IN_STORE', who:'Tài xế hoặc cửa hàng', op:'STORE_RECEIVE (nhận tại cửa hàng)', scr:'Giao Nhận / Nhận rổ của cửa hàng', wr:'Cộng số rổ tại cửa hàng (STORE_BALANCE).'},
+    {k:'Đang về kho', c:'IN_TRANSIT_TO_WAREHOUSE', who:'Tài xế hoặc cửa hàng', op:'STORE_RETURN (trả về kho)', scr:'Giao Nhận / Trả rổ', wr:'Trừ số rổ tại cửa hàng, chờ kho nhập.'}
+  ];
+  var arrows = ['OUT','Nhận','Trả','IN'];
+  var life = document.getElementById('life'), det = document.getElementById('lifeDetail');
+  function showNode(i){
+    var n = NODES[i];
+    Array.prototype.forEach.call(life.querySelectorAll('button.n'), function(b,j){ b.setAttribute('aria-pressed', j===i ? 'true':'false'); });
+    det.innerHTML = '<dl><dt>Trạng thái</dt><dd><code>'+n.c+'</code> – '+n.k+'</dd><dt>Ai chuyển vào</dt><dd>'+n.who+'</dd><dt>Thao tác</dt><dd>'+n.op+'</dd><dt>Màn hình</dt><dd>'+n.scr+'</dd><dt>Hệ thống ghi</dt><dd>'+n.wr+'</dd></dl>';
+  }
+  NODES.forEach(function(n,i){
+    var b=document.createElement('button'); b.className='n'; b.textContent=n.k; b.onclick=function(){ showNode(i); };
+    life.appendChild(b);
+    var a=document.createElement('span'); a.className='ar'; a.innerHTML='<b>'+arrows[i]+'</b>→'; life.appendChild(a);
+  });
+  var back=document.createElement('span'); back.className='ar'; back.innerHTML='quay lại <b>Trong kho</b>'; life.appendChild(back);
+  showNode(1);
+
+  /* ============ Sơ đồ ghi nền ============ */
+  var LANES = ['Nhân viên kho','App trên PDA','Hàng chờ (trên máy)','Apps Script'];
+  var LS = [
+    {l:0,t:'Quét rổ cửa hàng A',n:'Quét từng rổ, mã giữ tạm trên máy.'},
+    {l:0,t:'Bấm Xác nhận',n:'Đã gỡ mã nhầm (nếu có), bấm Xác nhận.'},
+    {l:2,t:'Lưu phiên A',n:'Phiên A được lưu vào hàng chờ ngay trên máy.'},
+    {l:1,t:'Đóng phiên, về màn chọn',n:'App đóng phiên, nhân viên không phải chờ.'},
+    {l:0,t:'Quét cửa hàng B',n:'Nhân viên làm tiếp cửa hàng kế tiếp trong lúc A đang gửi.'},
+    {l:3,t:'Nhận lô ≤100 mã, ghi',n:'Hàng chờ gửi từng lô lên Apps Script, ghi vào TOTE_LOG.'},
+    {l:1,t:'Chip xanh biến mất / chip cam',n:'Máy chủ trả kết quả. Mã lỗi hoặc bất thường thì chip chuyển cam.'}
+  ];
+  var grid = document.getElementById('laneGrid'), note = document.getElementById('laneNote'), timer = null, idx = -1;
+  function drawLanes(){
+    var h = '<div class="lh ch"></div>';
+    LS.forEach(function(s,i){ h += '<div class="ch">Bước '+(i+1)+'</div>'; });
+    LANES.forEach(function(ln,li){
+      h += '<div class="lh">'+ln+'</div>';
+      LS.forEach(function(s,i){
+        if(s.l===li){ h += '<div class="cell '+(i===idx?'cur':(i<idx?'on':''))+'">'+s.t+'</div>'; }
+        else h += '<div></div>';
+      });
+    });
+    grid.innerHTML = h;
+    note.textContent = idx<0 ? 'Bấm Phát để xem.' : LS[idx].n;
+  }
+  drawLanes();
+  var playBtn = document.getElementById('lanePlay');
+  playBtn.onclick = function(){
+    if(timer){ clearInterval(timer); timer=null; playBtn.textContent='▶ Phát'; return; }
+    idx = -1; playBtn.textContent='❚❚ Dừng';
+    timer = setInterval(function(){
+      idx++;
+      if(idx>=LS.length){ clearInterval(timer); timer=null; playBtn.textContent='▶ Phát lại'; idx=LS.length-1; drawLanes(); return; }
+      drawLanes();
+    }, 1500);
+  };
+
+  /* ============ Sự cố ============ */
+  var INC = [
+    ['Chọn nhầm cửa hàng ở màn OUT','Hủy phiên, chọn lại cửa hàng. Chưa có gì được ghi.','–'],
+    ['Quét nhầm một rổ trước khi Xác nhận','Vào cửa sổ tổng kết, chọn mã đó và gỡ.','–'],
+    ['Quét nhầm rổ sau khi đã Xác nhận','Ghi lại mã và cửa hàng, không quét bù.','Admin'],
+    ['Mã hiện đỏ, rung, “liên hệ người phụ trách”','Để rổ riêng, không quét lại.','Người phụ trách'],
+    ['Chip cam “Có n cảnh báo mã”','Chạm chip, đọc danh sách mã lỗi hoặc bất thường, ghi lại.','Admin'],
+    ['Chip đỏ “Chưa ghi được n mã”','Chạm chip để thử lại. Vẫn đỏ thì giữ nguyên máy, không đăng xuất.','Admin'],
+    ['Cửa sổ giao “THIẾU n mã”','Đếm lại rổ trên xe. Báo trước khi xác nhận.','Kho, cửa hàng'],
+    ['Cửa hàng không có chuyến, hoặc chuyến sai','Chọn thủ công khi có cửa sổ hỏi. Hôm nay chưa có lịch thì báo văn phòng.','Admin'],
+    ['Phiếu in thiếu rổ','Kiểm tra chip ghi nền ở kho, đợi hết rồi in lại.','Admin'],
+    ['Cảnh báo lịch chuyến chưa được nạp','Báo văn phòng để cập nhật lịch chuyến.','Admin'],
+    ['Bị đẩy ra màn đăng nhập','Đăng nhập lại. Phiên đăng nhập hết sau 6 giờ không dùng.','–']
+  ];
+  var tb = document.getElementById('tb'), find = document.getElementById('find');
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function drawInc(){
+    var q = find.value.trim().toLowerCase();
+    tb.innerHTML = INC.filter(function(r){ return !q || r.join(' ').toLowerCase().indexOf(q)!==-1; })
+      .map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>'; }).join('')
+      || '<tr><td colspan="3">Không có mục nào khớp.</td></tr>';
+  }
+  find.oninput = drawInc; drawInc();
+
+  /* ============ Checklist ============ */
+  var CK = [
+    ['Đầu ca (kho)',['Đăng nhập đúng tài khoản kho (khô hoặc lạnh)','Mở màn OUT, lịch chuyến hôm nay đã có','PDA quét thử một mã, nghe tiếng bíp']],
+    ['Cuối ca (kho)',['Mọi phiên OUT đã Xác nhận, chip ghi nền đã biến mất','Phiên IN đã Kết thúc','Đã đọc chip cam và ghi lại mã bất thường','Đăng xuất']],
+    ['Cuối ngày (văn phòng)',['In phiếu các chuyến đã bắn, kiểm tra tổng rổ','Xem lại dòng bất thường trong ngày','Ngày mai đã có lịch chuyến']]
+  ];
+  var KEY='SOP_TOTE_CHECK', saved={};
+  try{ saved = JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ saved={}; }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(saved)); }catch(e){} }
+  var wrap = document.getElementById('chkWrap');
+  CK.forEach(function(g,gi){
+    var d=document.createElement('div'); d.innerHTML='<h3 style="margin-top:0">'+g[0]+'</h3>';
+    var ul=document.createElement('ul'); ul.className='chk';
+    g[1].forEach(function(t,ti){
+      var id='ck'+gi+'_'+ti, li=document.createElement('li');
+      li.innerHTML='<label><input type="checkbox" id="'+id+'"><span></span></label>';
+      li.querySelector('span').textContent=t;
+      var inp=li.querySelector('input'); inp.checked=!!saved[id];
+      inp.onchange=function(){ if(inp.checked) saved[id]=1; else delete saved[id]; save(); };
+      ul.appendChild(li);
+    });
+    d.appendChild(ul); wrap.appendChild(d);
+  });
+  document.getElementById('chkReset').onclick=function(){
+    saved={}; save(); Array.prototype.forEach.call(wrap.querySelectorAll('input'),function(i){ i.checked=false; });
+  };
+
+  /* ============ Tab theo vai trò ============ */
+  var tabs = document.querySelectorAll('#tabs button');
+  function openTab(t){
+    Array.prototype.forEach.call(tabs,function(b){ b.setAttribute('aria-selected', b.getAttribute('data-t')===t?'true':'false'); });
+    Array.prototype.forEach.call(document.querySelectorAll('.panel'),function(p){ p.classList.toggle('on', p.id==='p-'+t); });
+    try{ history.replaceState(null,'','#'+t); }catch(e){}
+  }
+  Array.prototype.forEach.call(tabs,function(b){ b.onclick=function(){ openTab(b.getAttribute('data-t')); window.scrollTo(0,0); }; });
+  var h = (location.hash||'').replace('#','');
+  if(h && document.getElementById('p-'+h)) openTab(h);
+})();
+</script>
+
+</body></html>
