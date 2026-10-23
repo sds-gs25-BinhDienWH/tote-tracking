@@ -934,6 +934,18 @@
   .lk-ic{ font-weight:900; width:16px; } .lk-ic.ok{ color:#16784A; } .lk-ic.no{ color:#B4232C; }
   .lk-q{ font-weight:700; } .lk-t{ font-size:11px; color:var(--muted, #667); }
   .lk-no{ color:#B4232C; font-weight:800; font-size:12px; }
+  .lk-tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin:8px 0 12px; }
+  .lk-tile{ border:1px solid var(--line, #ddd); border-radius:10px; padding:8px 10px; }
+  .lk-tile b{ display:block; font-size:20px; line-height:1.2; } .lk-tile span{ font-size:11px; color:var(--muted, #667); }
+  details.lk-grp{ border:1px solid var(--line, #ddd); border-radius:10px; margin-bottom:10px; }
+  details.lk-grp > summary{ list-style:none; cursor:pointer; padding:10px 12px; }
+  details.lk-grp > summary::-webkit-details-marker{ display:none; }
+  details.lk-grp > summary .lk-arrow{ display:inline-block; width:16px; transition:transform .15s; }
+  details.lk-grp[open] > summary .lk-arrow{ transform:rotate(90deg); }
+  details.lk-grp > .lk-body{ padding:0 10px 8px; }
+  details.lk-grp.lk-carrier > summary{ font-size:15px; background:var(--bg, #f3f5f7); border-radius:10px; }
+  details.lk-grp.lk-trip{ margin:8px 0 0; } details.lk-grp.lk-trip > summary{ font-size:13px; }
+  .lk-line{ font-size:12px; color:var(--muted, #667); margin-top:3px; }
   #screen-dailyOut.trip .export-row{ display:none; }
   .ps-arch{ margin-top:22px; padding-top:12px; border-top:2px solid var(--border, #ddd); }
   .ps-arch-title{ font-weight:800; font-size:14px; margin-bottom:8px; }
@@ -1744,7 +1756,7 @@
 
           <label id="dailyOutSearchLabel" data-i18n="findStoreLabel">Tìm Store</label>
           <div class="store-combo">
-            <input id="dailyOutSearch" data-i18n-placeholder="dashSearchPlaceholder" placeholder="STORE ID / NAME" autocomplete="off" onkeydown="handleDailyOutKey(event)">
+            <input id="dailyOutSearch" data-i18n-placeholder="dashSearchPlaceholder" placeholder="STORE ID / NAME" autocomplete="off" onkeydown="handleDailyOutKey(event)" oninput="onLookupSearchInput()">
             <div id="dailyOutStoreList" class="store-list"></div>
           </div>
 
@@ -6297,54 +6309,98 @@
 
     function setLookupOnlyTodo(on) { lookupOnlyTodo = !!on; if (lookupRes) renderOutLookup(lookupRes); }
 
+    let lookupOpen = {};            // nhớ nhóm/chuyến người dùng đã mở (khóa 'c:<nhà vận tải>' / 't:<chuyến>')
+    let lookupSearchTimer = null;
+
+    function lookupToggle(key, el) { lookupOpen[key] = !el.parentNode.open; }     // chạy TRƯỚC khi trình duyệt đổi trạng thái
+    function onLookupSearchInput() {
+      if (dailyAction !== 'TRIP' || !lookupRes) return;
+      clearTimeout(lookupSearchTimer);
+      lookupSearchTimer = setTimeout(function() { renderOutLookup(lookupRes); }, 250);
+    }
+
     function renderOutLookup(res) {
       const box = document.getElementById('dailyOutResult');
       if (!res || !res.success) { box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('noDataGeneric')) + '</div>'; return; }
       lookupRes = res;
       const q = normalizeText(document.getElementById('dailyOutSearch').value);
-      let nAll = 0, nDone = 0, nTrays = 0;
       const inPlan = {};
-      res.trips.forEach(function(tr) {
-        nTrays += tr.totalTrays;
-        tr.stores.forEach(function(st) { nAll++; if (st.total > 0) nDone++; inPlan[st.id] = true; });
-      });
       const timeOf = function(at) { return at ? String(at).slice(11, 16) : ''; };
+      const hasRecv = res.trips.some(function(tr) { return tr.totalRecv !== undefined; });
+      const NOCARRIER = 'Chưa rõ nhà vận tải';
 
-      let html = '<div class="lk-sum">' + escHtml_(res.date) + ' · đã xuất ' + nDone + '/' + nAll + ' cửa hàng · ' + nTrays + ' rổ</div>' +
+      // gom theo nhà vận tải + tổng toàn bộ
+      const groups = {};
+      const order = [];
+      const all = { stores: 0, done: 0, trays: 0, recv: 0, trips: 0 };
+      res.trips.forEach(function(tr) {
+        const key = tr.carrier || NOCARRIER;
+        if (!groups[key]) { groups[key] = { name: key, trips: [], stores: 0, done: 0, trays: 0, recv: 0 }; order.push(key); }
+        const g = groups[key];
+        const done = tr.stores.filter(function(st) { return st.total > 0; }).length;
+        tr.stores.forEach(function(st) { inPlan[st.id] = true; });
+        g.trips.push(tr);
+        g.stores += tr.totalStores; g.done += done; g.trays += tr.totalTrays; g.recv += tr.totalRecv || 0;
+        all.stores += tr.totalStores; all.done += done; all.trays += tr.totalTrays; all.recv += tr.totalRecv || 0; all.trips++;
+      });
+      order.sort(function(x, y) { return x === NOCARRIER ? 1 : y === NOCARRIER ? -1 : x.localeCompare(y); });
+
+      const bar = function(pct) { return '<div class="lk-bar"><i style="width:' + pct + '%"></i></div>'; };
+      const tile = function(v, label, bad) { return '<div class="lk-tile"><b' + (bad ? ' class="lk-no" style="font-size:20px"' : '') + '>' + v + '</b><span>' + label + '</span></div>'; };
+      const keyAttr = function(k) { return escHtml_(k).replace(/['\\]/g, ''); };
+
+      let html = '<div class="lk-sum">' + escHtml_(res.date) + '</div><div class="lk-tiles">' +
+        tile(all.done + '/' + all.stores, 'cửa hàng đã xuất') +
+        tile(all.trays, 'rổ đã xuất') +
+        (hasRecv ? tile(all.recv + '/' + all.trays, 'rổ đã nhận', all.recv < all.trays) : '') +
+        tile(all.trips, 'chuyến') + '</div>' +
         '<label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px"><input type="checkbox" style="width:18px;height:18px;min-height:0;padding:0;flex:none;margin:0" ' + (lookupOnlyTodo ? 'checked' : '') +
         ' onchange="setLookupOnlyTodo(this.checked)"> Chỉ hiện cửa hàng CHƯA xuất</label>';
       if (res.auto) html += '<div class="ps-warn">Ngày này chưa có lịch chuyến, chỉ liệt kê các cửa hàng đã xuất.</div>';
 
-      let shownTrips = 0;
-      res.trips.forEach(function(tr) {
-        const tripMatch = q && normalizeText([tr.trip, tr.type, tr.truck, tr.driver, tr.carrier].join(' ')).includes(q);
-        const rows = tr.stores.filter(function(st) {
-          if (lookupOnlyTodo && st.total > 0) return false;
-          return !q || tripMatch || normalizeText(st.id + ' ' + st.name).includes(q);
+      let shown = 0;
+      order.forEach(function(ck) {
+        const g = groups[ck];
+        let tripsHtml = '';
+        g.trips.forEach(function(tr) {
+          const tripMatch = q && normalizeText([tr.trip, tr.type, tr.truck, tr.driver, tr.carrier].join(' ')).includes(q);
+          const rows = tr.stores.filter(function(st) {
+            if (lookupOnlyTodo && st.total > 0) return false;
+            return !q || tripMatch || normalizeText(st.id + ' ' + st.name).includes(q);
+          });
+          if (!rows.length) return;
+          const sums = tr.kinds.map(function(k) {
+            let n = 0;
+            tr.stores.forEach(function(st) { n += (st.qty && st.qty[k.kind]) || 0; });
+            return k.label + ' ' + n;
+          }).join(' · ');
+          const doneStores = tr.stores.filter(function(st) { return st.total > 0; }).length;
+          const pct = tr.totalStores ? Math.round(doneStores * 100 / tr.totalStores) : 0;
+          const extra = [tr.type, tr.truck ? 'Xe ' + tr.truck : '', tr.driver ? 'TX ' + tr.driver : ''].filter(Boolean).join(' · ');
+          const miss = hasRecv && tr.totalTrays > (tr.totalRecv || 0);
+          const tkey = 't:' + tr.trip;
+          tripsHtml += '<details class="lk-grp lk-trip"' + ((q || lookupOpen[tkey]) ? ' open' : '') + '><summary onclick="lookupToggle(\'' + keyAttr(tkey) + '\', this)">' +
+            '<span class="lk-arrow">▸</span><b>' + escHtml_(tr.trip) + '</b> <span class="lk-t">' + escHtml_(extra) + '</span>' +
+            '<div class="lk-line"><b>' + doneStores + '/' + tr.totalStores + '</b> cửa hàng · <b>' + tr.totalTrays + '</b> rổ' + (sums ? ' (' + escHtml_(sums) + ')' : '') +
+            (hasRecv ? ' · nhận <b>' + (tr.totalRecv || 0) + '/' + tr.totalTrays + '</b>' + (miss ? ' <span class="lk-no">còn ' + (tr.totalTrays - (tr.totalRecv || 0)) + '</span>' : '') : '') + '</div>' +
+            bar(pct) + '</summary><div class="lk-body">' +
+            rows.map(function(st) {
+              const qty = tr.kinds.map(function(k) { return k.label + ' ' + ((st.qty && st.qty[k.kind]) || 0); }).join(' · ');
+              return st.total > 0
+                ? '<div class="lk-row"><span class="lk-ic ok">✓</span><b>' + escHtml_(st.id) + '</b> ' + escHtml_(st.name) + ' <span class="lk-q">' + st.total + ' rổ</span>' + (st.recv !== undefined ? ' <span class="' + (st.recv < st.total ? 'lk-no' : 'lk-t') + '">nhận ' + st.recv + '/' + st.total + '</span>' : '') + ' <span class="lk-t">' +
+                  escHtml_(qty + (st.at ? ' · ' + timeOf(st.at) : '') + (st.user ? ' · ' + st.user : '')) + '</span></div>'
+                : '<div class="lk-row"><span class="lk-ic no">✗</span><b>' + escHtml_(st.id) + '</b> ' + escHtml_(st.name) + ' <span class="lk-no">CHƯA XUẤT</span></div>';
+            }).join('') + '</div></details>';
+          shown++;
         });
-        if (!rows.length) return;
-        shownTrips++;
-        const sums = tr.kinds.map(function(k) {
-          let n = 0;
-          tr.stores.forEach(function(st) { n += (st.qty && st.qty[k.kind]) || 0; });
-          return k.label + ' ' + n;
-        }).join(' · ');
-        const doneStores = tr.stores.filter(function(st) { return st.total > 0; }).length;
-        const pct = tr.totalStores ? Math.round(doneStores * 100 / tr.totalStores) : 0;
-        const extra = [tr.type, tr.carrier, tr.truck ? 'Xe ' + tr.truck : '', tr.driver ? 'TX ' + tr.driver : ''].filter(Boolean).join(' · ');
-        html += '<div class="lk-card"><div class="lk-head"><b>' + escHtml_(tr.trip) + '</b></div>' +
-          '<div class="lk-sub">' + escHtml_(extra) + '</div>' +
-          '<div><b>' + doneStores + '/' + tr.totalStores + '</b> cửa hàng đã xuất · <b>' + tr.totalTrays + '</b> rổ' + (sums ? ' (' + escHtml_(sums) + ')' : '') + '</div>' +
-          (tr.totalRecv !== undefined ? '<div>Đã nhận tại cửa hàng: <b>' + tr.totalRecv + '/' + tr.totalTrays + '</b>' +
-            (tr.totalTrays > tr.totalRecv ? ' · <span class="lk-no">còn ' + (tr.totalTrays - tr.totalRecv) + ' rổ chưa nhận</span>' : ' · đủ') + '</div>' : '') +
-          '<div class="lk-bar"><i style="width:' + pct + '%"></i></div>' +
-          rows.map(function(st) {
-            const qty = tr.kinds.map(function(k) { return k.label + ' ' + ((st.qty && st.qty[k.kind]) || 0); }).join(' · ');
-            return st.total > 0
-              ? '<div class="lk-row"><span class="lk-ic ok">✓</span><b>' + escHtml_(st.id) + '</b> ' + escHtml_(st.name) + ' <span class="lk-q">' + st.total + ' rổ</span>' + (st.recv !== undefined ? ' <span class="' + (st.recv < st.total ? 'lk-no' : 'lk-t') + '">nhận ' + st.recv + '/' + st.total + '</span>' : '') + ' <span class="lk-t">' +
-                escHtml_(qty + (st.at ? ' · ' + timeOf(st.at) : '') + (st.user ? ' · ' + st.user : '')) + '</span></div>'
-              : '<div class="lk-row"><span class="lk-ic no">✗</span><b>' + escHtml_(st.id) + '</b> ' + escHtml_(st.name) + ' <span class="lk-no">CHƯA XUẤT</span></div>';
-          }).join('') + '</div>';
+        if (!tripsHtml) return;
+        const gpct = g.stores ? Math.round(g.done * 100 / g.stores) : 0;
+        const ckey = 'c:' + ck;
+        html += '<details class="lk-grp lk-carrier"' + ((q || lookupOpen[ckey]) ? ' open' : '') + '><summary onclick="lookupToggle(\'' + keyAttr(ckey) + '\', this)">' +
+          '<span class="lk-arrow">▸</span><b>' + escHtml_(g.name) + '</b> <span class="lk-t">' + g.trips.length + ' chuyến</span>' +
+          '<div class="lk-line"><b>' + g.done + '/' + g.stores + '</b> cửa hàng đã xuất · <b>' + g.trays + '</b> rổ' +
+          (hasRecv ? ' · nhận <b>' + g.recv + '/' + g.trays + '</b>' + (g.trays > g.recv ? ' <span class="lk-no">còn ' + (g.trays - g.recv) + '</span>' : '') : '') + '</div>' +
+          bar(gpct) + '</summary><div class="lk-body">' + tripsHtml + '</div></details>';
       });
 
       // Tìm theo cửa hàng mà cửa hàng không nằm trong chuyến nào của ngày này
@@ -6355,7 +6411,7 @@
             (outAnyway ? ' · nhưng ĐÃ có rổ xuất cho cửa hàng này (không thuộc chuyến nào)' : '') + '</div></div>';
         });
       }
-      if (!shownTrips && !html.includes('lk-card')) html += '<div class="dashboard-card">Không có chuyến hoặc cửa hàng nào khớp.</div>';
+      if (!shown && !html.includes('lk-card')) html += '<div class="dashboard-card">Không có chuyến hoặc cửa hàng nào khớp.</div>';
       if (res.unassigned && res.unassigned.length) html += '<div class="ps-warn">Đã xuất nhưng không thuộc chuyến nào: ' + escHtml_(res.unassigned.join(', ')) + '</div>';
       box.innerHTML = html;
     }
