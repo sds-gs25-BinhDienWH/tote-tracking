@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive'
+    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive', 'getOutLookup', 'getStoreOutToday'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1, getOutLookup: 1, getStoreOutToday: 1
   };
   var MAX_RETRY = 2;
 
@@ -909,6 +909,32 @@
   .ps-chip{ font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; background:var(--bg); color:var(--muted); }
   .ps-chip.on{ background:var(--green-soft); color:var(--cyan-deep); }
   .ps-warn{ margin:10px 0; padding:10px 14px; font-size:13px; font-weight:700; color:var(--amber); background:var(--amber-soft); border-radius:var(--radius-sm); }
+  /* Thẻ "hôm nay đã xuất cho cửa hàng này" trên màn quét OUT */
+  .out-store-info{ border:1px solid var(--line, #ddd); border-radius:10px; padding:10px 12px; margin:8px 0 12px; font-size:13px; }
+  .out-store-info.some{ border-color:#16784A; background:#E1F4EA; color:#10553A; }
+  .out-store-info .osi-trip{ margin-top:6px; }
+  .out-store-info summary{ cursor:pointer; font-weight:700; }
+  .out-store-info .chip.pend{ background:#FDF1DC; color:#B45309; }
+
+  /* Màn OUT: nhãn "đã xuất" cạnh cửa hàng + tiến độ + danh sách chưa xuất; tra cứu theo chuyến */
+  .out-b{ display:inline-block; margin-left:8px; font-size:11px; font-weight:800; padding:1px 8px; border-radius:10px; vertical-align:1px; }
+  .out-b.done{ background:#E1F4EA; color:#16784A; } .out-b.part{ background:#FDF1DC; color:#B45309; } .out-b.todo{ background:#E3EEF9; color:#0B5CAD; }
+  .out-prog{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 10px; font-size:13px; font-weight:700; }
+  .out-prog button{ border:1px solid var(--line, #ccc); background:transparent; color:inherit; border-radius:6px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer; }
+  .out-todo{ max-height:240px; overflow:auto; border:1px solid var(--line, #ddd); border-radius:8px; margin-bottom:10px; }
+  .out-todo h5{ margin:0; padding:6px 10px; font-size:12px; background:var(--bg, #f3f5f7); position:sticky; top:0; }
+  .out-todo button{ display:block; width:100%; text-align:left; border:0; border-bottom:1px solid var(--line, #eee); background:transparent; color:inherit; padding:9px 10px; font-size:13px; cursor:pointer; }
+  .lk-sum{ margin:8px 0; font-weight:700; }
+  .lk-card{ border:1px solid var(--line, #ddd); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .lk-head{ font-size:14px; }
+  .lk-sub{ font-size:12px; color:var(--muted, #667); margin:2px 0 6px; }
+  .lk-bar{ height:6px; border-radius:3px; background:var(--line, #e3e8ee); overflow:hidden; margin:4px 0 8px; }
+  .lk-bar i{ display:block; height:100%; background:#16784A; }
+  .lk-row{ display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; padding:5px 0; border-top:1px dashed var(--line, #e3e8ee); font-size:13px; }
+  .lk-ic{ font-weight:900; width:16px; } .lk-ic.ok{ color:#16784A; } .lk-ic.no{ color:#B4232C; }
+  .lk-q{ font-weight:700; } .lk-t{ font-size:11px; color:var(--muted, #667); }
+  .lk-no{ color:#B4232C; font-weight:800; font-size:12px; }
+  #screen-dailyOut.trip .export-row{ display:none; }
   .ps-arch{ margin-top:22px; padding-top:12px; border-top:2px solid var(--border, #ddd); }
   .ps-arch-title{ font-weight:800; font-size:14px; margin-bottom:8px; }
   .ps-arch-q{ width:100%; box-sizing:border-box; margin:8px 0; padding:10px; font-size:14px; border:1px solid var(--border, #ccc); border-radius:8px; }
@@ -1276,11 +1302,14 @@
                 autocomplete="off"
                 oninput="onStoreSearch()"
                 onfocus="onStoreSearch()"
+                onkeydown="onStoreSearchKey(event)"
                 onblur="closeStoreListSoon()"
               >
               <div id="storeList" class="store-list"></div>
             </div>
             <div id="selectedStore" class="selected-store" data-i18n="storeNotSelected">CHƯA CHỌN STORE</div>
+            <div class="out-prog hidden" id="outProg"><span id="outProgText"></span><button id="outTodoBtn" onclick="toggleOutTodo()">CHƯA XUẤT</button></div>
+            <div class="out-todo hidden" id="outTodoList"></div>
 
             <!-- Nút này CHỈ bấm được khi đã chọn store (xem enableStartSessionBtn()) -->
             <button id="startSessionBtn" class="btn" data-i18n="startScanSessionBtn" disabled onclick="startScanSession()">
@@ -1321,6 +1350,8 @@
                 <button class="btn-link" data-i18n="endSessionBtn" onclick="askEndScanSession()">KẾT THÚC PHIÊN</button>
               </span>
             </div>
+
+            <div id="outStoreInfo" class="out-store-info hidden"></div>
 
             <label data-i18n="scanToteLabel">Scan Tote</label>
             <input
@@ -1706,6 +1737,7 @@
           <div class="viz-seg" role="group" style="margin-bottom:10px">
             <button id="dailyActOut" class="active" onclick="setDailyAction('OUT')">OUT</button>
             <button id="dailyActIn" onclick="setDailyAction('IN')">IN</button>
+            <button id="dailyActTrip" onclick="setDailyAction('TRIP')">THEO CHUYẾN</button>
           </div>
           <label id="dailyDateLabel" data-i18n="dateOutLabel">Ngày Xuất</label>
           <input id="dailyOutDate" type="date">
@@ -2062,7 +2094,7 @@
       vi: {
         navHome: 'Home', navOut: 'OUT', navIn: 'IN', navDriver: 'Giao Nhận',
         navStore: 'Store', navDash: 'Tồn', navTransit: 'Vận Chuyển',
-        navDaily: 'Daily', navAbnormal: 'Lỗi', navTrack: 'Track', navSettings: 'Cài Đặt',
+        navDaily: 'Daily', navTrips: 'Chuyến', navAbnormal: 'Lỗi', navTrack: 'Track', navSettings: 'Cài Đặt',
         navLogout: 'Thoát',
 
         loginTitle: 'Đăng nhập', loginSub: 'Nhập tài khoản kho vận của bạn',
@@ -2123,6 +2155,7 @@
         commitStopped: 'Còn {n} mã chưa ghi. {reason} Bấm GHI LẠI.', commitDoneMsg: 'ĐÃ GHI XONG: {ok} OK, {fail} lỗi/bất thường',
         commitExpiredMsg: 'Hết phiên đăng nhập. Đăng nhập lại, mã chưa ghi vẫn còn.',
         alreadyInSessionMsg: 'Mã đã quét trong phiên này: ', committingWaitMsg: 'Đang ghi, vui lòng chờ...',
+        outAlreadyDone: '{store} ĐÃ XUẤT {n} rổ hôm nay ({trip}). Chỉ bấm OK nếu xuất BỔ SUNG, còn không thì bấm Hủy.',
         outboxQueued: 'Đã nhận {n} mã - đang ghi lên máy chủ, quét tiếp được', outboxWriting: 'Đang ghi {n} mã lên máy chủ...',
         outboxStuck: 'Chưa ghi được {n} mã - bấm để thử lại', outboxAlerts: 'Có {n} cảnh báo mã - bấm để xem',
         outboxDoneOk: 'Đã ghi {store}: {n} mã OK', outboxDoneBad: 'Đã ghi {store}: {ok} mã OK, {n} mã LỖI/BẤT THƯỜNG:',
@@ -2292,7 +2325,7 @@
       en: {
         navHome: 'Home', navOut: 'OUT', navIn: 'IN', navDriver: 'Delivery',
         navStore: 'Store', navDash: 'Stock', navTransit: 'In Transit',
-        navDaily: 'Daily', navAbnormal: 'Issues', navTrack: 'Track', navSettings: 'Settings',
+        navDaily: 'Daily', navTrips: 'Trips', navAbnormal: 'Issues', navTrack: 'Track', navSettings: 'Settings',
         navLogout: 'Log out',
 
         loginTitle: 'Sign in', loginSub: 'Enter your warehouse account',
@@ -2353,6 +2386,7 @@
         commitStopped: '{n} codes not saved. {reason} Tap RETRY.', commitDoneMsg: 'SAVED: {ok} OK, {fail} errors/abnormal',
         commitExpiredMsg: 'Login expired. Log in again, unsaved codes are kept.',
         alreadyInSessionMsg: 'Already scanned in this session: ', committingWaitMsg: 'Saving, please wait...',
+        outAlreadyDone: '{store} ALREADY HAD {n} baskets out today ({trip}). Press OK only for an ADDITIONAL shipment, otherwise Cancel.',
         outboxQueued: 'Got {n} codes - saving to server, you can keep scanning', outboxWriting: 'Saving {n} codes to server...',
         outboxStuck: 'Could not save {n} codes - tap to retry', outboxAlerts: '{n} code warning(s) - tap to view',
         outboxDoneOk: 'Saved {store}: {n} codes OK', outboxDoneBad: 'Saved {store}: {ok} OK, {n} ERROR/ABNORMAL:',
@@ -2961,7 +2995,10 @@
       document.getElementById('tabTransit').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'VIEWER' || role === 'STORE'));
       // Cửa hàng chỉ thấy rổ của chính mình nên không cần ô tìm cửa hàng/mã rổ
       document.getElementById('transitSearch').parentElement.classList.toggle('hidden', role === 'STORE');
-      document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
+      document.getElementById('tabDailyOut').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER' || role === 'DRIVER'));
+      // Tài xế: màn này chỉ là "Chuyến" (giao / nhận / còn của các chuyến thuộc nhà vận tải của mình)
+      const dailyLabel = document.querySelector('#tabDailyOut span');
+      if (dailyLabel) { dailyLabel.setAttribute('data-i18n', role === 'DRIVER' ? 'navTrips' : 'navDaily'); dailyLabel.textContent = t(role === 'DRIVER' ? 'navTrips' : 'navDaily'); }
       document.getElementById('tabDayReport').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'VIEWER' || role === 'STORE'));
       document.getElementById('tabPrintSlips').classList.toggle('hidden', role !== 'ADMIN');
       document.getElementById('tabAbnormal').classList.toggle('hidden', !(role === 'ADMIN' || role === 'WAREHOUSE' || role === 'STORE' || role === 'VIEWER'));
@@ -3077,7 +3114,7 @@
     function goToScan(value) {
       setMode(value);
       showScreen('pda');
-      if (value === 'OUT' && session && (!tripPlan || Date.now() - tripPlanAt > TRIP_PLAN_FRESH_MS)) loadTripPlan();   // tải sẵn lịch chuyến để chọn cửa hàng không phải chờ
+      if (value === 'OUT' && session && tripPlanOld(TRIP_PLAN_REFRESH_MS)) loadTripPlan();   // tải sẵn lịch chuyến để chọn cửa hàng không phải chờ
     }
 
     function setMode(value) {
@@ -3390,6 +3427,7 @@
     let committing = false;             // đang ghi phiên lên máy chủ (khóa quét)
     const endStage = { pda: 'confirm', driver: 'confirm' };   // confirm | sending | stopped | done
     const commitPrior = { pda: [], driver: [] };              // kết quả các lô đã ghi khi phải ghi lại giữa chừng
+    const commitDirty = {};                                   // slot -> true khi lần ghi trước dừng giữa chừng (có thể đã gửi dở): lần sau KHÔNG gửi fresh
     const sessionIds = { OUT: '', IN: '' };   // mã phiên hiện tại của từng chế độ PDA (xem NHÓM 36)
     let driverSessionId = '';           // mã phiên Giao Nhận hiện tại
     let sessionCodes = {};              // mã đã quét trong phiên PDA hiện tại (chặn quét trùng trong phiên)
@@ -3589,12 +3627,14 @@
       function step() {
         if (!st.remaining.length) {
           committing = false;
+          commitDirty[st.slot] = false;
           persistQueue(st.slot, null);
           hooks.onDone(st);
           return;
         }
 
         const batch = st.remaining.slice(0, COMMIT_CHUNK);
+        const fresh = attempt === 0 && !st.recovered && !commitDirty[st.slot];   // chắc chắn lô chưa từng gửi: máy chủ khỏi đối chiếu log
 
         google.script.run
           .withSuccessHandler(function(res) {
@@ -3608,6 +3648,7 @@
             // Lỗi cả lô từ phía máy chủ: giữ nguyên hàng đợi để người dùng bấm GHI LẠI
             if (!res || !res.success) {
               committing = false;
+              commitDirty[st.slot] = true;
               hooks.onStop(st, 'server', (res && res.message) || t('couldNotLoadData'));
               return;
             }
@@ -3626,6 +3667,7 @@
           .withFailureHandler(function(err) {
             if (isSessionExpiredError(err)) {
               committing = false;
+              commitDirty[st.slot] = true;
               hooks.onStop(st, 'expired', '');
               return;
             }
@@ -3636,6 +3678,7 @@
               return;
             }
             committing = false;
+            commitDirty[st.slot] = true;
             hooks.onStop(st, 'network', getErrorMessage(err));
           })
           .scanBatch({
@@ -3645,6 +3688,7 @@
             trip: st.trip || '',
             zone: st.zone,
             sessionId: st.sessionId || '',
+            fresh: fresh,
             items: batch
           });
       }
@@ -3926,6 +3970,7 @@
     }
     function outboxLoad() {
       try { outbox = JSON.parse(localStorage.getItem(outboxKey()) || '[]') || []; } catch (e) { outbox = []; }
+      outbox.forEach(function(j) { j.resumed = true; });      // phiên nạp lại từ lần trước: có thể đã gửi dở, không được coi là fresh
     }
     function outboxCount() { return outbox.reduce(function(n, j) { return n + j.items.length; }, 0); }
     function outboxReset() {            // gọi khi mất phiên đăng nhập (dữ liệu vẫn nằm trong localStorage)
@@ -3946,6 +3991,7 @@
         const dk = String(sessionTripId).toUpperCase() + '|' + selectedStoreId;
         tripPlan.done = tripPlan.done || {};
         tripPlan.done[dk] = (tripPlan.done[dk] || 0) + items.length;
+        renderOutProgress();
       }
       showToast(tf('outboxQueued', { n: items.length }));
       finishEnd('pda');
@@ -3968,14 +4014,27 @@
       const job = outbox[0];
       const batch = job.items.slice(0, COMMIT_CHUNK);
       renderOutboxChip();
+      const tSend = Date.now();
+      // fresh = CHẮC CHẮN lô này chưa từng được gửi (lần gửi đầu, không phải phiên nạp lại sau khi tắt app): máy chủ khỏi đối chiếu log chống ghi trùng cho nhanh.
+      // Đếm lần gửi và lưu NGAY vào localStorage trước khi gửi: lỡ tắt app giữa chừng thì lần sau không còn là fresh.
+      job.tries = (job.tries || 0) + 1;
+      outboxSave();
+      const fresh = job.tries === 1 && !job.resumed;
 
       google.script.run
         .withSuccessHandler(function(res) {
           if (gen !== outboxGen) return;
           outboxRunning = false;
+          job.rtt = (job.rtt || 0) + (Date.now() - tSend);                 // thời gian chờ thực tế của lô này (mạng + máy chủ)
+          if (res && res.perf) {
+            const tot = res.perf.filter(function(p) { return /TONG/.test(p[0]); }).pop();
+            job.srv = (job.srv || 0) + (tot ? tot[1] : 0);                // phần chạy trong Apps Script
+            console.log('[SCAN PERF] cho ' + (Date.now() - tSend) + ' ms | ' + res.perf.map(function(p) { return p[0] + ': ' + p[1] + ' ms'; }).join(' | '));
+            window.__lastScanPerf = { rttMs: Date.now() - tSend, steps: res.perf };
+          }
           if (res && res.busy) { outboxTimer = setTimeout(outboxPump, 1500); return; }          // máy chủ bận: chắc chắn chưa ghi, thử lại
           if (!res || !res.success) { outboxStuck = (res && res.message) || t('couldNotLoadData'); outboxRetryLater(); return; }
-          outboxTries = 0; outboxStuck = '';
+          outboxTries = 0; outboxStuck = ''; job.tries = 0;
           (res.results || []).forEach(function(r) { job.results.push({ toteId: r.toteId, success: !!r.success, message: r.message }); });
           job.items = job.items.slice(batch.length);
           if (!job.items.length) { outboxJobDone(job); outbox.shift(); }
@@ -3990,12 +4049,14 @@
           outboxStuck = getErrorMessage(err);
           outboxRetryLater();
         })
-        .scanBatch({ token: session.token, action: job.action, store: job.store, trip: job.trip || '', zone: job.zone, sessionId: job.sessionId || '', items: batch });
+        .scanBatch({ token: session.token, action: job.action, store: job.store, trip: job.trip || '', zone: job.zone, sessionId: job.sessionId || '', fresh: fresh, items: batch });
     }
 
     function outboxJobDone(job) {
+      if (sessionActive && storeOutInfoFor === job.store) setTimeout(function() { loadStoreOutInfo(job.store); }, 300);
       const bad = job.results.filter(function(r) { return !r.success; });
-      if (!bad.length) { showToast(tf('outboxDoneOk', { store: job.label, n: job.results.length })); return; }
+      const timing = job.rtt ? ' · ' + (job.rtt / 1000).toFixed(1) + 's' + (job.srv ? ' (máy chủ ' + (job.srv / 1000).toFixed(1) + 's)' : '') : '';
+      if (!bad.length) { showToast(tf('outboxDoneOk', { store: job.label, n: job.results.length }) + timing, 7000); return; }
       outboxAlerts.push(tf('outboxDoneBad', { store: job.label, n: bad.length, ok: job.results.length - bad.length }) + '\n' +
         bad.slice(0, 15).map(function(r) { return '- ' + r.toteId + ': ' + r.message; }).join('\n') + (bad.length > 15 ? '\n...' : ''));
       beep(false);
@@ -4114,7 +4175,8 @@
 
       const st = {
         slot: slot, action: c.action, store: c.store || '', trip: c.trip || '', label: c.label || '', sessionId: c.sessionId || '', zone: sessionZoneFor(c.action),
-        remaining: c.items.slice(), results: recoverPrior.slice(), total: c.items.length + recoverPrior.length
+        remaining: c.items.slice(), results: recoverPrior.slice(), total: c.items.length + recoverPrior.length,
+        recovered: true       // khôi phục sau khi tắt app/mất điện: có thể đã gửi dở, không gửi fresh
       };
 
       setRecoverUI('sending', tf('commitProgress', { done: st.results.length, total: st.total }));
@@ -4175,7 +4237,38 @@
     // (onfocus). Store đang chọn (selectedStoreId) CHỈ đổi khi người dùng
     // bấm chọn 1 gợi ý mới trong danh sách - gõ tìm kiếm không tự xoá lựa
     // chọn hiện tại, để tránh nhấp nháy "CHƯA CHỌN STORE" trong lúc gõ.
+    // OUT: chỉ còn đúng 1 cửa hàng khớp thì tự chọn và vào phiên quét luôn (không phải bấm chọn).
+    //  - gõ/quét ĐÚNG mã cửa hàng (VD G0005): chọn ngay;
+    //  - khớp duy nhất theo tên/mã gõ dở: chờ 0,5 giây không gõ thêm rồi mới chọn (tránh chọn khi đang gõ dở);
+    //  - Enter: chọn ngay nếu chỉ còn 1 kết quả.
+    // Tắt: AUTO_START_SESSION = false.
+    let autoPickTimer = null;
+    function scheduleAutoPickStore(matches, q) {
+      clearTimeout(autoPickTimer);
+      if (!AUTO_START_SESSION || !q) return;
+      const exact = matches.filter(function(s) { return normalizeText(s.id) === q; });
+      if (exact.length === 1) { pickStoreForOut(exact[0].id); return; }
+      if (matches.length === 1 && q.length >= 2) {
+        const id = matches[0].id;
+        autoPickTimer = setTimeout(function() {
+          const now = normalizeText(document.getElementById('storeSearch').value);
+          if (now === q && mode === 'OUT' && !sessionActive && !tripChoicePending) pickStoreForOut(id);
+        }, 500);
+      }
+    }
+
+    function onStoreSearchKey(e) {
+      if (e.key !== 'Enter' || mode !== 'OUT' || sessionActive || tripChoicePending) return;
+      const q = normalizeText(document.getElementById('storeSearch').value);
+      if (!q) return;
+      const matches = stores.filter(function(s) { return normalizeText(s.id + ' ' + s.name).includes(q); });
+      const exact = matches.filter(function(s) { return normalizeText(s.id) === q; });
+      if (exact.length === 1) { e.preventDefault(); clearTimeout(autoPickTimer); pickStoreForOut(exact[0].id); }
+      else if (matches.length === 1) { e.preventDefault(); clearTimeout(autoPickTimer); pickStoreForOut(matches[0].id); }
+    }
+
     function onStoreSearch() {
+      if (mode === 'OUT' && session && tripPlanOld(TRIP_PLAN_REFRESH_MS)) loadTripPlan();
       renderStoreList();
     }
 
@@ -4199,6 +4292,7 @@
       const MAX_SUGGESTIONS = 8;
       const matches = stores.filter(s => normalizeText(`${s.id} ${s.name}`).includes(q));
       const filtered = matches.slice(0, MAX_SUGGESTIONS);
+      if (mode === 'OUT' && !sessionActive && !tripChoicePending) scheduleAutoPickStore(matches, q);
 
       if (filtered.length === 0) {
         const div = document.createElement('div');
@@ -4213,7 +4307,7 @@
         const div = document.createElement('div');
 
         div.className = 'store-item';
-        div.innerHTML = `<b>${s.id}</b><br>${s.name}`;
+        div.innerHTML = `<b>${s.id}</b>${mode === 'OUT' ? outBadgeHtml(s.id) : ''}<br>${s.name}`;
 
         // Dùng onmousedown (thay vì onclick) để việc CHỌN gợi ý xảy ra
         // TRƯỚC khi sự kiện "blur" (rời khỏi ô nhập) kịp đóng dropdown lại.
@@ -4486,6 +4580,14 @@
       if (showActiveBar && mode === 'OUT') {
         document.getElementById('activeSessionStore').innerText = sessionStoreLabel;
       }
+
+      // Đang ở màn chọn cửa hàng của OUT: tự trỏ sẵn vào ô tìm để gõ / quét mã cửa hàng ngay, không phải chạm vào ô
+      if (AUTO_START_SESSION && showOutSetup && !tripChoicePending) {
+        setTimeout(function() {
+          const box = document.getElementById('storeSearch');
+          if (box && mode === 'OUT' && !sessionActive && currentScreen === 'pda' && document.getElementById('tripChoiceOverlay').classList.contains('hidden')) box.focus({ preventScroll: true });
+        }, 80);
+      }
     }
 
     // Bật/tắt nút "Bắt đầu phiên quét" tuỳ theo đã chọn store hay chưa.
@@ -4511,6 +4613,14 @@
     let tripPlanAt = 0;
     let tripPlanLoading = false;
     const TRIP_PLAN_FRESH_MS = 10 * 60 * 1000;
+    // Lịch chuyến và "đã xuất" chỉ tính TRONG NGÀY: lịch tải từ hôm qua (qua nửa đêm) coi như cũ, tự tải lại.
+    let tripPlanDay = '';
+    function tripPlanOld(maxAgeMs) {
+      if (!tripPlan) return true;
+      if (tripPlanDay !== ymdLocal(new Date())) return true;       // so theo NGÀY TRÊN MÁY lúc tải (không phụ thuộc múi giờ máy chủ)
+      return Date.now() - tripPlanAt > maxAgeMs;
+    }
+    const TRIP_PLAN_REFRESH_MS = 30 * 1000;      // quá chừng này thì tải lại ngầm khi mở ô tìm cửa hàng (máy khác có thể vừa xuất xong cửa hàng)
 
     function loadTripPlan(cb) {
       if (tripPlanLoading) { if (cb) setTimeout(function() { loadTripPlan(cb); }, 400); return; }
@@ -4518,11 +4628,109 @@
       google.script.run
         .withSuccessHandler(function(res) {
           tripPlanLoading = false;
-          if (res && res.success) { tripPlan = res; tripPlanAt = Date.now(); if (cb) cb(true); }
+          if (res && res.success) {
+            tripPlan = res; tripPlanAt = Date.now(); tripPlanDay = ymdLocal(new Date());
+            tripPlan.done = tripPlan.done || {};
+            // phiên của máy này còn nằm trong hàng chờ ghi nền: máy chủ chưa biết, cộng vào để cửa hàng vẫn hiện "đã xuất"
+            if (typeof outbox !== 'undefined') outbox.forEach(function(j) {
+              if (!j.trip) return;
+              const k = String(j.trip).toUpperCase() + '|' + j.store;
+              tripPlan.done[k] = (tripPlan.done[k] || 0) + j.items.length;
+            });
+            renderOutProgress();
+            if (cb) cb(true);
+          }
           else if (cb) cb(false);
         })
         .withFailureHandler(function() { tripPlanLoading = false; if (cb) cb(false); })
         .getTripPlan({ token: session.token, zone: sessionZoneFor('OUT') });
+    }
+
+    // ---------- Màn OUT: cửa hàng nào đã xuất hôm nay ----------
+    function outStatusOf(storeId) {
+      if (!tripPlan) return null;
+      const trips = tripsForStoreFromPlan(storeId);
+      if (!trips.length) return null;
+      let done = 0, open = 0;
+      trips.forEach(function(tr) { done += tr.done || 0; if (!(tr.done > 0)) open++; });
+      return { done: done, open: open, n: trips.length };
+    }
+
+    function outBadgeHtml(storeId) {
+      const st = outStatusOf(storeId);
+      if (!st) return '';
+      if (st.done > 0 && st.open === 0) return '<span class="out-b done">✓ Đã xuất ' + st.done + '</span>';
+      if (st.done > 0) return '<span class="out-b part">Đã xuất ' + st.done + ' · còn ' + st.open + ' chuyến</span>';
+      return '<span class="out-b todo">Chưa xuất</span>';
+    }
+
+    // Tiến độ trong ngày: số cửa hàng (có trong lịch chuyến hôm nay) đã xuất / tổng
+    function outTodoStores() {
+      const list = [];
+      if (!tripPlan) return list;
+      tripPlan.trips.forEach(function(tr) {
+        tr.stores.forEach(function(id) {
+          const d = (tripPlan.done || {})[String(tr.trip || '').toUpperCase() + '|' + id] || 0;
+          list.push({ trip: tr.trip, type: tr.type, id: id, done: d });
+        });
+      });
+      return list;
+    }
+
+    function renderOutProgress() {
+      const box = document.getElementById('outProg');
+      if (!box) return;
+      if (!tripPlan || !tripPlan.trips || !tripPlan.trips.length) { box.classList.add('hidden'); document.getElementById('outTodoList').classList.add('hidden'); return; }
+      const all = outTodoStores();
+      const doneSet = {}, allSet = {};
+      all.forEach(function(x) { allSet[x.id] = true; if (x.done > 0) doneSet[x.id] = true; });
+      const nAll = Object.keys(allSet).length, nDone = Object.keys(doneSet).length;
+      box.classList.remove('hidden');
+      document.getElementById('outProgText').innerText = 'Đã xuất ' + nDone + '/' + nAll + ' cửa hàng hôm nay';
+      document.getElementById('outTodoBtn').innerText = 'CHƯA XUẤT (' + (nAll - nDone) + ')';
+      if (!document.getElementById('outTodoList').classList.contains('hidden')) drawOutTodo();
+    }
+
+    function toggleOutTodo() {
+      const el = document.getElementById('outTodoList');
+      el.classList.toggle('hidden');
+      if (!el.classList.contains('hidden')) drawOutTodo();
+    }
+
+    function drawOutTodo() {
+      const el = document.getElementById('outTodoList');
+      const nameOf = {};
+      (stores || []).forEach(function(s) { nameOf[s.id] = s.name; });
+      const byTrip = {}, order = [];
+      outTodoStores().forEach(function(x) {
+        if (x.done > 0) return;
+        if (!byTrip[x.trip]) { byTrip[x.trip] = { type: x.type, list: [] }; order.push(x.trip); }
+        byTrip[x.trip].list.push(x.id);
+      });
+      if (!order.length) { el.innerHTML = '<h5>Tất cả cửa hàng trong lịch đã xuất ✓</h5>'; return; }
+      el.innerHTML = order.map(function(tp) {
+        const g = byTrip[tp];
+        return '<h5>' + escHtml_(tp + (g.type ? ' · ' + g.type : '') + ' · còn ' + g.list.length) + '</h5>' +
+          g.list.map(function(id) {
+            return '<button onclick="pickStoreForOut(&quot;' + escHtml_(id) + '&quot;)"><b>' + escHtml_(id) + '</b> ' + escHtml_(nameOf[id] || '') + '</button>';
+          }).join('');
+      }).join('');
+    }
+
+    // Chọn cửa hàng từ danh sách "chưa xuất" (giống bấm chọn trong ô tìm)
+    function pickStoreForOut(id) {
+      if (mode !== 'OUT') return;
+      const s = (stores || []).find(function(x) { return x.id === id; });
+      if (!s) return;
+      selectedStoreId = s.id;
+      selectedStoreName = s.name;
+      document.getElementById('selectedStore').innerText = `ĐÃ CHỌN: ${s.id} - ${s.name}`;
+      document.getElementById('storeSearch').value = '';
+      const sug = document.getElementById('storeList');
+      if (sug) { sug.innerHTML = ''; sug.classList.remove('open'); }
+      document.getElementById('outTodoList').classList.add('hidden');
+      resolveTripForStore(s.id);
+      refreshStartSessionBtn();
     }
 
     function tripsForStoreFromPlan(storeId) {
@@ -4536,11 +4744,12 @@
     // Cửa hàng đi nhiều chuyến: chuyến nào đã xuất rổ cho cửa hàng này rồi (done > 0) thì không hỏi lại.
     // Còn >= 2 chuyến chưa xuất: hỏi. Còn đúng 1: tự chọn. Đã xuất hết: hỏi lại trong tất cả (để xuất bổ sung).
     function applyTripChoices(storeId, trips) {
-      if (trips.length >= 2) {
-        const open = trips.filter(function(tr) { return !(tr.done > 0); });
-        if (open.length >= 2) { openTripChoice(storeId, open, false); return; }
-        if (open.length === 0) { openTripChoice(storeId, trips, true); return; }
-        trips = [open[0]];
+      if (trips.length === 1 && trips[0].done > 0) {      // cửa hàng chỉ đi 1 chuyến mà đã xuất rồi: hỏi lại để khỏi quét trùng
+        if (!confirm(tf('outAlreadyDone', { store: storeId + ' - ' + selectedStoreName, n: trips[0].done, trip: trips[0].trip }))) { cancelTripChoice(); return; }
+      }
+      if (trips.length >= 2) {            // hàng đông + hàng chill: luôn hiện đủ các chuyến kèm số khay đã xuất, người quét tự chọn
+        openTripChoice(storeId, trips, false);
+        return;
       }
       tripChoicePending = false;
       selectedTripId = trips.length === 1 ? String(trips[0].trip || '') : '';
@@ -4552,7 +4761,7 @@
       const seq = ++tripChoiceSeq;
       selectedTripId = '';
 
-      if (tripPlan && Date.now() - tripPlanAt < TRIP_PLAN_FRESH_MS) {       // đã có lịch chuyến: quyết định ngay
+      if (!tripPlanOld(TRIP_PLAN_FRESH_MS)) {       // đã có lịch chuyến (của hôm nay, chưa quá cũ): quyết định ngay
         tripChoicePending = false;
         applyTripChoices(storeId, tripsForStoreFromPlan(storeId));
         return;
@@ -4579,7 +4788,8 @@
     }
 
     function openTripChoice(storeId, trips, allDone) {
-      document.getElementById('tripChoiceHint').innerText = tf(allDone ? 'tripChoiceAllDone' : 'tripChoiceHint', { store: storeId + ' - ' + selectedStoreName, n: trips.length });
+      tripChoicePending = true;          // đang mở popup: chưa được tự bắt đầu phiên cho tới khi chọn chuyến
+      document.getElementById('tripChoiceHint').innerText = tf('tripChoiceHint', { store: storeId + ' - ' + selectedStoreName, n: trips.length });
       const list = document.getElementById('tripChoiceList');
       list.innerHTML = '';
       trips.forEach(function(tr) {
@@ -4616,6 +4826,68 @@
       refreshStartSessionBtn();
     }
 
+    // ---------- Hôm nay đã xuất bao nhiêu rổ cho cửa hàng đang quét (từng chuyến, từng mã) ----------
+    let storeOutInfo = null;        // kết quả getStoreOutToday
+    let storeOutInfoFor = '';       // cửa hàng đang hiển thị
+
+    function loadStoreOutInfo(storeId) {
+      storeOutInfoFor = storeId;
+      storeOutInfo = null;
+      renderStoreOutInfo();
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (storeOutInfoFor !== storeId) return;                  // đã chuyển cửa hàng khác
+          storeOutInfo = (res && res.success) ? res : null;
+          renderStoreOutInfo();
+        })
+        .withFailureHandler(function() {})
+        .getStoreOutToday({ token: session.token, store: storeId, zone: sessionZoneFor('OUT') });
+    }
+
+    function renderStoreOutInfo() {
+      const el = document.getElementById('outStoreInfo');
+      if (!el) return;
+      if (!sessionActive || mode !== 'OUT' || !storeOutInfoFor) { el.classList.add('hidden'); return; }
+      el.classList.remove('hidden');
+      if (!storeOutInfo) { el.classList.remove('some'); el.textContent = 'Đang kiểm tra hôm nay đã xuất bao nhiêu rổ cho cửa hàng này...'; return; }
+
+      // gộp thêm các phiên của MÁY NÀY còn trong hàng chờ ghi nền (máy chủ chưa biết)
+      const groups = {};
+      const order = [];
+      (storeOutInfo.trips || []).forEach(function(g) {
+        groups[g.trip] = { trip: g.trip, type: g.type, items: g.codes.map(function(c) { return { code: c.code, at: c.at, user: c.user, pend: false }; }) };
+        order.push(g.trip);
+      });
+      (typeof outbox !== 'undefined' ? outbox : []).forEach(function(j) {
+        if (j.store !== storeOutInfoFor) return;
+        const key = j.trip || '';
+        if (!groups[key]) { groups[key] = { trip: key, type: '', items: [] }; order.push(key); }
+        const have = {};
+        groups[key].items.forEach(function(x) { have[x.code] = true; });
+        j.items.forEach(function(x) { if (!have[x.toteId]) groups[key].items.push({ code: x.toteId, at: '', user: '', pend: true }); });
+      });
+
+      let total = 0;
+      order.forEach(function(k) { total += groups[k].items.length; });
+      if (!total) {
+        el.classList.remove('some');
+        el.innerHTML = 'Hôm nay <b>chưa xuất</b> rổ nào cho cửa hàng này.';
+        return;
+      }
+      el.classList.add('some');
+      let html = 'Hôm nay đã xuất <b>' + total + ' rổ</b> cho cửa hàng này:';
+      order.forEach(function(k) {
+        const g = groups[k];
+        const label = (g.trip || 'chưa chọn chuyến') + (g.type ? ' · ' + g.type : '') + (g.trip && g.trip === sessionTripId ? ' (chuyến đang quét)' : '');
+        html += '<div class="osi-trip"><details><summary>' + escHtml_(label) + ': ' + g.items.length + ' rổ</summary><div style="margin-top:6px">' +
+          g.items.map(function(x) {
+            const tm = x.at ? ' ' + String(x.at).slice(11, 16) : (x.pend ? ' đang ghi' : '');
+            return '<span class="chip' + (x.pend ? ' pend' : '') + '">' + escHtml_(x.code + tm) + '</span>';
+          }).join('') + '</div></details></div>';
+      });
+      el.innerHTML = html;
+    }
+
     function startScanSession() {
       if (!selectedStoreId || tripChoicePending) return;
 
@@ -4641,6 +4913,7 @@
       updateCounter();
 
       renderPdaSessionUI();
+      loadStoreOutInfo(selectedStoreId);
 
       showResult(t('readySummary'), true);
       focusScan();
@@ -4717,8 +4990,10 @@
       sessionOutTotesMap = {};
       document.getElementById('selectedStore').innerText = t('storeNotSelected');
       document.getElementById('storeSearch').value = '';
+      storeOutInfoFor = ''; storeOutInfo = null;
       refreshStartSessionBtn();
       renderPdaSessionUI();
+      renderStoreOutInfo();
     }
 
     // Đưa màn IN về trạng thái "chưa có phiên" (quay lại nút Bắt đầu phiên
@@ -5954,10 +6229,16 @@
     }
 
     function renderDailyHead() {
+      if (session && session.role === 'DRIVER') dailyAction = 'TRIP';          // tài xế chỉ có màn theo chuyến
       const a = document.getElementById('dailyActOut');
       const b = document.getElementById('dailyActIn');
+      const isDrv = !!session && session.role === 'DRIVER';
+      if (a) a.classList.toggle('hidden', isDrv);
+      if (b) b.classList.toggle('hidden', isDrv);
       if (a) a.classList.toggle('active', dailyAction === 'OUT');
       if (b) b.classList.toggle('active', dailyAction === 'IN');
+      const c = document.getElementById('dailyActTrip');
+      if (c) { c.classList.toggle('active', dailyAction === 'TRIP'); c.classList.toggle('hidden', !!session && session.role === 'STORE'); }
       const lbl = document.getElementById('dailyDateLabel');
       if (lbl) lbl.innerText = dt('dateOutLabel');
     }
@@ -5981,6 +6262,19 @@
       const box = document.getElementById('dailyOutResult');
 
       box.innerHTML = loadingHtml(dt('loadingDailyOutMsg'));
+      document.getElementById('screen-dailyOut').classList.toggle('trip', dailyAction === 'TRIP');
+      const tripBtn = document.getElementById('dailyActTrip');
+      if (tripBtn) tripBtn.classList.toggle('hidden', session.role === 'STORE');
+      if (dailyAction === 'TRIP') {
+        google.script.run
+          .withSuccessHandler(renderOutLookup)
+          .withFailureHandler(function(err) {
+            if (handleSessionError(err)) return;
+            box.innerHTML = '<div class="dashboard-card">' + escHtml_(t('dailyOutErrPrefix') + getErrorMessage(err)) + '</div>';
+          })
+          .getOutLookup({ token: session.token, date: date, zone: viewZoneParam() });
+        return;
+      }
 
       google.script.run
         .withSuccessHandler(renderDailyOutSummary)
@@ -5995,6 +6289,75 @@
           action: dailyAction,
           zone: viewZoneParam()
         });
+    }
+
+    // ---------- Tra cứu theo chuyến: cửa hàng nào đã được xuất rổ, tổng rổ từng chuyến ----------
+    let lookupRes = null;
+    let lookupOnlyTodo = false;
+
+    function setLookupOnlyTodo(on) { lookupOnlyTodo = !!on; if (lookupRes) renderOutLookup(lookupRes); }
+
+    function renderOutLookup(res) {
+      const box = document.getElementById('dailyOutResult');
+      if (!res || !res.success) { box.innerHTML = '<div class="dashboard-card">' + escHtml_((res && res.message) || t('noDataGeneric')) + '</div>'; return; }
+      lookupRes = res;
+      const q = normalizeText(document.getElementById('dailyOutSearch').value);
+      let nAll = 0, nDone = 0, nTrays = 0;
+      const inPlan = {};
+      res.trips.forEach(function(tr) {
+        nTrays += tr.totalTrays;
+        tr.stores.forEach(function(st) { nAll++; if (st.total > 0) nDone++; inPlan[st.id] = true; });
+      });
+      const timeOf = function(at) { return at ? String(at).slice(11, 16) : ''; };
+
+      let html = '<div class="lk-sum">' + escHtml_(res.date) + ' · đã xuất ' + nDone + '/' + nAll + ' cửa hàng · ' + nTrays + ' rổ</div>' +
+        '<label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px"><input type="checkbox" style="width:18px;height:18px;min-height:0;padding:0;flex:none;margin:0" ' + (lookupOnlyTodo ? 'checked' : '') +
+        ' onchange="setLookupOnlyTodo(this.checked)"> Chỉ hiện cửa hàng CHƯA xuất</label>';
+      if (res.auto) html += '<div class="ps-warn">Ngày này chưa có lịch chuyến, chỉ liệt kê các cửa hàng đã xuất.</div>';
+
+      let shownTrips = 0;
+      res.trips.forEach(function(tr) {
+        const tripMatch = q && normalizeText([tr.trip, tr.type, tr.truck, tr.driver, tr.carrier].join(' ')).includes(q);
+        const rows = tr.stores.filter(function(st) {
+          if (lookupOnlyTodo && st.total > 0) return false;
+          return !q || tripMatch || normalizeText(st.id + ' ' + st.name).includes(q);
+        });
+        if (!rows.length) return;
+        shownTrips++;
+        const sums = tr.kinds.map(function(k) {
+          let n = 0;
+          tr.stores.forEach(function(st) { n += (st.qty && st.qty[k.kind]) || 0; });
+          return k.label + ' ' + n;
+        }).join(' · ');
+        const doneStores = tr.stores.filter(function(st) { return st.total > 0; }).length;
+        const pct = tr.totalStores ? Math.round(doneStores * 100 / tr.totalStores) : 0;
+        const extra = [tr.type, tr.carrier, tr.truck ? 'Xe ' + tr.truck : '', tr.driver ? 'TX ' + tr.driver : ''].filter(Boolean).join(' · ');
+        html += '<div class="lk-card"><div class="lk-head"><b>' + escHtml_(tr.trip) + '</b></div>' +
+          '<div class="lk-sub">' + escHtml_(extra) + '</div>' +
+          '<div><b>' + doneStores + '/' + tr.totalStores + '</b> cửa hàng đã xuất · <b>' + tr.totalTrays + '</b> rổ' + (sums ? ' (' + escHtml_(sums) + ')' : '') + '</div>' +
+          (tr.totalRecv !== undefined ? '<div>Đã nhận tại cửa hàng: <b>' + tr.totalRecv + '/' + tr.totalTrays + '</b>' +
+            (tr.totalTrays > tr.totalRecv ? ' · <span class="lk-no">còn ' + (tr.totalTrays - tr.totalRecv) + ' rổ chưa nhận</span>' : ' · đủ') + '</div>' : '') +
+          '<div class="lk-bar"><i style="width:' + pct + '%"></i></div>' +
+          rows.map(function(st) {
+            const qty = tr.kinds.map(function(k) { return k.label + ' ' + ((st.qty && st.qty[k.kind]) || 0); }).join(' · ');
+            return st.total > 0
+              ? '<div class="lk-row"><span class="lk-ic ok">✓</span><b>' + escHtml_(st.id) + '</b> ' + escHtml_(st.name) + ' <span class="lk-q">' + st.total + ' rổ</span>' + (st.recv !== undefined ? ' <span class="' + (st.recv < st.total ? 'lk-no' : 'lk-t') + '">nhận ' + st.recv + '/' + st.total + '</span>' : '') + ' <span class="lk-t">' +
+                escHtml_(qty + (st.at ? ' · ' + timeOf(st.at) : '') + (st.user ? ' · ' + st.user : '')) + '</span></div>'
+              : '<div class="lk-row"><span class="lk-ic no">✗</span><b>' + escHtml_(st.id) + '</b> ' + escHtml_(st.name) + ' <span class="lk-no">CHƯA XUẤT</span></div>';
+          }).join('') + '</div>';
+      });
+
+      // Tìm theo cửa hàng mà cửa hàng không nằm trong chuyến nào của ngày này
+      if (q) {
+        (stores || []).filter(function(s) { return !inPlan[s.id] && normalizeText(s.id + ' ' + s.name).includes(q); }).slice(0, 3).forEach(function(s) {
+          const outAnyway = (res.unassigned || []).indexOf(s.id) !== -1;
+          html += '<div class="lk-card"><b>' + escHtml_(s.id) + '</b> ' + escHtml_(s.name) + '<div class="lk-sub">Không có trong lịch chuyến ngày này' +
+            (outAnyway ? ' · nhưng ĐÃ có rổ xuất cho cửa hàng này (không thuộc chuyến nào)' : '') + '</div></div>';
+        });
+      }
+      if (!shownTrips && !html.includes('lk-card')) html += '<div class="dashboard-card">Không có chuyến hoặc cửa hàng nào khớp.</div>';
+      if (res.unassigned && res.unassigned.length) html += '<div class="ps-warn">Đã xuất nhưng không thuộc chuyến nào: ' + escHtml_(res.unassigned.join(', ')) + '</div>';
+      box.innerHTML = html;
     }
 
     function renderDailyOutSummary(res) {
@@ -7199,7 +7562,7 @@
     });
 
     let toastTimer = null;
-    function showToast(text) {
+    function showToast(text, ms) {
       let el = document.getElementById('appToast');
       if (!el) {
         el = document.createElement('div');
@@ -7210,7 +7573,7 @@
       el.textContent = text;
       el.classList.add('show');
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2000);
+      toastTimer = setTimeout(function() { el.classList.remove('show'); }, ms || 2000);
     }
 
     function refreshClick(btn, loadFn) {
