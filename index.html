@@ -2065,6 +2065,9 @@
     let driverCodeReader = null;  // instance ZXing đang chạy
     let driverManualInputMode = false; // đang ở chế độ nhập tay (camera tắt) hay không
     const DRIVER_SCAN_INTERVAL_MS = 80;   // khoảng cách giữa 2 lần thử giải mã của camera (ZXing mặc định 500 ms nên quét chậm)
+    // NHẬN RỔ: true = chỉ nhận mã nằm trong danh sách kho đã xuất cho cửa hàng + cảnh báo thiếu; false = quét gì nhận đó, ẩn số đang giao tới,
+    // ẩn cảnh báo thiếu (tạm dùng ngày đầu chạy thật vì chưa có dữ liệu xuất/tồn đầy đủ). Bật lại = true.
+    const DRIVER_STRICT_RECEIVE = false;
     let driverScanPaused = false; // đã quét được 1 mã, đang chờ bấm "Xác nhận - quét tiếp" mới quét mã kế
     let driverCameraManuallyOff = false; // người dùng tự bấm TẮT CAMERA (khác với tắt do chuyển sang Nhập tay)
     let driverScanLog = []; // toàn bộ kết quả quét trong phiên hiện tại (xem scanLog bên kho)
@@ -5177,6 +5180,7 @@
       driverIncoming = null;
       driverIncomingSet = {};
       renderDriverIncoming();
+      if (!DRIVER_STRICT_RECEIVE) { box.classList.add('hidden'); return; }       // không tải/không hiện số đang giao tới
       if (!driverStoreId || driverMode !== 'STORE_RECEIVE') return;
       box.classList.remove('hidden', 'none');
       box.innerText = t('incomingLoading');
