@@ -2064,6 +2064,7 @@
     let driverStream = null;      // MediaStream của camera đang mở
     let driverCodeReader = null;  // instance ZXing đang chạy
     let driverManualInputMode = false; // đang ở chế độ nhập tay (camera tắt) hay không
+    const DRIVER_SCAN_INTERVAL_MS = 80;   // khoảng cách giữa 2 lần thử giải mã của camera (ZXing mặc định 500 ms nên quét chậm)
     let driverScanPaused = false; // đã quét được 1 mã, đang chờ bấm "Xác nhận - quét tiếp" mới quét mã kế
     let driverCameraManuallyOff = false; // người dùng tự bấm TẮT CAMERA (khác với tắt do chuyển sang Nhập tay)
     let driverScanLog = []; // toàn bộ kết quả quét trong phiên hiện tại (xem scanLog bên kho)
@@ -5657,15 +5658,27 @@
 
       showDriverMsg(t('openingCameraMsg'), true);
 
+      // Chậm + khó quét trên iPhone do 3 thứ mặc định: (1) ZXing chỉ thử giải mã mỗi 500 ms, (2) iOS chỉ cấp video 640x480 nên mã nhỏ
+      // không đủ điểm ảnh, (3) thử đủ mọi loại mã. Nên: thử mỗi DRIVER_SCAN_INTERVAL_MS, xin video 1280x720, chỉ thử các loại mã hay dùng.
+      let hints = null;
       try {
-        driverCodeReader = new ZX.BrowserMultiFormatReader();
+        const L = window.ZXing || ZX;
+        if (L.DecodeHintType && L.BarcodeFormat) {
+          const F = L.BarcodeFormat;
+          hints = new Map();
+          hints.set(L.DecodeHintType.POSSIBLE_FORMATS, [F.QR_CODE, F.DATA_MATRIX, F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8, F.ITF, F.CODABAR].filter(Boolean));
+        }
+      } catch (e) { hints = null; }
+
+      try {
+        driverCodeReader = new ZX.BrowserMultiFormatReader(hints, DRIVER_SCAN_INTERVAL_MS);
       } catch (e) {
         showDriverMsg(t('scannerInitErrPrefix') + e.message, false);
         return;
       }
 
       driverCodeReader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: 'environment' } } },
+        { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } },
         videoEl,
         function(result, err) {
           if (driverScanPaused) return; // đang chờ bấm "Xác nhận - quét tiếp", bỏ qua mọi kết quả
