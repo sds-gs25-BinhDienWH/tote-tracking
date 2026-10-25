@@ -906,6 +906,10 @@
   .ps-row .ps-main{ flex:1; min-width:0; }
   .ps-row .ps-main b{ font-size:16px; color:var(--heading); }
   .ps-row .ps-sub{ font-size:12.5px; color:var(--muted); }
+  .ps-fab-box{ position:fixed; right:18px; bottom:18px; z-index:60; display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; }
+  .ps-fab{ pointer-events:auto; width:auto; margin:0; padding:14px 20px; font-size:14px; border-radius:999px; box-shadow:0 6px 18px rgba(0,0,0,.28); }
+  .ps-fab.hidden{ display:none; }
+  body:has(.install-banner.show) .ps-fab-box{ bottom:104px; }          /* banner "Cài ứng dụng" đang hiện thì nâng nút lên để không bị che */
   .ps-chip{ font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; background:var(--bg); color:var(--muted); }
   .ps-chip.on{ background:var(--green-soft); color:var(--cyan-deep); }
   .ps-warn{ margin:10px 0; padding:10px 14px; font-size:13px; font-weight:700; color:var(--amber); background:var(--amber-soft); border-radius:var(--radius-sm); }
@@ -1589,6 +1593,8 @@
               <button id="driverManualBtn" class="btn btn-gray" data-i18n="manualInputBtn" style="margin-top:0" onclick="toggleDriverManualInput()">NHẬP TAY</button>
             </div>
 
+            <button id="driverListBtn" class="btn hidden" style="margin-top:8px" onclick="openDriverList()">CHỌN TỪ DANH SÁCH</button>
+
             <div class="counter">
               <div><span data-i18n="counterTotal">TỔNG</span><span id="driverCTotal">0</span></div>
               <div><span data-i18n="counterOk">OK</span><span id="driverCOk">0</span></div>
@@ -1597,6 +1603,19 @@
             </div>
 
             <div class="recent" id="driverRecentList"></div>
+          </div>
+
+          <div id="driverListOverlay" class="session-overlay hidden">
+            <div class="session-confirm-box">
+              <h3>Chọn rổ đã giao tới cửa hàng</h3>
+              <div class="end-hint" id="driverListHint"></div>
+              <input id="driverListSearch" class="scan-input" autocomplete="off" placeholder="LỌC THEO MÃ..." oninput="renderDriverList()">
+              <div id="driverListBody" style="max-height:46vh;overflow:auto;margin:8px 0;border:1px solid var(--line,#ddd);border-radius:8px"></div>
+              <div class="session-confirm-actions">
+                <button class="btn btn-gray" onclick="driverListSelectAll()">CHỌN TẤT CẢ</button>
+                <button class="btn" onclick="closeDriverList()">XONG</button>
+              </div>
+            </div>
           </div>
 
           <div id="driverSessionConfirmOverlay" class="session-overlay hidden">
@@ -1774,6 +1793,10 @@
             <button class="btn btn-gray ps-btn" data-i18n="psSelectScanned" onclick="psSelectScanned()">CHỌN CHUYẾN ĐÃ BẮN</button>
             <button id="psPrintBtn" class="btn ps-btn" data-i18n="psPrint" onclick="printSelectedSlips()">IN CÁC CHUYẾN ĐÃ CHỌN</button>
           </div>
+          <div class="export-row">
+            <button class="btn btn-gray ps-btn" onclick="psSelectAll(true)">CHỌN TẤT CẢ</button>
+            <button class="btn btn-gray ps-btn" onclick="psSelectAll(false)">BỎ CHỌN TẤT CẢ</button>
+          </div>
           <div id="psResult"></div>
 
           <div class="ps-arch">
@@ -1787,7 +1810,17 @@
               <button class="btn ps-btn" onclick="searchSlipArchive()">TÌM PHIẾU</button>
               <button class="btn btn-gray ps-btn" onclick="printArchivedSlips()">IN LẠI CÁC PHIẾU ĐÃ CHỌN</button>
             </div>
+            <div class="export-row">
+              <button class="btn btn-gray ps-btn" onclick="psaSelectAll(true)">CHỌN TẤT CẢ</button>
+              <button class="btn btn-gray ps-btn" onclick="psaSelectAll(false)">BỎ CHỌN TẤT CẢ</button>
+            </div>
             <div id="psaResult"></div>
+          </div>
+
+          <!-- Nút in nổi: luôn nằm góc dưới bên phải khi cuộn danh sách dài, khỏi kéo lên kéo xuống -->
+          <div class="ps-fab-box">
+            <button id="psaFab" class="btn ps-fab hidden" onclick="printArchivedSlips()"></button>
+            <button id="psFab" class="btn ps-fab hidden" onclick="printSelectedSlips()"></button>
           </div>
         </div>
 
@@ -5137,11 +5170,12 @@
       if (driverSessionActive) {
         document.getElementById('driverActiveStore').innerText = driverStoreLabel;
       }
+      renderDriverListBtn();
     }
 
     function refreshDriverStartSessionBtn() {
       const btn = document.getElementById('driverStartSessionBtn');
-      if (btn) btn.disabled = !driverStoreId;
+      if (btn) btn.disabled = !driverStoreId || !!(driverIncoming && driverIncoming.needChoice);
     }
 
     // ---------------- Hàng đang giao tới cửa hàng đã chọn (chế độ NHẬN RỔ) ----------------
@@ -5152,10 +5186,66 @@
 
     let driverIncomingSet = {};
 
+    // Cửa hàng đi 2 chuyến cùng ngày: kho OUT cho cả 2, nhưng xe chuyến đầu chỉ mang rổ chuyến đầu. Nên danh sách "đang giao tới" được TÁCH THEO CHUYẾN
+    // (res.groups, từ cột TRIP của log OUT) và tài xế chỉ đối chiếu với chuyến mình đang giao (không báo thiếu rổ của chuyến sau).
+    // driverSelTrip: null = chưa chọn (cửa hàng có từ 2 chuyến, chưa tự đoán được) | '' = tất cả | mã chuyến (chữ hoa) / '_NONE' = rổ không rõ chuyến.
+    let driverIncomingRaw = null;     // kết quả getStoreIncoming đầy đủ (mọi chuyến)
+    let driverSelTrip = '';
+
+    function driverCarrierMatch(carrier) {
+      const mine = normalizeText(session && session.carrier || '');
+      if (!mine) return false;
+      const c = normalizeText(carrier || '');
+      return c === mine || c.indexOf(mine + ' ') === 0;
+    }
+
     function setDriverIncoming(res) {
-      driverIncoming = res;
+      const sameStore = driverIncomingRaw && res && driverIncomingRaw.storeId === res.storeId;
+      driverIncomingRaw = res;
+      const groups = (res && res.groups) || [];
+      if (groups.length <= 1) {
+        driverSelTrip = '';
+      } else {
+        const keep = sameStore && driverSelTrip !== null && (driverSelTrip === '' || groups.some(function(g) { return g.key === driverSelTrip; }));
+        if (!keep) {
+          const mine = groups.filter(function(g) { return driverCarrierMatch(g.carrier); });
+          driverSelTrip = mine.length === 1 ? mine[0].key : null;      // tài khoản có nhà vận tải khớp đúng 1 chuyến thì tự chọn, còn lại bắt chọn
+        }
+      }
+      applyDriverTripView();
+    }
+
+    function applyDriverTripView() {
+      const res = driverIncomingRaw;
       driverIncomingSet = {};
-      ((res && res.codes) || []).forEach(function(c) { driverIncomingSet[c] = true; });
+      if (!res) { driverIncoming = null; return; }
+      const groups = res.groups || [];
+      let view;
+      if (groups.length > 1 && driverSelTrip === null) {
+        view = { storeId: res.storeId, qty: 0, kinds: {}, codes: [], needChoice: true };
+      } else if (groups.length > 1 && driverSelTrip !== '') {
+        const g = groups.filter(function(x) { return x.key === driverSelTrip; })[0] || { qty: 0, kinds: {}, codes: [] };
+        view = { storeId: res.storeId, qty: g.qty, kinds: g.kinds, codes: g.codes };
+      } else {
+        view = { storeId: res.storeId, qty: res.qty, kinds: res.kinds, codes: res.codes };
+      }
+      view.success = true;
+      view.groups = groups;
+      driverIncoming = view;
+      (view.codes || []).forEach(function(c) { driverIncomingSet[c] = true; });
+    }
+
+    function selectDriverTrip(key) {
+      driverSelTrip = key;
+      applyDriverTripView();
+      renderDriverIncoming();
+      updateDriverCounter();
+      refreshDriverStartSessionBtn();
+    }
+
+    function driverGroupLabel(g) {
+      if (g.key === '_NONE') return 'Rổ chưa rõ chuyến';
+      return (g.trip || g.key) + (g.type ? ' · ' + g.type : '') + (g.carrier ? ' · ' + g.carrier : '');
     }
 
     // Mã còn thiếu = mã đang giao tới cửa hàng nhưng chưa có trong danh sách đã quét của phiên.
@@ -5208,20 +5298,40 @@
         return;
       }
       box.classList.remove('hidden');
+      const groups = driverIncoming.groups || [];
+      let chooser = '';
+      if (groups.length > 1) {
+        chooser = '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+          groups.map(function(g) {
+            const on = driverSelTrip === g.key;
+            return '<button type="button" class="btn ' + (on ? '' : 'btn-gray') + '" style="margin:0;width:auto;padding:8px 12px;font-size:12px" data-k="' + escHtml_(g.key) +
+              '" onclick="selectDriverTrip(this.dataset.k)">' + escHtml_(driverGroupLabel(g)) + ' (' + g.qty + ')</button>';
+          }).join('') +
+          '<button type="button" class="btn ' + (driverSelTrip === '' ? '' : 'btn-gray') + '" style="margin:0;width:auto;padding:8px 12px;font-size:12px" data-k="" onclick="selectDriverTrip(this.dataset.k)">Tất cả (' +
+          groups.reduce(function(n, g) { return n + g.qty; }, 0) + ')</button></div>';
+      }
+      if (driverIncoming.needChoice) {
+        box.classList.remove('none');
+        box.innerHTML = '<b>Cửa hàng này có hàng của ' + groups.length + ' chuyến. Chọn chuyến bạn đang giao:</b>' + chooser;
+        refreshDriverStartSessionBtn();
+        return;
+      }
       box.classList.toggle('none', driverIncoming.qty === 0);
       if (driverIncoming.qty === 0) {
-        box.innerText = t('incomingNone');
+        box.innerHTML = escHtml_(t('incomingNone')) + chooser;
+        refreshDriverStartSessionBtn();
         return;
       }
       const ks = sortedKinds(Object.keys(driverIncoming.kinds || {}));
       box.innerHTML = escHtml_(t('incomingTitle')) + '<br><span class="incoming-qty">' + driverIncoming.qty + '</span>' +
-        ks.map(function(k) { return kindChipHtml(k, driverIncoming.kinds[k]); }).join('');
+        ks.map(function(k) { return kindChipHtml(k, driverIncoming.kinds[k]); }).join('') + chooser;
+      refreshDriverStartSessionBtn();
     }
 
     function renderDriverIncomingProgress() {
       const el = document.getElementById('driverIncomingProgress');
       if (!el) return;
-      if (!driverSessionActive || driverMode !== 'STORE_RECEIVE' || !driverIncoming) {
+      if (!driverSessionActive || driverMode !== 'STORE_RECEIVE' || !driverIncoming || driverIncoming.needChoice) {
         el.classList.add('hidden');
         return;
       }
@@ -5459,6 +5569,11 @@
 
       // NHẬN RỔ: chỉ nhận mã kho đã xuất cho ĐÚNG cửa hàng đang chọn. Mã ngoài danh sách bị chặn, KHÔNG ghi.
       // Danh sách có thể cũ (kho vừa xuất thêm) nên mã lạ được kiểm tra lại với máy chủ trước khi từ chối.
+      if (DRIVER_STRICT_RECEIVE && driverMode === 'STORE_RECEIVE' && driverIncoming && driverIncoming.needChoice) {
+        showDriverMsg('Chưa chọn chuyến đang giao: kết thúc phiên, chọn chuyến rồi quét lại', false);
+        beepInvalid();
+        return;
+      }
       if (driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && !driverIncomingSet[toteId]) {
         verifyDriverCode(toteId, fromCamera);
         return;
@@ -5485,7 +5600,12 @@
           setDriverIncoming(res);
           renderDriverIncoming();
           if (driverIncomingSet[toteId] && !driverSessionCodes[toteId]) acceptDriverCode(toteId, fromCamera, Date.now());
-          else { updateDriverCounter(); rejectDriverCode(toteId, tf('notForThisStore', { code: toteId, store: label })); }
+          else {
+            updateDriverCounter();
+            const other = (driverIncomingRaw && driverIncomingRaw.groups || []).filter(function(g) { return g.codes.indexOf(toteId) !== -1; })[0];
+            if (other && driverSelTrip !== '') rejectDriverCode(toteId, toteId + ': thuộc chuyến khác (' + driverGroupLabel(other) + '), bạn đang nhận chuyến đã chọn. KHÔNG ghi.');
+            else rejectDriverCode(toteId, tf('notForThisStore', { code: toteId, store: label }));
+          }
         })
         .withFailureHandler(function(err) {
           if (handleSessionError(err)) return;
@@ -5494,19 +5614,22 @@
         .getStoreIncoming({ token: session.token, storeId: storeId });
     }
 
-    function acceptDriverCode(toteId, fromCamera, now) {
+    // src: 'D' = quét camera/nhập tay, 'L' = tài xế TICK TỪ DANH SÁCH (không quét được); chữ cái đầu của SCAN_ID trong TOTE_LOG để truy lại.
+    function acceptDriverCode(toteId, fromCamera, now, src, quiet) {
       driverSessionCodes[toteId] = true;
       driverTotal++;
 
       driverPendingQueue.push({
         toteId,
-        clientScanId: 'D' + now + '_' + Math.floor(Math.random() * 100000)
+        clientScanId: (src || 'D') + now + '_' + Math.floor(Math.random() * 100000)
       });
 
-      addDriverRecent(toteId, t('receivedPendingNote'), true);
-      showDriverMsg(t('receivedPrefix') + toteId, true);
-      beep(true);
-      if (navigator.vibrate) navigator.vibrate(120);
+      if (!quiet) {
+        addDriverRecent(toteId, src === 'L' ? 'Chọn từ danh sách' : t('receivedPendingNote'), true);
+        showDriverMsg(t('receivedPrefix') + toteId, true);
+        beep(true);
+        if (navigator.vibrate) navigator.vibrate(120);
+      }
       updateDriverCounter();
 
       // CHỈ giữ tạm (lưu trên máy). Ghi lên hệ thống khi bấm Kết thúc phiên (NHÓM 10).
@@ -5557,7 +5680,70 @@
       while (box.children.length > 20) box.removeChild(box.lastChild);
     }
 
+    // ---------------- Chọn rổ từ danh sách (khi không quét được: camera hỏng, nhãn rách...) ----------------
+    // Chỉ ở chế độ NHẬN RỔ có danh sách rổ đang giao tới cửa hàng. Tick = nhận như đã quét (vào cùng hàng đợi, ghi khi Kết thúc phiên).
+    function renderDriverListBtn() {
+      const b = document.getElementById('driverListBtn');
+      if (!b) return;
+      const ok = driverSessionActive && driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && driverIncoming.codes.length > 0;
+      b.classList.toggle('hidden', !ok);
+      if (ok) b.innerText = 'CHỌN TỪ DANH SÁCH (' + driverTotal + '/' + driverIncoming.codes.length + ')';
+    }
+
+    function openDriverList() {
+      if (!driverIncoming || !driverIncoming.codes) return;
+      document.getElementById('driverListSearch').value = '';
+      document.getElementById('driverListOverlay').classList.remove('hidden');
+      renderDriverList();
+    }
+
+    function closeDriverList() {
+      document.getElementById('driverListOverlay').classList.add('hidden');
+    }
+
+    function renderDriverList() {
+      const body = document.getElementById('driverListBody');
+      if (!body || !driverIncoming || !driverIncoming.codes) return;
+      const q = normalizeText(document.getElementById('driverListSearch').value);
+      const all = driverIncoming.codes.slice().sort(function(a, b) { return a.localeCompare(b, undefined, { numeric: true }); });
+      const rows = q ? all.filter(function(c) { return normalizeText(c).includes(q); }) : all;
+      document.getElementById('driverListHint').innerText = 'Đã chọn ' + driverTotal + ' / ' + all.length + ' rổ. Chỉ tick rổ ĐÃ giao tới cửa hàng.';
+      body.innerHTML = rows.length ? rows.map(function(c) {
+        return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line,#eee);font-size:15px">' +
+          '<input type="checkbox" style="width:22px;height:22px;min-height:0;padding:0;margin:0;flex:none" ' + (driverSessionCodes[c] ? 'checked ' : '') +
+          'data-c="' + escHtml_(c) + '" onchange="toggleDriverListItem(this.dataset.c, this.checked)"><b>' + escHtml_(c) + '</b></label>';
+      }).join('') : '<div style="padding:12px">Không có mã khớp.</div>';
+    }
+
+    function toggleDriverListItem(code, on) {
+      if (committing || !driverSessionActive) { renderDriverList(); return; }
+      if (on) {
+        if (!driverSessionCodes[code]) acceptDriverCode(code, false, Date.now(), 'L', true);
+      } else {
+        const i = driverPendingQueue.findIndex(function(x) { return x.toteId === code; });
+        if (i >= 0) {
+          driverPendingQueue.splice(i, 1);
+          delete driverSessionCodes[code];
+          driverTotal = Math.max(0, driverTotal - 1);
+          persistDriverQueue();
+          updateDriverCounter();
+        }
+      }
+      document.getElementById('driverListHint').innerText = 'Đã chọn ' + driverTotal + ' / ' + driverIncoming.codes.length + ' rổ. Chỉ tick rổ ĐÃ giao tới cửa hàng.';
+    }
+
+    function driverListSelectAll() {
+      if (committing || !driverIncoming || !driverIncoming.codes) return;
+      const left = driverIncoming.codes.filter(function(c) { return !driverSessionCodes[c]; });
+      if (!left.length) return;
+      if (!confirm('Xác nhận đã giao đủ ' + left.length + ' rổ còn lại tới cửa hàng?')) return;
+      const now = Date.now();
+      left.forEach(function(c) { acceptDriverCode(c, false, now, 'L', true); });
+      renderDriverList();
+    }
+
     function updateDriverCounter() {
+      renderDriverListBtn();
       document.getElementById('driverCTotal').innerText = driverTotal;
       document.getElementById('driverCOk').innerText = driverOk;
       document.getElementById('driverCFail').innerText = driverFail;
@@ -6549,6 +6735,7 @@
       if (res.unassigned && res.unassigned.length) html += '<div class="ps-warn">' + escHtml_(tf('psUnassigned', { list: res.unassigned.join(', ') })) + '</div>';
       if (!res.trips.length) {
         box.innerHTML = html + '<div class="dashboard-card">' + escHtml_(t('psEmpty')) + '</div>';
+        psUpdateFab();
         return;
       }
       html += '<div class="panel" style="padding:0">' + res.trips.map(function(tr, i) {
@@ -6559,17 +6746,34 @@
           '<span class="ps-chip ' + (tr.scanned ? 'on' : '') + '">' + escHtml_(tr.scanned ? t('psScanned') : t('psNotScanned')) + '</span></label>';
       }).join('') + '</div>';
       box.innerHTML = html;
+      psUpdateFab();
     }
 
     function psToggle(i, on) {
       if (!psData) return;
       psChecked[psData.date + '|' + psData.trips[i].trip] = !!on;
+      psUpdateFab();
     }
 
     function psSelectScanned() {
       if (!psData) return;
       psData.trips.forEach(function(tr) { psChecked[psData.date + '|' + tr.trip] = tr.scanned; });
       renderPrintSlips(psData);
+    }
+
+    function psSelectAll(on) {
+      if (!psData) return;
+      psData.trips.forEach(function(tr) { psChecked[psData.date + '|' + tr.trip] = !!on; });
+      renderPrintSlips(psData);
+    }
+
+    // Nút in nổi: hiện số chuyến đang chọn, ẩn khi chưa chọn gì (danh sách phiếu đã lưu có nút riêng).
+    function psUpdateFab() {
+      const n = psData ? psData.trips.filter(function(tr) { return psChecked[psData.date + '|' + tr.trip]; }).length : 0;
+      const m = psArch.trips.filter(function(tr, i) { return psArch.checked[i]; }).length;
+      const a = document.getElementById('psFab'), b = document.getElementById('psaFab');
+      if (a) { a.classList.toggle('hidden', n === 0); a.innerText = 'IN ' + n + ' CHUYẾN ĐÃ CHỌN'; }
+      if (b) { b.classList.toggle('hidden', m === 0); b.innerText = 'IN LẠI ' + m + ' PHIẾU ĐÃ LƯU'; }
     }
 
     // Phiếu: mỗi cửa hàng 1 dòng. Chỉ in SỐ LƯỢNG kho giao theo từng loại rổ (đỏ/nâu) + tổng; cột "cần thu" và "CH trả" để trống cho
@@ -6726,18 +6930,26 @@
 
     function renderSlipArchive(truncated) {
       const box = document.getElementById('psaResult');
-      if (!psArch.trips.length) { box.innerHTML = '<div class="dashboard-card">Không tìm thấy phiếu nào đã lưu.</div>'; return; }
+      if (!psArch.trips.length) { box.innerHTML = '<div class="dashboard-card">Không tìm thấy phiếu nào đã lưu.</div>'; psUpdateFab(); return; }
       let html = truncated ? '<div class="ps-warn">Chỉ hiện 150 chuyến mới nhất - thu hẹp khoảng ngày hoặc thêm từ khóa.</div>' : '';
       html += '<div class="panel" style="padding:0">' + psArch.trips.map(function(tr, i) {
         const dd = tr.date.split('-');
         const snap = tr.source === 'NIGHT' ? 'Chốt cuối ngày' : (tr.source === 'BACKFILL' ? 'Chụp bù' : 'Đã in') + ' ' + escHtml_(tr.snapAt || '');
         const extra = [tr.type || '', tr.carrier || '', tr.truck ? t('truckWord') + ' ' + tr.truck : '', tr.driver ? t('driverWord') + ' ' + tr.driver : ''].filter(Boolean).join(' · ');
-        return '<label class="ps-row"><input type="checkbox" ' + (psArch.checked[i] ? 'checked' : '') + ' onchange="psArch.checked[' + i + '] = this.checked">' +
+        return '<label class="ps-row"><input type="checkbox" ' + (psArch.checked[i] ? 'checked' : '') + ' onchange="psaToggle(' + i + ', this.checked)">' +
           '<div class="ps-main"><b>' + dd[2] + '/' + dd[1] + '/' + dd[0] + ' · ' + escHtml_(t('tripWord') + ' ' + tr.trip) + '</b><div class="ps-sub">' +
           escHtml_(tr.totalStores + ' cửa hàng · ' + tr.totalTrays + ' rổ' + (extra ? ' · ' + extra : '')) + '</div></div>' +
           '<span class="ps-chip">' + snap + '</span></label>';
       }).join('') + '</div>';
       box.innerHTML = html;
+      psUpdateFab();
+    }
+
+    function psaToggle(i, on) { psArch.checked[i] = !!on; psUpdateFab(); }
+
+    function psaSelectAll(on) {
+      psArch.trips.forEach(function(tr, i) { psArch.checked[i] = !!on; });
+      renderSlipArchive(false);
     }
 
     function printArchivedSlips() {
