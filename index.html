@@ -5682,10 +5682,13 @@
 
     // ---------------- Chọn rổ từ danh sách (khi không quét được: camera hỏng, nhãn rách...) ----------------
     // Chỉ ở chế độ NHẬN RỔ có danh sách rổ đang giao tới cửa hàng. Tick = nhận như đã quét (vào cùng hàng đợi, ghi khi Kết thúc phiên).
+    // Tạm ẨN nút "CHỌN TỪ DANH SÁCH" để tài xế tập quét; muốn bật lại = true.
+    const DRIVER_LIST_PICK_ENABLED = false;
+
     function renderDriverListBtn() {
       const b = document.getElementById('driverListBtn');
       if (!b) return;
-      const ok = driverSessionActive && driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && driverIncoming.codes.length > 0;
+      const ok = DRIVER_LIST_PICK_ENABLED && driverSessionActive && driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && driverIncoming.codes.length > 0;
       b.classList.toggle('hidden', !ok);
       if (ok) b.innerText = 'CHỌN TỪ DANH SÁCH (' + driverTotal + '/' + driverIncoming.codes.length + ')';
     }
@@ -6803,7 +6806,8 @@
           '<div class="slip-title">PHIẾU XUẤT - THU HỒI KHAY</div><div class="slip-no">1/' + pages + '</div></div>' +
           '<div class="slip-info"><div><span>Ngày: ' + d[2] + '/' + d[1] + '/' + d[0] + '</span><span>Chuyến: ' + e(tr.trip || '') + '</span><span>Loại hàng: ' + e(tr.type || '') + '</span></div>' +
           '<div><span>Nhà vận tải: ' + e(tr.carrier || '') + '</span><span>Xe tải: ' + e(tr.truck || '') + '</span><span>Tài xế: ' + e(tr.driver || '') + '</span>' +
-          '<span>Biển số: <span class="slip-plate"></span></span></div></div>';
+          (tr.phone ? '<span>SĐT: ' + e(tr.phone) + '</span>' : '') +
+          '<span>Biển số: ' + (tr.plate ? e(tr.plate) : '<span class="slip-plate"></span>') + '</span></div></div>';
       };
       const contHtml = function(pg, pages) { return '<div class="slip-cont">Chuyến: ' + e(tr.trip || '') + ' · Tờ ' + (pg + 1) + '/' + pages + '</div>'; };
       const storeHtml = function(st, i) {
