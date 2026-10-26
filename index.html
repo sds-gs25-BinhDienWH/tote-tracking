@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive', 'getOutLookup', 'getStoreOutToday'
+    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive', 'getOutLookup', 'getStoreOutToday', 'getOutSeenToday'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1, getOutLookup: 1, getStoreOutToday: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1, getOutLookup: 1, getStoreOutToday: 1, getOutSeenToday: 1
   };
   var MAX_RETRY = 2;
 
@@ -1379,6 +1379,7 @@
               data-i18n-placeholder="scanTotePlaceholder"
               placeholder="SCAN TOTE..."
               onkeydown="handleScanKey(event)"
+              oninput="onScanInput()"
               onclick="focusScan()"
               ontouchstart="focusScan()"
             >
@@ -2101,6 +2102,9 @@
     // NHẬN RỔ: true = chỉ nhận mã nằm trong danh sách kho đã xuất cho cửa hàng + cảnh báo thiếu; false = quét gì nhận đó, ẩn số đang giao tới,
     // ẩn cảnh báo thiếu (tạm dùng ngày đầu chạy thật vì chưa có dữ liệu xuất/tồn đầy đủ). Bật lại = true.
     const DRIVER_STRICT_RECEIVE = true;
+    // TẠM THỜI "kho xuất gì giao đó": NHẬN HÀNG tại cửa hàng chỉ đối chiếu SỐ LƯỢNG ("Đã quét X / Y rổ"), KHÔNG kiểm từng mã: tài xế quét gì ghi nhận nấy
+    // (không từ chối mã ngoài danh sách, không liệt kê mã thiếu). Phải bằng RECEIVE_ACCEPT_ANY trong Backend.gs. Muốn kiểm từng mã trở lại = false.
+    const DRIVER_RECEIVE_COUNT_ONLY = true;
     let driverScanPaused = false; // đã quét được 1 mã, đang chờ bấm "Xác nhận - quét tiếp" mới quét mã kế
     let driverCameraManuallyOff = false; // người dùng tự bấm TẮT CAMERA (khác với tắt do chuyển sang Nhập tay)
     let driverScanLog = []; // toàn bộ kết quả quét trong phiên hiện tại (xem scanLog bên kho)
@@ -3021,6 +3025,7 @@
       outboxPump();
       if (pendingQueue.length > 0 && !DEFER_WRITE[mode]) scheduleAutoFlush();   // đăng nhập lại: ghi tiếp mã IN còn dở
       focusScanLoop();
+      outSeenLoop();                     // màn OUT: cứ vài giây tải danh sách rổ đã xuất hôm nay của mọi máy để chặn quét nhầm sang cửa hàng khác
     }
 
     function setupRoleUI() {
@@ -3321,9 +3326,38 @@
 
       if (e.key && e.key.length === 1) {
         e.preventDefault();
-        scanBuffer += e.key.toUpperCase();
+        scanBuffer = drainGluedScan(scanBuffer + e.key.toUpperCase());      // mã dính liền thì nhận ngay từng mã đã xong
         input.value = scanBuffer;
       }
+    }
+
+    // Máy quét (nhất là khi máy lag) thỉnh thoảng làm mất Enter giữa 2 lần quét nên mã nối liền: "BAS_BR_5260BAS_BR_5178". Một mã hợp lệ KHÔNG BAO GIỜ chứa
+    // TOT/BAS ở giữa, nên thấy mã thứ 2 bắt đầu nghĩa là mã trước đã xong: nhận NGAY các mã đã xong (mỗi mã 1 dòng), chỉ giữ lại phần đang gõ dở trong ô quét.
+    function drainGluedScan(raw) {
+      const text = String(raw || '').toUpperCase();
+      const parts = text.split(/(?=TOT|BAS)/);
+      if (parts.length < 2) return text;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const c = parts[i].trim();
+        if (c) receiveScanCode(c);
+      }
+      return parts[parts.length - 1];
+    }
+
+    function onScanInput() {
+      if (manualInputMode) return;            // NHẬP TAY: người gõ, không tách
+      const input = document.getElementById('scanInput');
+      if (!input) return;
+      const before = input.value.toUpperCase();
+      const rest = drainGluedScan(before);
+      if (rest !== before) { input.value = rest; scanBuffer = rest; }
+    }
+
+    // Xóa mã còn dang dở trong ô quét + bộ đệm toàn trang (đầu/cuối phiên): tránh mã của phiên trước lọt sang phiên sau (VD Enter bị mất ở lần quét cuối).
+    function clearScanInputBuffer() {
+      scanBuffer = '';
+      const input = document.getElementById('scanInput');
+      if (input && !manualInputMode) input.value = '';
     }
 
     function handleScanKey(e) {
@@ -3416,6 +3450,22 @@
         showResult(t('notStartedInSessionMsg'), false);
         beep(false);
         return;
+      }
+
+      // OUT: rổ này hôm nay đã được xuất cho CỬA HÀNG KHÁC (trên máy này) -> báo đỏ, rung, KHÔNG nhận vào phiên. Kho "bắn trước, ghi sau" nên không ai thấy lỗi
+      // ngay lúc quét; chặn tại đây để rổ của cửa hàng này không lẫn sang cửa hàng khác.
+      if (mode === 'OUT') {
+        const prev = outSeenGet(toteId);
+        if (prev && prev.store !== selectedStoreId) {
+          const hh = prev.at ? new Date(prev.at) : null;
+          const msg = toteId + ': ĐÃ XUẤT cho ' + (prev.label || prev.store) + (hh ? ' lúc ' + ('0' + hh.getHours()).slice(-2) + ':' + ('0' + hh.getMinutes()).slice(-2) : ' hôm nay') +
+            ' - KHÔNG nhận cho cửa hàng này. Kiểm tra lại rổ có đúng của cửa hàng đang quét không.';
+          showResult(msg, false);
+          addRecent(toteId, msg, false);
+          beepInvalid();
+          if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
+          return;
+        }
       }
 
       const now = Date.now();
@@ -4029,8 +4079,81 @@
       renderOutboxChip();
     }
 
+    // Rổ đã xuất HÔM NAY trên máy này: { mã: { store, label, at } }, lưu localStorage, tự sang ngày mới thì bỏ. Ghi khi phiên OUT được đưa vào hàng chờ ghi.
+    let outSeen = null;
+    let outSeenDayKey = '';
+    function outSeenEnsure() {
+      const day = ymdLocal(new Date());
+      if (outSeen && outSeenDayKey === day) return;
+      outSeenDayKey = day;
+      outSeen = {};
+      try {
+        const raw = JSON.parse(localStorage.getItem('OUT_SEEN_V1') || 'null');
+        if (raw && raw.day === day && raw.map) outSeen = raw.map;
+      } catch (e) {}
+    }
+    // Rổ đã xuất hôm nay trên MỌI máy (máy chủ trả, làm mới mỗi OUT_SEEN_REFRESH_MS khi đang ở màn OUT): { mã: { store, label } }
+    const OUT_SEEN_REFRESH_MS = 12000;
+    let outSeenSrv = {};
+    let outSeenSrvAt = 0;
+    let outSeenSrvBusy = false;
+
+    function storeLabelOf(id) {
+      const s0 = (typeof stores !== 'undefined' && stores || []).filter(function(x) { return x.id === id; })[0];
+      return s0 ? id + ' - ' + s0.name : id;
+    }
+
+    function loadOutSeenServer(force) {
+      if (!session || (session.role !== 'ADMIN' && session.role !== 'WAREHOUSE')) return;
+      if (outSeenSrvBusy) return;
+      if (!force && Date.now() - outSeenSrvAt < OUT_SEEN_REFRESH_MS) return;
+      outSeenSrvBusy = true;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          outSeenSrvBusy = false;
+          if (!res || !res.success) return;
+          const map = {};
+          Object.keys(res.stores || {}).forEach(function(st) {
+            const label = storeLabelOf(st);
+            Object.keys(res.stores[st]).forEach(function(kind) {
+              String(res.stores[st][kind] || '').split(',').forEach(function(tk) {
+                tk = tk.trim();
+                if (!tk) return;
+                const m = /^(\d+)(?:-(\d+))?$/.exec(tk);
+                if (!m) { map[tk] = { store: st, label: label, at: 0 }; return; }
+                const a = Number(m[1]), b = m[2] ? Number(m[2]) : a;
+                for (let n = a; n <= b && n - a < 20000; n++) map[kind + '_' + n] = { store: st, label: label, at: 0 };
+              });
+            });
+          });
+          outSeenSrv = map;
+          outSeenSrvAt = Date.now();
+        })
+        .withFailureHandler(function() { outSeenSrvBusy = false; })
+        .getOutSeenToday({ token: session.token, zone: sessionZoneFor('OUT') });
+    }
+
+    function outSeenLoop() {
+      if (window.__outSeenLoop) return;
+      window.__outSeenLoop = setInterval(function() {
+        if (!session || mode !== 'OUT') return;
+        const scr = document.getElementById('screen-pda');
+        if (!scr || !scr.classList.contains('active')) return;
+        loadOutSeenServer(false);
+      }, 4000);
+    }
+
+    function outSeenGet(code) { outSeenEnsure(); return outSeen[code] || outSeenSrv[code] || null; }
+    function outSeenAdd(items, store, label) {
+      outSeenEnsure();
+      const at = Date.now();
+      items.forEach(function(x) { outSeen[x.toteId] = { store: store, label: label, at: at }; });
+      try { localStorage.setItem('OUT_SEEN_V1', JSON.stringify({ day: outSeenDayKey, map: outSeen })); } catch (e) {}
+    }
+
     function outboxEnqueueCurrent() {
       const items = pendingQueue.slice();
+      outSeenAdd(items, selectedStoreId, sessionStoreLabel);
       outbox.push({
         id: sessionIds.OUT || ('J' + Date.now()), action: 'OUT', store: selectedStoreId, trip: sessionTripId, label: sessionStoreLabel,
         sessionId: sessionIds.OUT, zone: sessionZoneFor('OUT'), items: items, results: [], at: Date.now()
@@ -4946,6 +5069,7 @@
       sessionOutTotesMap = {};
       pendingQueue = [];
       sessionCodes = {};
+      clearScanInputBuffer();
       persistQueue('OUT', null);
       sessionIds.OUT = makeSessionId('OUT', selectedStoreId);
 
@@ -4963,6 +5087,7 @@
 
       renderPdaSessionUI();
       loadStoreOutInfo(selectedStoreId);
+      loadOutSeenServer(false);
 
       showResult(t('readySummary'), true);
       focusScan();
@@ -4976,6 +5101,7 @@
       sessionInTotesMap = {};
       pendingQueue = [];
       sessionCodes = {};
+      clearScanInputBuffer();
       persistQueue('IN', null);
       sessionIds.IN = makeSessionId('IN');
 
@@ -5028,6 +5154,7 @@
       sessionActive = false;
       pendingQueue = [];
       sessionCodes = {};
+      clearScanInputBuffer();
       persistQueue('OUT', null);
       sessionIds.OUT = '';
       sessionStoreLabel = '';
@@ -5053,6 +5180,7 @@
       inSessionActive = false;
       pendingQueue = [];
       sessionCodes = {};
+      clearScanInputBuffer();
       persistQueue('IN', null);
       sessionIds.IN = '';
       sessionInTotesMap = {};
@@ -5209,7 +5337,7 @@
         const keep = sameStore && driverSelTrip !== null && (driverSelTrip === '' || groups.some(function(g) { return g.key === driverSelTrip; }));
         if (!keep) {
           const mine = groups.filter(function(g) { return driverCarrierMatch(g.carrier); });
-          driverSelTrip = mine.length === 1 ? mine[0].key : null;      // tài khoản có nhà vận tải khớp đúng 1 chuyến thì tự chọn, còn lại bắt chọn
+          driverSelTrip = mine.length === 1 ? mine[0].key : null;      // tài khoản có nhà vận tải khớp đúng 1 chuyến thì tự chọn, còn lại bắt chọn (kể cả khi đang ở chế độ chỉ đếm số lượng)
         }
       }
       applyDriverTripView();
@@ -5257,6 +5385,14 @@
     function renderDriverMissingWarn() {
       const el = document.getElementById('driverMissingWarn');
       if (!el) return;
+      if (DRIVER_RECEIVE_COUNT_ONLY) {                // chỉ so SỐ LƯỢNG, không liệt kê mã
+        const exp = driverIncoming ? driverIncoming.qty : 0;
+        const miss = (driverMode === 'STORE_RECEIVE' && driverIncoming && !driverIncoming.needChoice) ? Math.max(0, exp - driverTotal) : 0;
+        if (!miss) { el.classList.add('hidden'); return; }
+        el.classList.remove('hidden');
+        el.innerText = 'Số rổ đã quét (' + driverTotal + ') ít hơn số kho giao (' + exp + '): thiếu ' + miss + ' rổ. Vẫn có thể xác nhận nếu đã quét đủ rổ thực tế.';
+        return;
+      }
       const miss = (driverMode === 'STORE_RECEIVE') ? driverMissingCodes() : [];
       if (!miss.length) { el.classList.add('hidden'); return; }
       const shown = miss.slice(0, 30).join(', ') + (miss.length > 30 ? ' ...' : '');
@@ -5574,7 +5710,7 @@
         beepInvalid();
         return;
       }
-      if (driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && !driverIncomingSet[toteId]) {
+      if (!DRIVER_RECEIVE_COUNT_ONLY && driverMode === 'STORE_RECEIVE' && driverIncoming && Array.isArray(driverIncoming.codes) && !driverIncomingSet[toteId]) {
         verifyDriverCode(toteId, fromCamera);
         return;
       }
