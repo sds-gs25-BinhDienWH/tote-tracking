@@ -31,7 +31,7 @@
     'getDashboard', 'getInTransitSummary', 'getToteHistory', 'getDailyOutSummary',
     'getAbnormalSummary', 'submitStoreAudit', 'getStoreAuditHistory', 'getHomeSummary',
     'changePassword', 'getWarehouseStock', 'getStockSnapshot', 'getDayReport', 'getStockHistory',
-    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive', 'getOutLookup', 'getStoreOutToday', 'getOutSeenToday'
+    'getStoreIncoming', 'getTripChoices', 'getTripPlan', 'getTraySlipData', 'archiveSlips', 'searchSlipArchive', 'getOutLookup', 'getStoreOutToday', 'getOutSeenToday', 'claimOut'
   ];
 
   // Các lệnh CHỈ ĐỌC dữ liệu: nếu Google trả lỗi tạm thời (404/429/5xx,
@@ -39,7 +39,7 @@
   // (quét, thêm store, đổi mật khẩu...) để tránh ghi trùng 2 lần.
   var RETRY_SAFE = {
     getSession: 1, getStores: 1, getDashboard: 1, getInTransitSummary: 1, getToteHistory: 1,
-    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1, getOutLookup: 1, getStoreOutToday: 1, getOutSeenToday: 1
+    getDailyOutSummary: 1, getAbnormalSummary: 1, getStoreAuditHistory: 1, getHomeSummary: 1, getWarehouseStock: 1, getStockSnapshot: 1, getDayReport: 1, getStockHistory: 1, getStoreIncoming: 1, getTripChoices: 1, getTripPlan: 1, getTraySlipData: 1, searchSlipArchive: 1, getOutLookup: 1, getStoreOutToday: 1, getOutSeenToday: 1, claimOut: 1
   };
   var MAX_RETRY = 2;
 
@@ -3011,7 +3011,7 @@
 
       setupRoleUI();
       setupDriverForRole();
-      setMode('OUT');
+      setMode(canOpsOut() ? 'OUT' : 'IN');     // tài khoản chỉ được IN thì mở thẳng chế độ nhập kho
 
       if (session.role === 'ADMIN' || session.role === 'WAREHOUSE' || session.role === 'DRIVER' || session.role === 'VIEWER') {
         loadStores();
@@ -3036,8 +3036,10 @@
       // setupDriverForRole(). Cả 2 đều dùng chung màn "Giao Nhận".
       const canDriverScan = (role === 'ADMIN' || role === 'DRIVER' || role === 'STORE');
 
-      document.getElementById('railOut').classList.toggle('hidden', !canScan);
-      document.getElementById('railIn').classList.toggle('hidden', !canScan);
+      document.getElementById('railOut').classList.toggle('hidden', !(canScan && canOpsOut()));
+      document.getElementById('railIn').classList.toggle('hidden', !(canScan && canOpsIn()));
+      document.querySelector('#homeQuickRow .quick.out').classList.toggle('hidden', !canOpsOut());
+      document.querySelector('#homeQuickRow .quick.in').classList.toggle('hidden', !canOpsIn());
       document.getElementById('tabDriver').classList.toggle('hidden', !canDriverScan);
       // Cửa hàng: ADMIN (quản lý) và tài xế (tra cửa hàng + chỉ đường).
       document.getElementById('tabStore').classList.toggle('hidden', !(role === 'ADMIN' || role === 'DRIVER' || role === 'VIEWER'));
@@ -3165,7 +3167,12 @@
       if (name === 'settings') renderSettingsUI();
     }
 
+    // Nhân viên kho có thể bị giới hạn chỉ OUT hoặc chỉ IN (cột THAO TÁC trong USER_ACCESS -> session.ops). ADMIN và ô trống = cả hai.
+    function canOpsOut() { return !(session && session.role === 'WAREHOUSE' && session.ops === 'IN'); }
+    function canOpsIn() { return !(session && session.role === 'WAREHOUSE' && session.ops === 'OUT'); }
+
     function goToScan(value) {
+      if (value === 'OUT' ? !canOpsOut() : !canOpsIn()) return;
       setMode(value);
       showScreen('pda');
       if (value === 'OUT' && session && tripPlanOld(TRIP_PLAN_REFRESH_MS)) loadTripPlan();   // tải sẵn lịch chuyến để chọn cửa hàng không phải chờ
@@ -3452,18 +3459,15 @@
         return;
       }
 
-      // OUT: rổ này hôm nay đã được xuất cho CỬA HÀNG KHÁC (trên máy này) -> báo đỏ, rung, KHÔNG nhận vào phiên. Kho "bắn trước, ghi sau" nên không ai thấy lỗi
-      // ngay lúc quét; chặn tại đây để rổ của cửa hàng này không lẫn sang cửa hàng khác.
-      if (mode === 'OUT') {
+      // OUT: rổ này hôm nay đã xuất / đang được máy khác quét cho CỬA HÀNG KHÁC -> KHÔNG nhận vào phiên ngay, hiện hộp xác nhận ở cuối màn (không chặn quét tiếp):
+      // "Giữ nguyên" = bỏ mã này; "Chuyển" = nhận cho cửa hàng này (máy chủ ghi dấu chuyển). Kho "bắn trước, ghi sau" nên phải báo ngay lúc quét.
+      if (mode === 'OUT' && !moveApproved[toteId]) {
         const prev = outSeenGet(toteId);
         if (prev && prev.store !== selectedStoreId) {
-          const hh = prev.at ? new Date(prev.at) : null;
-          const msg = toteId + ': ĐÃ XUẤT cho ' + (prev.label || prev.store) + (hh ? ' lúc ' + ('0' + hh.getHours()).slice(-2) + ':' + ('0' + hh.getMinutes()).slice(-2) : ' hôm nay') +
-            ' - KHÔNG nhận cho cửa hàng này. Kiểm tra lại rổ có đúng của cửa hàng đang quét không.';
-          showResult(msg, false);
-          addRecent(toteId, msg, false);
           beepInvalid();
           if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
+          addRecent(toteId, 'Đã xuất cho ' + (prev.label || prev.store) + ' - chờ xác nhận', false);
+          moveAskPush({ code: toteId, store: prev.store, label: prev.label || prev.store, at: prev.at, late: false });
           return;
         }
       }
@@ -3490,10 +3494,13 @@
       sessionCodes[toteId] = true;
       total++;
 
-      pendingQueue.push({
+      const queued = {
         toteId,
         clientScanId: 'S' + now + '_' + Math.floor(Math.random() * 100000)
-      });
+      };
+      if (mode === 'OUT' && moveApproved[toteId]) queued.move = true;       // đã xác nhận "Chuyển": máy chủ cho ghi đè rổ đã xuất cho cửa hàng khác
+      pendingQueue.push(queued);
+      if (mode === 'OUT') claimAdd(toteId, selectedStoreId);
 
       addRecent(toteId, t(DEFER_WRITE[mode] ? 'receivedPendingNote' : 'receivedPendingNoteNow'), true);
       showResult(t('receivedPrefix') + toteId, true);
@@ -4142,6 +4149,104 @@
         loadOutSeenServer(false);
       }, 4000);
     }
+
+    // ---- "Báo trước" rổ vừa quét lên máy chủ (claimOut, chỉ dùng bộ nhớ tạm, không đụng sheet) + hộp xác nhận chuyển cửa hàng ----
+    let moveApproved = {};              // mã đã bấm "Chuyển" trong phiên hiện tại
+    let moveAskQueue = [];              // các mã đang chờ người quét chọn Giữ nguyên / Chuyển
+    let claimPending = [];              // [{code, store}] đã quét, chưa báo máy chủ
+    let claimTimer = null;
+    let claimBusy = false;
+    const CLAIM_FLUSH_MS = 2000;
+
+    function claimAdd(code, store) {
+      claimPending.push({ code: code, store: store });
+      if (!claimTimer) claimTimer = setTimeout(claimFlush, CLAIM_FLUSH_MS);
+    }
+
+    function claimFlush() {
+      claimTimer = null;
+      if (!session || claimBusy || !claimPending.length) { if (claimPending.length) claimTimer = setTimeout(claimFlush, CLAIM_FLUSH_MS); return; }
+      const batch = claimPending.splice(0, 150);
+      const byStore = {};
+      batch.forEach(function(x) { (byStore[x.store] = byStore[x.store] || []).push(x.code); });
+      const stores = Object.keys(byStore);
+      claimBusy = true;
+      let left = stores.length;
+      const done = function() { if (--left <= 0) { claimBusy = false; if (claimPending.length) claimTimer = setTimeout(claimFlush, CLAIM_FLUSH_MS); } };
+      stores.forEach(function(st) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            done();
+            if (!res || !res.success) return;
+            (res.conflicts || []).forEach(function(c) { claimConflict(c.code, c.store, st); });
+          })
+          .withFailureHandler(function() { done(); })
+          .claimOut({ token: session.token, store: st, codes: byStore[st] });
+      });
+    }
+
+    function claimRelease(items, store) {
+      if (!session || !items.length) return;
+      google.script.run.withFailureHandler(function() {}).claimOut({ token: session.token, store: store, codes: [], release: items.map(function(x) { return x.toteId; }) });
+    }
+
+    // Máy chủ báo máy khác đã giữ rổ này cho cửa hàng khác: rổ đang nằm trong phiên của mình -> hỏi Giữ nguyên (bỏ khỏi phiên) / Chuyển
+    function claimConflict(code, otherStore, myStore) {
+      if (moveApproved[code]) return;
+      const inCurrent = sessionActive && selectedStoreId === myStore && sessionCodes[code];
+      if (inCurrent) { moveAskPush({ code: code, store: otherStore, label: storeLabelOf(otherStore), at: 0, late: true }); return; }
+      showToast(code + ': máy khác vừa quét cho ' + storeLabelOf(otherStore) + ' (phiên của bạn đã gửi đi, kiểm tra lại rổ)', 9000);
+      beepInvalid();
+    }
+
+    function moveAskPush(item) {
+      if (moveAskQueue.some(function(x) { return x.code === item.code; })) return;
+      moveAskQueue.push(item);
+      moveAskRender();
+    }
+
+    function moveAskRender() {
+      let box = document.getElementById('moveAskBox');
+      if (!moveAskQueue.length) { if (box) box.style.display = 'none'; return; }
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'moveAskBox';
+        box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:9000;background:#fff;border:3px solid #d32f2f;border-radius:12px;padding:12px;box-shadow:0 4px 18px rgba(0,0,0,.35);font-size:15px;color:#111';
+        box.addEventListener('mousedown', function(e) { e.preventDefault(); });       // bấm nút không cướp focus của ô quét
+        document.body.appendChild(box);
+      }
+      const it = moveAskQueue[0];
+      const hh = it.at ? new Date(it.at) : null;
+      const when = hh ? ' lúc ' + ('0' + hh.getHours()).slice(-2) + ':' + ('0' + hh.getMinutes()).slice(-2) : ' hôm nay';
+      const here = selectedStoreId ? storeLabelOf(selectedStoreId) : '';
+      box.innerHTML = '<div style="font-weight:700;color:#d32f2f;margin-bottom:6px">' + escHtml_(it.code) + (it.late ? ': MÁY KHÁC VỪA QUÉT cho ' : ': ĐÃ XUẤT cho ') + escHtml_(it.label) + (it.late ? '' : escHtml_(when)) + '</div>' +
+        '<div style="margin-bottom:10px">Cửa hàng đang quét: <b>' + escHtml_(here) + '</b>' + (moveAskQueue.length > 1 ? ' &nbsp;(còn ' + (moveAskQueue.length - 1) + ' rổ chờ)' : '') + '</div>' +
+        '<div style="display:flex;gap:8px"><button type="button" tabindex="-1" style="flex:1;padding:14px;font-size:16px;font-weight:700;border:0;border-radius:8px;background:#2e7d32;color:#fff" onclick="moveAskAnswer(false)">GIỮ NGUYÊN</button>' +
+        '<button type="button" tabindex="-1" style="flex:1;padding:14px;font-size:16px;font-weight:700;border:0;border-radius:8px;background:#d32f2f;color:#fff" onclick="moveAskAnswer(true)">CHUYỂN SANG CỬA HÀNG NÀY</button></div>';
+      box.style.display = 'block';
+    }
+
+    function moveAskAnswer(move) {
+      const it = moveAskQueue.shift();
+      moveAskRender();
+      if (!it) return;
+      if (move) {
+        moveApproved[it.code] = true;
+        if (it.late) {                                              // rổ đã nằm trong phiên: chỉ đánh dấu để máy chủ cho ghi đè
+          pendingQueue.forEach(function(q) { if (q.toteId === it.code) q.move = true; });
+          persistPdaQueue();
+        } else {
+          receiveScanCode(it.code);                                 // chưa vào phiên: quét lại, lần này được nhận kèm cờ move
+        }
+      } else if (it.late) {                                         // máy kia giữ trước: bỏ rổ khỏi phiên của mình
+        const i = pendingQueue.findIndex(function(q) { return q.toteId === it.code; });
+        if (i >= 0) { pendingQueue.splice(i, 1); delete sessionCodes[it.code]; total = Math.max(0, total - 1); updateCounter(); persistPdaQueue(); }
+        claimRelease([{ toteId: it.code }], selectedStoreId);
+      }
+      focusScan();
+    }
+
+    function moveAskReset() { moveAskQueue = []; moveApproved = {}; moveAskRender(); }
 
     function outSeenGet(code) { outSeenEnsure(); return outSeen[code] || outSeenSrv[code] || null; }
     function outSeenAdd(items, store, label) {
@@ -5154,6 +5259,7 @@
       sessionActive = false;
       pendingQueue = [];
       sessionCodes = {};
+      moveAskReset();
       clearScanInputBuffer();
       persistQueue('OUT', null);
       sessionIds.OUT = '';
@@ -5223,6 +5329,7 @@
 
     function confirmCancelScanSession() {
       document.getElementById('cancelSessionOverlay').classList.add('hidden');
+      claimRelease(pendingQueue.slice(), selectedStoreId);          // hủy phiên: nhả các rổ đã báo trước để máy khác quét được
       doResetOutSession();
       showResult(t('cancelledSessionMsg'), true);
     }
