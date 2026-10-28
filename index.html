@@ -4219,10 +4219,12 @@
       const hh = it.at ? new Date(it.at) : null;
       const when = hh ? ' lúc ' + ('0' + hh.getHours()).slice(-2) + ':' + ('0' + hh.getMinutes()).slice(-2) : ' hôm nay';
       const here = selectedStoreId ? storeLabelOf(selectedStoreId) : '';
-      box.innerHTML = '<div style="font-weight:700;color:#d32f2f;margin-bottom:6px">' + escHtml_(it.code) + (it.late ? ': MÁY KHÁC VỪA QUÉT cho ' : ': ĐÃ XUẤT cho ') + escHtml_(it.label) + (it.late ? '' : escHtml_(when)) + '</div>' +
-        '<div style="margin-bottom:10px">Cửa hàng đang quét: <b>' + escHtml_(here) + '</b>' + (moveAskQueue.length > 1 ? ' &nbsp;(còn ' + (moveAskQueue.length - 1) + ' rổ chờ)' : '') + '</div>' +
-        '<div style="display:flex;gap:8px"><button type="button" tabindex="-1" style="flex:1;padding:14px;font-size:16px;font-weight:700;border:0;border-radius:8px;background:#2e7d32;color:#fff" onclick="moveAskAnswer(false)">GIỮ NGUYÊN</button>' +
-        '<button type="button" tabindex="-1" style="flex:1;padding:14px;font-size:16px;font-weight:700;border:0;border-radius:8px;background:#d32f2f;color:#fff" onclick="moveAskAnswer(true)">CHUYỂN SANG CỬA HÀNG NÀY</button></div>';
+      const isAdmin = !!session && session.role === 'ADMIN';       // rổ đã OUT là bị KHÓA: chỉ ADMIN mới được chuyển sang cửa hàng khác
+      const btn = 'type="button" tabindex="-1" style="flex:1;padding:14px;font-size:16px;font-weight:700;border:0;border-radius:8px;color:#fff;background:';
+      box.innerHTML = '<div style="font-weight:700;color:#d32f2f;margin-bottom:6px">' + escHtml_(it.code) + (it.late ? ': MÁY KHÁC VỪA QUÉT cho ' : ': ĐÃ XUẤT cho ') + escHtml_(it.label) + (it.late ? '' : escHtml_(when)) + (isAdmin ? '' : ' - ĐÃ KHÓA') + '</div>' +
+        '<div style="margin-bottom:10px">Cửa hàng đang quét: <b>' + escHtml_(here) + '</b>' + (moveAskQueue.length > 1 ? ' &nbsp;(còn ' + (moveAskQueue.length - 1) + ' rổ chờ)' : '') + (isAdmin ? '' : '<br>Không xuất lại được. Cần sửa thì báo ADMIN.') + '</div>' +
+        '<div style="display:flex;gap:8px"><button ' + btn + '#2e7d32" onclick="moveAskAnswer(false)">' + (isAdmin ? 'GIỮ NGUYÊN' : 'ĐÃ HIỂU - BỎ RỔ NÀY') + '</button>' +
+        (isAdmin ? '<button ' + btn + '#d32f2f" onclick="moveAskAnswer(true)">CHUYỂN SANG CỬA HÀNG NÀY</button>' : '') + '</div>';
       box.style.display = 'block';
     }
 
@@ -5021,6 +5023,12 @@
     // Cửa hàng đi nhiều chuyến: chuyến nào đã xuất rổ cho cửa hàng này rồi (done > 0) thì không hỏi lại.
     // Còn >= 2 chuyến chưa xuất: hỏi. Còn đúng 1: tự chọn. Đã xuất hết: hỏi lại trong tất cả (để xuất bổ sung).
     function applyTripChoices(storeId, trips) {
+      // Tài khoản được gán cố định chuyến (cột CHUYẾN): máy chủ chỉ trả chuyến của người đó, cửa hàng không thuộc chuyến nào của họ thì không xuất được
+      if (session && session.role === 'WAREHOUSE' && session.trips && session.trips.length && !trips.length) {
+        alert('Cửa hàng ' + storeId + ' không nằm trong chuyến của bạn (chuyến ' + session.trips.join(', ') + ' hôm nay).');
+        cancelTripChoice();
+        return;
+      }
       if (trips.length === 1 && trips[0].done > 0) {      // cửa hàng chỉ đi 1 chuyến mà đã xuất rồi: hỏi lại để khỏi quét trùng
         if (!confirm(tf('outAlreadyDone', { store: storeId + ' - ' + selectedStoreName, n: trips[0].done, trip: trips[0].trip }))) { cancelTripChoice(); return; }
       }
