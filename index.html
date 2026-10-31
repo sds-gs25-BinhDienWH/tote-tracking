@@ -3335,6 +3335,7 @@
         e.preventDefault();
         scanBuffer = drainGluedScan(scanBuffer + e.key.toUpperCase());      // mã dính liền thì nhận ngay từng mã đã xong
         input.value = scanBuffer;
+        scheduleIdleScanSubmit();
       }
     }
 
@@ -3358,6 +3359,27 @@
       const before = input.value.toUpperCase();
       const rest = drainGluedScan(before);
       if (rest !== before) { input.value = rest; scanBuffer = rest; }
+      scheduleIdleScanSubmit();
+    }
+
+    // Một số PDA không gửi (hoặc làm mất) phím Enter sau mỗi lần quét -> mã nằm treo trong ô quét tới khi quét mã kế tiếp. Máy quét gõ cả mã trong vài chục ms,
+    // nên ô quét đứng yên SCAN_IDLE_SUBMIT_MS mà đã đủ 1 mã hợp lệ (đuôi là số) thì tự coi như đã Enter. NHẬP TAY không tự gửi (người gõ chậm).
+    const SCAN_IDLE_SUBMIT_MS = 450;
+    let scanIdleTimer = null;
+    function scheduleIdleScanSubmit() {
+      clearTimeout(scanIdleTimer);
+      scanIdleTimer = null;
+      if (manualInputMode) return;
+      const input = document.getElementById('scanInput');
+      if (!input) return;
+      const v = String(input.value || scanBuffer || '').trim().toUpperCase();
+      if (!/^(TOT|BAS)_([A-Z]{2}_)?\d+$/.test(v)) return;
+      scanIdleTimer = setTimeout(() => {
+        scanIdleTimer = null;
+        if (manualInputMode || !session) return;
+        const cur = String(input.value || scanBuffer || '').trim().toUpperCase();
+        if (cur === v) submitManualScan();
+      }, SCAN_IDLE_SUBMIT_MS);
     }
 
     // Xóa mã còn dang dở trong ô quét + bộ đệm toàn trang (đầu/cuối phiên): tránh mã của phiên trước lọt sang phiên sau (VD Enter bị mất ở lần quét cuối).
