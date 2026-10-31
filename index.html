@@ -3364,7 +3364,7 @@
 
     // Một số PDA không gửi (hoặc làm mất) phím Enter sau mỗi lần quét -> mã nằm treo trong ô quét tới khi quét mã kế tiếp. Máy quét gõ cả mã trong vài chục ms,
     // nên ô quét đứng yên SCAN_IDLE_SUBMIT_MS mà đã đủ 1 mã hợp lệ (đuôi là số) thì tự coi như đã Enter. NHẬP TAY không tự gửi (người gõ chậm).
-    const SCAN_IDLE_SUBMIT_MS = 450;
+    const SCAN_IDLE_SUBMIT_MS = 150;
     let scanIdleTimer = null;
     function scheduleIdleScanSubmit() {
       clearTimeout(scanIdleTimer);
