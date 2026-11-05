@@ -4383,7 +4383,19 @@
       else el.textContent = tf('outboxAlerts', { n: outboxAlerts.length });
     }
 
+    // Chạm dòng đỏ khi đang kẹt: cho xem LÝ DO máy chủ trả về + từng phiên đang chờ (ngày, cửa hàng, chuyến, số mã, số lần thử) trước khi thử lại,
+    // để biết phiên nào kẹt và vì sao (phiên cũ từ ngày trước cũng nằm ở đây).
+    function outboxStuckReport() {
+      const fmtDay = function(ms) { return ms ? ymdLocal(new Date(ms)).split('-').reverse().join('/') : '?'; };
+      const lines = ['LÝ DO KẸT: ' + (outboxStuck || '(chưa có thông tin)'), '', 'Các phiên đang chờ ghi (từ cũ đến mới):'];
+      outbox.forEach(function(j, i) {
+        lines.push((i + 1) + '. ' + fmtDay(j.at) + ' | ' + (j.label || j.store) + ' | ' + (j.trip || 'chưa chọn chuyến') + ' | ' + j.items.length + ' mã' + (j.tries ? ' | đã thử ' + j.tries + ' lần' : ''));
+      });
+      return lines.join('\n');
+    }
+
     function outboxChipClick() {
+      if (outboxCount() && outboxTries >= 2) alert(outboxStuckReport());
       if (outboxCount()) { outboxTries = 0; outboxStuck = ''; outboxPump(); if (outboxAlerts.length) showOutboxAlerts(); return; }
       showOutboxAlerts();
     }
@@ -5169,6 +5181,7 @@
         if (j.store !== storeOutInfoFor) return;
         const key = j.trip || '';
         if (!groups[key]) { groups[key] = { trip: key, type: '', items: [] }; order.push(key); }
+        if (j.at && ymdLocal(new Date(j.at)) !== ymdLocal(new Date())) groups[key].oldDay = ymdLocal(new Date(j.at)).split('-').reverse().join('/');     // phiên CHƯA GHI từ ngày trước, đang kẹt trong hàng chờ
         const have = {};
         groups[key].items.forEach(function(x) { have[x.code] = true; });
         j.items.forEach(function(x) { if (!have[x.toteId]) groups[key].items.push({ code: x.toteId, at: '', user: '', pend: true }); });
@@ -5185,7 +5198,7 @@
       let html = 'Hôm nay đã xuất <b>' + total + ' rổ</b> cho cửa hàng này:';
       order.forEach(function(k) {
         const g = groups[k];
-        const label = (g.trip || 'chưa chọn chuyến') + (g.type ? ' · ' + g.type : '') + (g.trip && g.trip === sessionTripId ? ' (chuyến đang quét)' : '');
+        const label = (g.trip || 'chưa chọn chuyến') + (g.type ? ' · ' + g.type : '') + (g.trip && g.trip === sessionTripId ? ' (chuyến đang quét)' : '') + (g.oldDay ? ' (CHƯA GHI từ ' + g.oldDay + ')' : '');
         html += '<div class="osi-trip"><details><summary>' + escHtml_(label) + ': ' + g.items.length + ' rổ</summary><div style="margin-top:6px">' +
           g.items.map(function(x) {
             const tm = x.at ? ' ' + String(x.at).slice(11, 16) : (x.pend ? ' đang ghi' : '');
