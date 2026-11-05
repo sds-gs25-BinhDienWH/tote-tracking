@@ -4118,7 +4118,20 @@
     }
     function outboxCount() { return outbox.reduce(function(n, j) { return n + j.items.length; }, 0); }
     // Phiên của NGÀY TRƯỚC còn nằm trong hàng đợi: KHÔNG tự ghi (ghi lúc này sẽ đặt rổ về "đang giao tới" sai, vì rổ đã đi tiếp từ lâu). Giữ nguyên trong máy chờ quản trị xử lý.
-    function outboxIsOld(j) { return !!(j && j.at) && ymdLocal(new Date(j.at)) < ymdLocal(new Date()); }
+    // (= "đang GIỮ"): phiên ngày trước CHƯA được cho phép ghi. Sau khi người dùng xác nhận (j.backfill = ngày thực tế) thì phiên đi tiếp, gửi bằng action OUT_BACKFILL
+    // (máy chủ chỉ nối nhật ký kèm ghi chú, KHÔNG đổi trạng thái rổ). TẠM THỜI: cần Backend.gs có scanBackfill_ (gỡ sau khi ghi bù xong).
+    function outboxIsOld(j) { return !!(j && j.at) && !j.backfill && ymdLocal(new Date(j.at)) < ymdLocal(new Date()); }
+    // Cho phép ghi bù mọi phiên đang giữ. Người dùng phải xác nhận.
+    function outboxReleaseHeld() {
+      const held = outbox.filter(function(j) { return outboxIsOld(j); });
+      if (!held.length) return;
+      const n = held.reduce(function(s, j) { return s + j.items.length; }, 0);
+      if (!confirm('GHI BÙ ' + n + ' mã của phiên các ngày trước?\n\nMáy chủ chỉ ghi vào nhật ký (kèm ghi chú "GHI BÙ ... ngày thực tế"), KHÔNG đổi trạng thái rổ.\nBấm OK để ghi.')) return;
+      held.forEach(function(j) { j.backfill = ymdLocal(new Date(j.at)); delete j.badAt; delete j.err; });
+      outboxSave();
+      outboxTries = 0; outboxStuck = '';
+      outboxPump();
+    }
     function outboxActiveCount() { return outbox.reduce(function(n, j) { return n + (outboxIsOld(j) ? 0 : j.items.length); }, 0); }
     function outboxHeldCount() { return outbox.reduce(function(n, j) { return n + (outboxIsOld(j) ? j.items.length : 0); }, 0); }
     // Chọn phiên để gửi: phiên hôm nay theo thứ tự, ưu tiên phiên chưa bị máy chủ từ chối gần đây (phiên bị từ chối không chặn các phiên sau, thử lại sau OUTBOX_BAD_WAIT_MS).
@@ -4396,7 +4409,8 @@
           outboxStuck = getErrorMessage(err) + (err && err.status ? ' (HTTP ' + err.status + ')' : '');
           outboxRetryLater();
         })
-        .scanBatch({ token: session.token, action: job.action, store: job.store, trip: job.trip || '', zone: job.zone, sessionId: job.sessionId || '', fresh: fresh, items: batch });
+        .scanBatch({ token: session.token, action: job.backfill ? 'OUT_BACKFILL' : job.action, backfillDay: job.backfill || '', store: job.store, trip: job.trip || '', zone: job.zone,
+          sessionId: job.sessionId || '', fresh: fresh, items: batch });
     }
 
     function outboxJobDone(job) {
@@ -4450,12 +4464,12 @@
 
     function outboxChipClick() {
       if (outboxCount() && (outboxTries >= 2 || outboxHeldCount())) alert(outboxStuckReport());
+      if (outboxHeldCount()) outboxReleaseHeld();                         // có phiên ngày trước đang giữ: hỏi có ghi bù không
       if (outboxActiveCount()) {
         outboxTries = 0; outboxStuck = '';
         outbox.forEach(function(j) { delete j.badAt; });                  // thử lại ngay cả phiên vừa bị từ chối
         outboxPump(); if (outboxAlerts.length) showOutboxAlerts(); return;
       }
-      if (outboxHeldCount() && !outboxAlerts.length) return;
       showOutboxAlerts();
     }
 
