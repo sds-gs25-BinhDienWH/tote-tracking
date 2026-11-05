@@ -3023,9 +3023,25 @@
       maybeRecover();
       outboxLoad();                      // gửi tiếp các phiên OUT còn dở từ lần trước (tắt app/đăng xuất giữa chừng)
       outboxPump();
+      refreshSessionTrips();             // phiên lưu cũ (hoặc vào app lúc mất mạng) chưa có danh sách chuyến được gán: lấy lại từ máy chủ để app chặn đúng
       if (pendingQueue.length > 0 && !DEFER_WRITE[mode]) scheduleAutoFlush();   // đăng nhập lại: ghi tiếp mã IN còn dở
       focusScanLoop();
       outSeenLoop();                     // màn OUT: cứ vài giây tải danh sách rổ đã xuất hôm nay của mọi máy để chặn quét nhầm sang cửa hàng khác
+    }
+
+    // Tài khoản kho vào app bằng phiên LƯU CŨ (lúc mở app mạng lỗi nên không hỏi được máy chủ, hoặc đăng nhập từ trước khi có cột CHUYẾN) thì session.trips không có:
+    // app không biết tài khoản bị gán chuyến, nên không chặn khi chọn cửa hàng ngoài chuyến -> phiên OUT không chuyến -> máy chủ từ chối. Hỏi lại máy chủ cho tới khi có.
+    function refreshSessionTrips() {
+      if (!session || session.role !== 'WAREHOUSE' || Array.isArray(session.trips)) return;
+      const tok = session.token;
+      google.script.run
+        .withSuccessHandler(function(s) {
+          if (!session || session.token !== tok) return;
+          if (s && s.token === tok) { session = s; try { localStorage.setItem('TOTE_SESSION', JSON.stringify(s)); } catch (e) {} }
+          else if (!s) forceRelogin('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        })
+        .withFailureHandler(function() { setTimeout(refreshSessionTrips, 20000); })
+        .getSession(tok);
     }
 
     function setupRoleUI() {
@@ -4101,6 +4117,18 @@
       outbox.forEach(function(j) { j.resumed = true; });      // phiên nạp lại từ lần trước: có thể đã gửi dở, không được coi là fresh
     }
     function outboxCount() { return outbox.reduce(function(n, j) { return n + j.items.length; }, 0); }
+    // Phiên của NGÀY TRƯỚC còn nằm trong hàng đợi: KHÔNG tự ghi (ghi lúc này sẽ đặt rổ về "đang giao tới" sai, vì rổ đã đi tiếp từ lâu). Giữ nguyên trong máy chờ quản trị xử lý.
+    function outboxIsOld(j) { return !!(j && j.at) && ymdLocal(new Date(j.at)) < ymdLocal(new Date()); }
+    function outboxActiveCount() { return outbox.reduce(function(n, j) { return n + (outboxIsOld(j) ? 0 : j.items.length); }, 0); }
+    function outboxHeldCount() { return outbox.reduce(function(n, j) { return n + (outboxIsOld(j) ? j.items.length : 0); }, 0); }
+    // Chọn phiên để gửi: phiên hôm nay theo thứ tự, ưu tiên phiên chưa bị máy chủ từ chối gần đây (phiên bị từ chối không chặn các phiên sau, thử lại sau OUTBOX_BAD_WAIT_MS).
+    const OUTBOX_BAD_WAIT_MS = 60000;
+    function outboxPickJob() {
+      const now = Date.now();
+      const live = outbox.filter(function(j) { return !outboxIsOld(j) && j.items.length; });
+      const fresh = live.filter(function(j) { return !j.badAt || now - j.badAt > OUTBOX_BAD_WAIT_MS; });
+      return fresh[0] || null;
+    }
     function outboxReset() {            // gọi khi mất phiên đăng nhập (dữ liệu vẫn nằm trong localStorage)
       outboxGen++;
       clearTimeout(outboxTimer);
@@ -4309,10 +4337,21 @@
 
     function outboxPump() {
       if (outboxRunning || !session || !outbox.length) { renderOutboxChip(); return; }
+      const job = outboxPickJob();
+      if (!job) {                                                       // chỉ còn phiên cũ (đang giữ) hoặc phiên vừa bị từ chối: thử lại sau
+        renderOutboxChip();
+        clearTimeout(outboxTimer);
+        if (outbox.some(function(j) { return !outboxIsOld(j) && j.items.length; })) outboxTimer = setTimeout(outboxPump, 15000);
+        return;
+      }
+      // Phiên OUT chưa có chuyến (VD lúc quét máy không tải được lịch chuyến): tài khoản bị gán chuyến sẽ bị máy chủ từ chối. Tự điền chuyến nếu cửa hàng chỉ thuộc đúng 1 chuyến của hôm nay.
+      if (job.action === 'OUT' && !job.trip && session.trips && session.trips.length && tripPlan && tripPlan.trips) {
+        const cand = tripsForStoreFromPlan(job.store);
+        if (cand.length === 1) { job.trip = String(cand[0].trip || ''); outboxSave(); }
+      }
       outboxRunning = true;
       clearTimeout(outboxTimer);
       const gen = outboxGen;
-      const job = outbox[0];
       const batch = job.items.slice(0, COMMIT_CHUNK);
       renderOutboxChip();
       const tSend = Date.now();
@@ -4334,11 +4373,18 @@
             window.__lastScanPerf = { rttMs: Date.now() - tSend, steps: res.perf };
           }
           if (res && res.busy) { outboxTimer = setTimeout(outboxPump, 1500); return; }          // máy chủ bận: chắc chắn chưa ghi, thử lại
-          if (!res || !res.success) { outboxStuck = (res && res.message) || t('couldNotLoadData'); outboxRetryLater(); return; }
-          outboxTries = 0; outboxStuck = ''; job.tries = 0;
+          if (!res || !res.success) {
+            // máy chủ TỪ CHỐI cả phiên (VD thiếu chuyến, sai chuyến): ghi nhớ lý do, đánh dấu để các phiên khác đi trước, KHÔNG chặn cả hàng đợi
+            outboxStuck = (res && res.message) || t('couldNotLoadData');
+            job.err = outboxStuck; job.badAt = Date.now();
+            outboxSave();
+            outboxRetryLater();
+            return;
+          }
+          outboxTries = 0; outboxStuck = ''; job.tries = 0; delete job.err; delete job.badAt;
           (res.results || []).forEach(function(r) { job.results.push({ toteId: r.toteId, success: !!r.success, message: r.message }); });
           job.items = job.items.slice(batch.length);
-          if (!job.items.length) { outboxJobDone(job); outbox.shift(); }
+          if (!job.items.length) { outboxJobDone(job); const k = outbox.indexOf(job); if (k >= 0) outbox.splice(k, 1); }
           outboxSave();
           renderOutboxChip();
           outboxPump();
@@ -4365,8 +4411,9 @@
 
     function renderOutboxChip() {
       let el = document.getElementById('outboxChip');
-      const n = outboxCount();
-      if (!n && !outboxAlerts.length) { if (el) el.classList.add('hidden'); return; }
+      const n = outboxActiveCount();
+      const held = outboxHeldCount();
+      if (!n && !held && !outboxAlerts.length) { if (el) el.classList.add('hidden'); return; }
       if (!el) {
         el = document.createElement('div');
         el.id = 'outboxChip';
@@ -4375,12 +4422,18 @@
         document.body.appendChild(el);
       }
       el.classList.remove('hidden');
-      const stuck = outboxTries >= 2 && n > 0;
+      const badJob = outbox.filter(function(j) { return !outboxIsOld(j) && j.err; })[0];
+      const stuck = (outboxTries >= 2 || !!badJob) && n > 0;
       el.classList.toggle('stuck', stuck);
-      el.classList.toggle('warn', !stuck && !n && outboxAlerts.length > 0);
-      if (stuck) el.textContent = tf('outboxStuck', { n: n }) + (outboxStuck ? '\nLý do: ' + String(outboxStuck).slice(0, 220) : '');     // hiện LÝ DO ngay trên dòng đỏ (PDA có thể chặn hộp alert)
-      else if (n) el.textContent = tf('outboxWriting', { n: n });
-      else el.textContent = tf('outboxAlerts', { n: outboxAlerts.length });
+      el.classList.toggle('warn', !stuck && !n && (outboxAlerts.length > 0 || held > 0));
+      const reason = outboxStuck || (badJob && badJob.err) || '';
+      let text;
+      if (stuck) text = tf('outboxStuck', { n: n }) + (reason ? '\nLý do: ' + String(reason).slice(0, 220) : '');     // hiện LÝ DO ngay trên dòng đỏ (PDA có thể chặn hộp alert)
+      else if (n) text = tf('outboxWriting', { n: n });
+      else if (outboxAlerts.length) text = tf('outboxAlerts', { n: outboxAlerts.length });
+      else text = '';
+      if (held) text += (text ? '\n' : '') + 'Đang GIỮ ' + held + ' mã của ngày trước (chưa ghi, báo quản trị)';
+      el.textContent = text;
     }
 
     // Chạm dòng đỏ khi đang kẹt: cho xem LÝ DO máy chủ trả về + từng phiên đang chờ (ngày, cửa hàng, chuyến, số mã, số lần thử) trước khi thử lại,
@@ -4389,14 +4442,20 @@
       const fmtDay = function(ms) { return ms ? ymdLocal(new Date(ms)).split('-').reverse().join('/') : '?'; };
       const lines = ['LÝ DO KẸT: ' + (outboxStuck || '(chưa có thông tin)'), '', 'Các phiên đang chờ ghi (từ cũ đến mới):'];
       outbox.forEach(function(j, i) {
-        lines.push((i + 1) + '. ' + fmtDay(j.at) + ' | ' + (j.label || j.store) + ' | ' + (j.trip || 'chưa chọn chuyến') + ' | ' + j.items.length + ' mã' + (j.tries ? ' | đã thử ' + j.tries + ' lần' : ''));
+        lines.push((i + 1) + '. ' + fmtDay(j.at) + ' | ' + (j.label || j.store) + ' | ' + (j.trip || 'chưa chọn chuyến') + ' | ' + j.items.length + ' mã' + (j.tries ? ' | đã thử ' + j.tries + ' lần' : '') +
+          (outboxIsOld(j) ? ' | ĐANG GIỮ (ngày trước)' : '') + (j.err ? ' | LỖI: ' + String(j.err).slice(0, 80) : ''));
       });
       return lines.join('\n');
     }
 
     function outboxChipClick() {
-      if (outboxCount() && outboxTries >= 2) alert(outboxStuckReport());
-      if (outboxCount()) { outboxTries = 0; outboxStuck = ''; outboxPump(); if (outboxAlerts.length) showOutboxAlerts(); return; }
+      if (outboxCount() && (outboxTries >= 2 || outboxHeldCount())) alert(outboxStuckReport());
+      if (outboxActiveCount()) {
+        outboxTries = 0; outboxStuck = '';
+        outbox.forEach(function(j) { delete j.badAt; });                  // thử lại ngay cả phiên vừa bị từ chối
+        outboxPump(); if (outboxAlerts.length) showOutboxAlerts(); return;
+      }
+      if (outboxHeldCount() && !outboxAlerts.length) return;
       showOutboxAlerts();
     }
 
@@ -5076,6 +5135,14 @@
       refreshStartSessionBtn();
     }
 
+    // Tài khoản kho bị gán cố định chuyến (cột CHUYẾN): bắt buộc có chuyến khi OUT. Lỗi mạng lúc tải lịch chuyến KHÔNG được dẫn tới phiên không chuyến
+    // (máy chủ từ chối cả phiên, phiên kẹt trong hàng đợi và chặn các phiên sau).
+    function tripLimitedClient() { return !!(session && session.role === 'WAREHOUSE' && session.trips && session.trips.length); }
+    function tripLoadFailedBlock() {
+      alert('Không tải được lịch chuyến (mạng chập chờn hoặc máy chủ bận). Chọn lại cửa hàng để thử lại.');
+      cancelTripChoice();
+    }
+
     function resolveTripForStore(storeId) {
       const seq = ++tripChoiceSeq;
       selectedTripId = '';
@@ -5094,11 +5161,13 @@
         google.script.run
           .withSuccessHandler(function(res) {
             if (seq !== tripChoiceSeq || selectedStoreId !== storeId) return;
+            if (!(res && res.success && res.trips) && tripLimitedClient()) { tripLoadFailedBlock(); return; }     // không biết chuyến thì không cho quét (máy chủ sẽ từ chối cả phiên)
             applyTripChoices(storeId, (res && res.success && res.trips) || []);
           })
           .withFailureHandler(function(err) {
             if (seq !== tripChoiceSeq) return;
             if (handleSessionError(err)) return;
+            if (tripLimitedClient()) { tripLoadFailedBlock(); return; }
             tripChoicePending = false;
             refreshStartSessionBtn();
           })
@@ -5210,6 +5279,7 @@
 
     function startScanSession() {
       if (!selectedStoreId || tripChoicePending) return;
+      if (mode === 'OUT' && tripLimitedClient() && !selectedTripId) { tripLoadFailedBlock(); return; }     // tài khoản bị gán chuyến: không bắt đầu phiên OUT khi chưa có chuyến
 
       sessionActive = true;
       sessionTripId = selectedTripId;
